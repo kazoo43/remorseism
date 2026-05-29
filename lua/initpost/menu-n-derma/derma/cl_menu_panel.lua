@@ -11,59 +11,150 @@ local Selects = {
     {Title = "Traitor Role",
     GamemodeOnly = true,
     CreatedFunc = function(self, parent, luaMenu)
-        local btn = vgui.Create( "DLabel", self )
-        btn:SetText( "SOE" )
-        btn:SetMouseInputEnabled( true )
-        btn:SizeToContents()
-        btn:SetFont( "ZCity_Small" )
-        btn:SetTall( ScreenScale( 15 ) )
-        btn:Dock(BOTTOM)
-        btn:DockMargin(ScreenScale(20),ScreenScale(10),0,0)
-        btn:SetTextColor(Color(255,255,255))
-        btn:InvalidateParent()
-        btn.RColor = Color(225, 225, 225, 0)
-        btn.WColor = Color(225, 225, 225, 255)
-        btn.x = btn:GetX()
+        local btnSOE = vgui.Create( "DLabel", self )
+        btnSOE:SetText( "###" )
+        btnSOE:SetMouseInputEnabled( true )
+        btnSOE:SizeToContents()
+        btnSOE:SetFont( "ZCity_Small" )
+        btnSOE:SetTall( ScreenScale( 25 ) )
+        btnSOE:Dock(BOTTOM)
+        btnSOE:DockMargin(ScreenScale(20),ScreenScale(10),0,0)
+        btnSOE:SetTextColor(Color(255,255,255))
+        btnSOE:InvalidateParent()
+        btnSOE.RColor = Color(225, 225, 225, 255)
+        btnSOE.x = btnSOE:GetX()
+        btnSOE.OpenTime = CurTime()
+        btnSOE.LineLerp = 0
+        btnSOE.strTitle = "SOE"
 
-        function btn:DoClick()
+        function btnSOE:DoClick()
             luaMenu:Close()
             hg.SelectPlayerRole(nil, "soe")
         end
     
         local selfa = self
-        function btn:Think()
-            self.HoverLerp = selfa.HoverLerp
-            self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
+        function btnSOE:Think()
+            local isHovered = self:IsHovered()
+            self.LineLerp = LerpFT(0.2, self.LineLerp or 0, isHovered and 1 or 0)
                 
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(red_select, self.HoverLerp2), self.HoverLerp))
+            self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, isHovered and 1 or 0)
             self:SetX(self.x + ScreenScaleH(40) + self.HoverLerp * ScreenScaleH(50))
+
+            local elapsed = CurTime() - self.OpenTime
+            local charsToShow = math.floor(elapsed * 15)
+            local targetText = self.strTitle
+            local len = #targetText
+            if charsToShow > len then charsToShow = len end
+            local ntxt = ""
+            for i = 1, len do
+                if i <= charsToShow then
+                    ntxt = ntxt .. targetText:sub(i, i)
+                else
+                    ntxt = ntxt .. "#"
+                end
+            end
+            if self:GetText() ~= ntxt then
+                self:SetText(ntxt)
+                self:SizeToContents()
+            end
         end
 
-        local btn = vgui.Create( "DLabel", btn )
-        btn:SetText( "STD" )
-        btn:SetMouseInputEnabled( true )
-        btn:SizeToContents()
-        btn:SetFont( "ZCity_Small" )
-        btn:SetTall( ScreenScale( 15 ) )
-        btn:Dock(BOTTOM)
-        btn:DockMargin(0,ScreenScale(2),0,0)
-        btn:SetTextColor(Color(255,255,255))
-        btn:InvalidateParent()
-        btn.RColor = Color(225, 225, 225, 0)
-        btn.WColor = Color(225, 225, 225, 255)
-        btn.x = btn:GetX()
+        function btnSOE:Paint(w, h)
+            local isHovered = self:IsHovered()
+            local flash = isHovered and (0.5 + 0.5 * math.sin(CurTime() * 10)) or 0
+            
+            local textColor = self.RColor
+            local outlineColor = Color(0, 0, 0, 255)
 
-        function btn:DoClick()
+            if isHovered then
+                local v = flash * 255
+                textColor = Color(v, v, v, 255)
+                local inv = 255 - v
+                outlineColor = Color(inv, inv, inv, 255)
+            end
+
+            surface.SetFont(self:GetFont())
+            local tw, th = surface.GetTextSize(self:GetText())
+            
+            draw.SimpleTextOutlined(self:GetText(), self:GetFont(), 0, h / 2, textColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColor)
+
+            if self.LineLerp and self.LineLerp > 0.01 then
+                surface.SetDrawColor(255, 255, 255, 255 * self.LineLerp)
+                surface.DrawRect(0, h / 2 + th / 2, tw * self.LineLerp, ScreenScale(1))
+            end
+            return true
+        end
+
+        local btnSTD = vgui.Create( "DLabel", btnSOE )
+        btnSTD:SetText( "###" )
+        btnSTD:SetMouseInputEnabled( true )
+        btnSTD:SizeToContents()
+        btnSTD:SetFont( "ZCity_Small" )
+        btnSTD:SetTall( ScreenScale( 25 ) )
+        btnSTD:Dock(BOTTOM)
+        btnSTD:DockMargin(0,ScreenScale(2),0,0)
+        btnSTD:SetTextColor(Color(255,255,255))
+        btnSTD:InvalidateParent()
+        btnSTD.RColor = Color(225, 225, 225, 255)
+        btnSTD.x = btnSTD:GetX()
+        btnSTD.OpenTime = CurTime()
+        btnSTD.LineLerp = 0
+        btnSTD.strTitle = "STD"
+
+        function btnSTD:DoClick()
             luaMenu:Close()
             hg.SelectPlayerRole(nil, "standard")
         end
     
-        function btn:Think()
-            self.HoverLerp = selfa.HoverLerp
-            self.HoverLerp2 = LerpFT(0.2, self.HoverLerp2 or 0, self:IsHovered() and 1 or 0)
+        function btnSTD:Think()
+            local isHovered = self:IsHovered()
+            self.LineLerp = LerpFT(0.2, self.LineLerp or 0, isHovered and 1 or 0)
     
-            self:SetTextColor(self.RColor:Lerp(self.WColor:Lerp(red_select, self.HoverLerp2), self.HoverLerp))
             self:SetX(self.x + ScreenScaleH(35))
+
+            local elapsed = CurTime() - self.OpenTime
+            local charsToShow = math.floor(elapsed * 15)
+            local targetText = self.strTitle
+            local len = #targetText
+            if charsToShow > len then charsToShow = len end
+            local ntxt = ""
+            for i = 1, len do
+                if i <= charsToShow then
+                    ntxt = ntxt .. targetText:sub(i, i)
+                else
+                    ntxt = ntxt .. "#"
+                end
+            end
+            if self:GetText() ~= ntxt then
+                self:SetText(ntxt)
+                self:SizeToContents()
+            end
+        end
+
+        function btnSTD:Paint(w, h)
+            local isHovered = self:IsHovered()
+            local flash = isHovered and (0.5 + 0.5 * math.sin(CurTime() * 10)) or 0
+            
+            local textColor = self.RColor
+            local outlineColor = Color(0, 0, 0, 255)
+
+            if isHovered then
+                local v = flash * 255
+                textColor = Color(v, v, v, 255)
+                local inv = 255 - v
+                outlineColor = Color(inv, inv, inv, 255)
+            end
+
+            surface.SetFont(self:GetFont())
+            local tw, th = surface.GetTextSize(self:GetText())
+            
+            draw.SimpleTextOutlined(self:GetText(), self:GetFont(), 0, h / 2, textColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColor)
+
+            if self.LineLerp and self.LineLerp > 0.01 then
+                surface.SetDrawColor(255, 255, 255, 255 * self.LineLerp)
+                surface.DrawRect(0, h / 2 + th / 2, tw * self.LineLerp, ScreenScale(1))
+            end
+            return true
         end
     end,
     Func = function(luaMenu)
@@ -100,7 +191,7 @@ local splasheh = {
 
 --print(string.upper('I wish you good health, Jason Statham'))
 surface.CreateFont("ZC_MM_Title", {
-    font = "Bahnschrift",
+    font = "Verily Serif Mono",
     size = ScreenScale(40),
     weight = 800,
     antialias = true
@@ -108,6 +199,7 @@ surface.CreateFont("ZC_MM_Title", {
 -- local Title = markup.Parse("error")
 
 local Pluv = Material("pluv/pluvkid.jpg")
+local LogoistMat = Material("vgui/logoist.png", "noclamp smooth")
 
 function PANEL:InitializeMarkup()
 	local mapname = game.GetMap()
@@ -155,7 +247,7 @@ function PANEL:Init()
     self.lDock = vgui.Create("DPanel", self)
     local lDock = self.lDock
     lDock:Dock(LEFT)
-    lDock:SetSize(ScrW() / 4, ScrH())
+    lDock:SetSize(ScrW() / 3, ScrH())
     lDock:DockMargin(ScreenScale(0), ScreenScaleH(90), ScreenScale(10), ScreenScaleH(90))
     lDock.Paint = function(this, w, h)
         if hg.PluvTown.Active then
@@ -164,7 +256,16 @@ function PANEL:Init()
             surface.DrawTexturedRect(0, ScreenScale(27), ScreenScale(35), ScreenScale(27))
         end
 
-        self.Title:Draw(ScreenScale(15), ScreenScale(50), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 255, TEXT_ALIGN_LEFT)
+        surface.SetDrawColor(255, 255, 255, 255)
+        surface.SetMaterial(LogoistMat)
+        local matW = math.max(1, LogoistMat:Width())
+        local matH = math.max(1, LogoistMat:Height())
+        local logoSize = 215
+        local logoXPos = -12
+        local logoYPos = 135
+        local drawW = ScreenScale(logoSize)
+        local drawH = drawW * (matH / matW)
+        surface.DrawTexturedRect(ScreenScale(logoXPos), ScreenScale(logoYPos) - drawH / 2, drawW, drawH)
     end
 
     self.Buttons = {}
@@ -224,7 +325,7 @@ local gradient_d = surface.GetTextureID("vgui/gradient-d")
 local gradient_r = surface.GetTextureID("vgui/gradient-u")
 local gradient_l = surface.GetTextureID("vgui/gradient-l")
 
-local clr_1 = Color(102,0,0,35)
+local clr_1 = Color(100,100,100,35)
 function PANEL:Paint(w,h)
     draw.RoundedBox( 0, 0, 0, w, h, self.ColorBG )
     hg.DrawBlur(self, 5)
@@ -240,11 +341,11 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     local id = #self.Buttons + 1
     self.Buttons[id] = vgui.Create( "DLabel", pParent )
     local btn = self.Buttons[id]
-    btn:SetText( strTitle )
+    btn:SetText( string.rep("#", #(curent_panel == string.lower(strTitle) and strTitle ~= 'Traitor Role' and '[ '..strTitle..' ]' or strTitle)) )
     btn:SetMouseInputEnabled( true )
     btn:SizeToContents()
     btn:SetFont( "ZCity_Small" )
-    btn:SetTall( ScreenScale( 15 ) )
+    btn:SetTall( ScreenScale( 25 ) )
     btn:Dock(BOTTOM)
     btn:DockMargin(ScreenScale(15),ScreenScale(1.5),0,0)
     btn.Func = tbl.Func
@@ -252,6 +353,9 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     local luaMenu = self 
     if tbl.CreatedFunc then tbl.CreatedFunc(btn, self, luaMenu) end
     btn.RColor = Color(225,225,225)
+    btn.OpenTime = CurTime()
+    btn.LineLerp = 0
+    btn.HoverLerp = 0
     function btn:DoClick()
         -- ,kz оптимизировать надо, но идёт ошибка(кэшировать бы luaMenu.panelparrent вместо вызова его каждый раз)
         if curent_panel == string.lower(strTitle) then
@@ -291,31 +395,58 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     end
 
     function btn:Think()
-        self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, (self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())) and 1 or 0)
+        local isHovered = self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())
 
-        local v = self.HoverLerp
-        self:SetTextColor(self.RColor:Lerp(red_select, v))
+        self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, isHovered and 1 or 0)
+        self.LineLerp = LerpFT(0.2, self.LineLerp or 0, isHovered and 1 or 0)
 
-        local targetText = (self:IsHovered()) and string.upper(strTitle) or strTitle
-        local crw = self:GetText()
+        local elapsed = CurTime() - self.OpenTime
+        local charsToShow = math.floor(elapsed * 15)
+        local targetText = (curent_panel == string.lower(strTitle) and strTitle ~= 'Traitor Role') and '[ '..strTitle..' ]' or strTitle
+        local len = #targetText
 
-        if (crw ~= targetText) or (curent_panel == string.lower(strTitle)) then
-            local ntxt = ""
-            local will_text = (curent_panel == string.lower(strTitle) and not strTitle == 'Traitor Role') and '[ '..string.upper(strTitle)..' ]' or strTitle
-            for i = 1, #will_text do
-                local char = will_text:sub(i, i)
-                if i <= math.ceil(#will_text * v) then
-                    ntxt = ntxt .. string.upper(char)
-                else
-                    ntxt = ntxt .. char
-                end
+        if charsToShow > len then charsToShow = len end
+
+        local ntxt = ""
+        for i = 1, len do
+            if i <= charsToShow then
+                ntxt = ntxt .. targetText:sub(i, i)
+            else
+                ntxt = ntxt .. "#"
             end
-			if self:GetText() ~= ntxt then
-				surface.PlaySound("shitty/tap-resonant.wav")
-			end
-            self:SetText(ntxt)
         end
-        self:SizeToContents()
+
+        if self:GetText() ~= ntxt then
+            surface.PlaySound("shitty/tap-resonant.wav")
+            self:SetText(ntxt)
+            self:SizeToContents()
+        end
+    end
+
+    function btn:Paint(w, h)
+        local isHovered = self:IsHovered() or (IsValid(self:GetChild(0)) and self:GetChild(0):IsHovered()) or (IsValid(self:GetChild(0)) and IsValid(self:GetChild(0):GetChild(0)) and self:GetChild(0):GetChild(0):IsHovered())
+        local flash = isHovered and (0.5 + 0.5 * math.sin(CurTime() * 10)) or 0
+        
+        local textColor = self.RColor
+        local outlineColor = Color(0, 0, 0, 255)
+
+        if isHovered then
+            local v = flash * 255
+            textColor = Color(v, v, v, 255)
+            local inv = 255 - v
+            outlineColor = Color(inv, inv, inv, 255)
+        end
+
+        surface.SetFont(self:GetFont())
+        local tw, th = surface.GetTextSize(self:GetText())
+        
+        draw.SimpleTextOutlined(self:GetText(), self:GetFont(), 0, h / 2, textColor, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER, 1, outlineColor)
+
+        if self.LineLerp and self.LineLerp > 0.01 then
+            surface.SetDrawColor(255, 255, 255, 255 * self.LineLerp)
+            surface.DrawRect(0, h / 2 + th / 2, tw * self.LineLerp, ScreenScale(1))
+        end
+        return true
     end
 end
 

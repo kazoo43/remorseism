@@ -19,9 +19,9 @@ local blur2 = Material("effects/shaders/zb_blur" )
 local sw, sh = ScrW(), ScrH()
 
 local font = function() -- hg_coolvetica:GetBool() and "Coolvetica" or "Bahnschrift"
-    local usefont = "Bahnschrift"
+    local usefont = "Verily Serif Mono"
 
-    if hg_font:GetString() != "" then
+    if hg_font:GetString() != "" and hg_font:GetString() != "Bahnschrift" then
         usefont = hg_font:GetString()
     end
 
