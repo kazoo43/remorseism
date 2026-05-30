@@ -36,7 +36,7 @@ local function MenuUnit(num)
 end
 
 local Selects = {
-    {Title = "Disconnect", Func = function(luaMenu) RunConsoleCommand("disconnect") end},
+    {Title = "Disconnect", BypassTransition = true, Func = function(luaMenu) luaMenu:PlayDisconnectCutscene() end},
     {Title = "Main Menu", Func = function(luaMenu) gui.ActivateGameUI() luaMenu:Close() end},
     {Title = "Discord", Func = function(luaMenu) luaMenu:Close() gui.OpenURL(DISCORD_URL)  end},
     {Title = "Traitor Role",
@@ -260,8 +260,10 @@ local appearance_preview = {
     height = 920,
     right = 0,
     top = 210,
-    enter_time = 0.4,
-    enter_delay = 0.08,
+    enter_time = 1.35,
+    enter_delay = 0.35,
+    exit_time = 0.7,
+    exit_delay = 0.05,
     ambient = Color(0, 0, 0, 255),
     light_right = Color(115, 115, 115, 255),
     light_left = Color(85, 85, 85, 255),
@@ -278,6 +280,17 @@ local appearance_preview = {
     head_mouse_yaw = 7,
     head_mouse_pitch = 4,
     sequence = "idle_suitcase"
+}
+local disconnect_cutscene = {
+    ui_fade_time = 0.45,
+    walk_delay = 0.08,
+    walk_time = 4.8,
+    walk_distance = 250,
+    walk_sequence = "walk_all",
+    walk_playback_rate = 1,
+    walk_ang = Angle(0, 90, 0),
+    black_fade_time = 0.7,
+    disconnect_delay = 0.05
 }
 local menu_profile = {
     left = 30,
@@ -384,6 +397,22 @@ function PANEL:GetLiveShake(seedX, seedY, xAmount, yAmount)
 end
 
 function PANEL:Think()
+    if self.DisconnectBlackStart then
+        local blackFrac = math.Clamp((CurTime() - self.DisconnectBlackStart) / math.max(disconnect_cutscene.black_fade_time, 0.001), 0, 1)
+        self.DisconnectBlackAlpha = 255 * blackFrac
+    end
+
+    if self.DisconnectWalkStart and CurTime() >= self.DisconnectWalkStart then
+        local walkFrac = math.Clamp((CurTime() - self.DisconnectWalkStart) / disconnect_cutscene.walk_time, 0, 1)
+        if walkFrac < 1 and CurTime() > (self.NextFootstep or 0) then
+            self.NextFootstep = CurTime() + 0.38
+            local vol = 1 - walkFrac
+            if LocalPlayer and IsValid(LocalPlayer()) then
+                LocalPlayer():EmitSound("player/footsteps/concrete" .. math.random(1,4) .. ".wav", 0, 100, vol)
+            end
+        end
+    end
+
     self.LiveLerp = LerpFT(0.08, self.LiveLerp or 0, 1)
     self.LogoHoverLerp = LerpFT(0.12, self.LogoHoverLerp or 0, IsValid(self.logoPanel) and self.logoPanel:IsHovered() and 1 or 0)
 
@@ -525,6 +554,9 @@ function PANEL:CreateAppearancePreview()
     holder:SetSize(holderW, holderH)
     holder:SetPos(targetX, ScrH())
     holder:SetAlpha(0)
+    holder.TargetX = targetX
+    holder.TargetY = targetY
+    holder.ClosedY = ScrH()
     holder:SetMouseInputEnabled(false)
     holder.Paint = function() end
 
@@ -546,6 +578,13 @@ function PANEL:CreateAppearancePreview()
     preview:SetMouseInputEnabled(false)
     preview.AppearanceTable = tbl
 
+    local oldPaint = preview.Paint
+    preview.Paint = function(pnl, w, h)
+        DisableClipping(true)
+        oldPaint(pnl, w, h)
+        DisableClipping(false)
+    end
+
     function preview:LayoutEntity(ent)
         local appearance = self.AppearanceTable
         if not appearance or not hg or not hg.Appearance or not hg.Appearance.PlayerModels then return end
@@ -556,12 +595,44 @@ function PANEL:CreateAppearancePreview()
         local colorData = appearance.AColor or color_white
         ent:SetNWVector("PlayerColor", Vector((colorData.r or 255) / 255, (colorData.g or 255) / 255, (colorData.b or 255) / 255))
 
-        self.EntityAngle = LerpAngle(FrameTime() * 6, self.EntityAngle or appearance_preview.entity_ang, appearance_preview.entity_ang)
+        local targetPos = Vector(0, 0, 0)
+        if self.OwnerMenu and self.OwnerMenu.DisconnectCutscene then
+            if self.OwnerMenu.DisconnectWalkStart and CurTime() >= self.OwnerMenu.DisconnectWalkStart then
+                local walkFrac = math.Clamp((CurTime() - self.OwnerMenu.DisconnectWalkStart) / disconnect_cutscene.walk_time, 0, 1)
+                targetPos = Vector(0, walkFrac * disconnect_cutscene.walk_distance, 0)
+            end
+        end
+        ent:SetPos(targetPos)
+
+        local targetEntityAngle = self.EntityAngleOverride or appearance_preview.entity_ang
+        self.EntityAngle = LerpAngle(RealFrameTime() * 6, self.EntityAngle or targetEntityAngle, targetEntityAngle)
         ent:SetAngles(self.EntityAngle)
 
-        local seq = ent:LookupSequence(appearance_preview.sequence)
+        local sequenceName = self.SequenceNameOverride or appearance_preview.sequence
+        local seq = ent:LookupSequence(sequenceName)
+        
+        if self.OwnerMenu and self.OwnerMenu.DisconnectCutscene and (not seq or seq < 0) then
+            local fallbacks = {"walk_suitcase", "walk_all", "walk", "walk_all_suitcase"}
+            for _, v in ipairs(fallbacks) do
+                seq = ent:LookupSequence(v)
+                if seq and seq >= 0 then
+                    sequenceName = v
+                    break
+                end
+            end
+        end
+
+        if (not seq or seq < 0) and sequenceName != appearance_preview.sequence then
+            sequenceName = appearance_preview.sequence
+            seq = ent:LookupSequence(sequenceName)
+        end
         if seq and seq >= 0 then
-            ent:SetSequence(seq)
+            if self.ActiveSequenceName != sequenceName then
+                ent:ResetSequence(seq)
+                self.ActiveSequenceName = sequenceName
+            end
+            ent:SetPlaybackRate(self.SequencePlaybackRate or 1)
+            ent:FrameAdvance(RealFrameTime() * (self.SequencePlaybackRate or 1))
         end
 
         local owner = self.OwnerMenu
@@ -576,6 +647,12 @@ function PANEL:CreateAppearancePreview()
         self.HeadPitchLerp = LerpFT(0.08, self.HeadPitchLerp or appearance_preview.head_pitch, targetPitch)
         ent:SetPoseParameter("head_yaw", self.HeadYawLerp)
         ent:SetPoseParameter("head_pitch", self.HeadPitchLerp)
+        
+        if self.OwnerMenu and self.OwnerMenu.DisconnectCutscene then
+            ent:SetPoseParameter("move_x", 1)
+            ent:SetPoseParameter("move_y", 0)
+        end
+        
         ent:SetSubMaterial()
         self:SetCamPos(appearance_preview.cam_pos)
         self:SetFOV(appearance_preview.fov)
@@ -585,6 +662,7 @@ function PANEL:CreateAppearancePreview()
             CleanupPreviewAccessories(ent)
             ent:SetModel(modelData.mdl)
             self:SetModel(modelData.mdl)
+            self.ActiveSequenceName = nil
         end
 
         local clothes = appearance.AClothes or {}
@@ -663,6 +741,9 @@ function PANEL:Init()
     self.Title, self.TitleShadow = self:InitializeMarkup()
     self.LiveLerp = 0
     self.LogoHoverLerp = 0
+    self.DisconnectCutscene = false
+    self.DisconnectBackgroundAlpha = 255
+    self.DisconnectBlackAlpha = 0
     StartMainMenuMusic(self)
 
     timer.Simple(0, function()
@@ -695,28 +776,35 @@ function PANEL:Init()
     end
 
     local logoPanel = vgui.Create("DPanel", lDock)
-    local logoW = MenuUnit(menu_title.width)
-    local logoH = logoW * (math.max(1, LogoistMat:Height()) / math.max(1, LogoistMat:Width()))
+    local logoAspect = math.max(1, LogoistMat:Height()) / math.max(1, LogoistMat:Width())
     self.logoPanel = logoPanel
     logoPanel:Dock(BOTTOM)
-    logoPanel:SetTall(math.ceil(logoH))
+    logoPanel:SetTall(1)
     logoPanel:SetMouseInputEnabled(true)
     logoPanel:DockMargin(0, 0, 0, MenuUnit(menu_title.spacing))
     self.logoBaseMargin = MenuUnit(menu_title.spacing)
+    logoPanel.Think = function(this)
+        local maxW = math.max(1, this:GetWide() - MenuUnit(12))
+        local drawW = math.min(MenuUnit(menu_title.width), maxW)
+        local drawH = drawW * logoAspect
+        this:SetTall(math.ceil(drawH * (1 + menu_live.title_hover_scale) + MenuUnit(8)))
+    end
     logoPanel.Paint = function(this, w, h)
         local driftX, driftY = self:GetLiveOffset(MenuUnit(menu_live.logo_drift_x), MenuUnit(menu_live.logo_drift_y))
         local shakeX, shakeY = self:GetLiveShake(6.4, 7.2, MenuUnit(menu_live.shake_x), MenuUnit(menu_live.shake_y))
         local scale = 1 + (self.LogoHoverLerp or 0) * menu_live.title_hover_scale
-        local drawX = MenuUnit(menu_title.offset_x) + driftX + shakeX
-        local drawY = driftY + shakeY
-        local matrix = Matrix()
-        matrix:Translate(Vector(drawX - logoW * (scale - 1) * 0.5, drawY - logoH * (scale - 1) * 0.5, 0))
-        matrix:Scale(Vector(scale, scale, 1))
-        cam.PushModelMatrix(matrix)
+        local maxW = math.max(1, w - MenuUnit(12))
+        local baseW = math.min(MenuUnit(menu_title.width), maxW)
+        local baseH = baseW * logoAspect
+        local drawW = baseW * scale
+        local drawH = baseH * scale
+        local maxX = math.max(0, w - drawW)
+        local maxY = math.max(0, h - drawH)
+        local drawX = math.Clamp(MenuUnit(menu_title.offset_x) + driftX + shakeX, 0, maxX)
+        local drawY = math.Clamp((h - drawH) * 0.5 + driftY + shakeY, 0, maxY)
         surface.SetDrawColor(255, 255, 255, 255)
         surface.SetMaterial(LogoistMat)
-        surface.DrawTexturedRect(0, 0, logoW, logoH)
-        cam.PopModelMatrix()
+        surface.DrawTexturedRect(drawX, drawY, drawW, drawH)
     end
 
 
@@ -776,17 +864,78 @@ local menu_gradient_right = Color(18,18,18,65)
 
 local clr_1 = Color(100,100,100,35)
 function PANEL:Paint(w,h)
-    draw.RoundedBox( 0, 0, 0, w, h, self.ColorBG )
-    hg.DrawBlur(self, 5)
-    surface.SetDrawColor( menu_gradient_right )
-    surface.SetTexture( gradient_r )
-    surface.DrawTexturedRect(0,0,w,h)
-    surface.SetDrawColor( self.ColorBG )
-    surface.SetTexture( gradient_l )
-    surface.DrawTexturedRect(0,0,w,h)
-    surface.SetDrawColor( clr_1 )
-    surface.SetTexture( gradient_d )
-    surface.DrawTexturedRect(0,0,w,h)
+    local backgroundAlpha = math.Clamp(self.DisconnectBackgroundAlpha or 255, 0, 255)
+    if backgroundAlpha > 0 then
+        local bgMul = backgroundAlpha / 255
+        draw.RoundedBox(0, 0, 0, w, h, Color(self.ColorBG.r, self.ColorBG.g, self.ColorBG.b, (self.ColorBG.a or 255) * bgMul))
+        hg.DrawBlur(self, 5)
+        surface.SetDrawColor(menu_gradient_right.r, menu_gradient_right.g, menu_gradient_right.b, menu_gradient_right.a * bgMul)
+        surface.SetTexture(gradient_r)
+        surface.DrawTexturedRect(0,0,w,h)
+        surface.SetDrawColor(self.ColorBG.r, self.ColorBG.g, self.ColorBG.b, (self.ColorBG.a or 255) * bgMul)
+        surface.SetTexture(gradient_l)
+        surface.DrawTexturedRect(0,0,w,h)
+        surface.SetDrawColor(clr_1.r, clr_1.g, clr_1.b, clr_1.a * bgMul)
+        surface.SetTexture(gradient_d)
+        surface.DrawTexturedRect(0,0,w,h)
+    end
+    if (self.DisconnectBlackAlpha or 0) > 0 then
+        surface.SetDrawColor(0, 0, 0, self.DisconnectBlackAlpha)
+        surface.DrawRect(0, 0, w, h)
+    end
+end
+
+function PANEL:PlayDisconnectCutscene()
+    if self.DisconnectCutscene then return end
+    self.DisconnectCutscene = true
+    self.DisconnectFadeStart = CurTime()
+    self.DisconnectBackgroundAlpha = 255
+    self.DisconnectBlackAlpha = 0
+    self:SetKeyboardInputEnabled(false)
+    self:SetMouseInputEnabled(false)
+
+    StopMainMenuMusic()
+
+    if IsValid(self.previewHolder) then
+        self.previewHolder:SetVisible(true)
+        self.previewHolder:SetAlpha(255)
+    end
+
+    if IsValid(self.previewModel) then
+        self.previewModel.SequenceNameOverride = disconnect_cutscene.walk_sequence
+        self.previewModel.SequencePlaybackRate = disconnect_cutscene.walk_playback_rate
+        self.previewModel.EntityAngleOverride = disconnect_cutscene.walk_ang
+        self.previewModel.ActiveSequenceName = nil
+    end
+
+    for _, child in ipairs(self:GetChildren()) do
+        if child != self.previewHolder then
+            child:AlphaTo(0, disconnect_cutscene.ui_fade_time, 0, function()
+                if IsValid(child) then
+                    child:SetVisible(false)
+                end
+            end)
+        end
+    end
+
+    local function startBlackFade()
+        if not IsValid(self) then return end
+        self.DisconnectBlackStart = CurTime()
+        self.DisconnectBlackAlpha = 0
+        timer.Simple(disconnect_cutscene.black_fade_time + disconnect_cutscene.disconnect_delay, function()
+            if IsValid(self) then
+                RunConsoleCommand("disconnect")
+            end
+        end)
+    end
+
+    self.DisconnectWalkStart = CurTime() + disconnect_cutscene.ui_fade_time + disconnect_cutscene.walk_delay
+
+    timer.Simple(disconnect_cutscene.ui_fade_time + disconnect_cutscene.walk_delay + disconnect_cutscene.walk_time, function()
+        if IsValid(self) then
+            startBlackFade()
+        end
+    end)
 end
 
 function PANEL:AddSelect( pParent, strTitle, tbl )
@@ -809,9 +958,15 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     btn.LineLerp = 0
     btn.HoverLerp = 0
     function btn:DoClick()
+        if luaMenu.DisconnectCutscene then return end
 		for i = 1, 3 do
 			surface.PlaySound("shitty/tap_depress.wav")
 		end
+
+        if tbl.BypassTransition then
+            btn.Func(luaMenu)
+            return
+        end
 
         for _, child in ipairs(luaMenu:GetChildren()) do
             if child ~= luaMenu.panelparrent then
@@ -906,11 +1061,20 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
 end
 
 function PANEL:Close()
+    if self.DisconnectCutscene then return end
     StopMainMenuMusic()
     if IsValid(self.previewModel) and IsValid(self.previewModel.Entity) then
         CleanupPreviewAccessories(self.previewModel.Entity)
     end
-    self:AlphaTo( 0, 0.1, 0, function() self:Remove() end)
+    if IsValid(self.previewHolder) then
+        self.previewHolder:MoveTo(self.previewHolder.TargetX or self.previewHolder:GetX(), self.previewHolder.ClosedY or ScrH(), appearance_preview.exit_time, 0, appearance_preview.exit_delay)
+        self.previewHolder:AlphaTo(0, appearance_preview.exit_time * 0.75, appearance_preview.exit_delay)
+    end
+    self:AlphaTo(0, appearance_preview.exit_time, 0, function()
+        if IsValid(self) then
+            self:Remove()
+        end
+    end)
     self:SetKeyboardInputEnabled(false)
     self:SetMouseInputEnabled(false)
 end
@@ -928,6 +1092,9 @@ hook.Add("OnPauseMenuShow","OpenMainMenu",function()
     end
 
     if MainMenu and IsValid(MainMenu) then
+        if MainMenu.DisconnectCutscene then
+            return false
+        end
         MainMenu:Close()
         MainMenu = nil
         return false
