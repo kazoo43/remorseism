@@ -150,53 +150,55 @@ local function processFencing(rag, fade)
 	local t = math_clamp((fade - 0.1) / 0.9, 0, 1)
 	
 	local chestPos = spinePos + spineAng:Forward() * 5 + spineAng:Up() * 10
-	local pelvisPos = spinePos - spineAng:Forward() * 10 + spineAng:Up() * 5
+	local restPos = spinePos + spineAng:Up() * 5
 	local extendPos = spinePos + spineAng:Forward() * 15 + spineAng:Up() * 20
-	
-	local targetPosChest = LerpVector(t, pelvisPos, chestPos)
-	local targetPosExt = LerpVector(t, pelvisPos, extendPos)
+
+	local targetPosChest = LerpVector(t, restPos, chestPos)
+	local targetPosExt = LerpVector(t, restPos, extendPos)
 	local shake = VectorRand(-5, 5) * t
 	targetPosChest = targetPosChest + shake
 	targetPosExt = targetPosExt + shake
 	
 	local mul = 800 * t
+	local legEase = t * t * (3 - 2 * t)
+	local legMul = 800 * legEase
 	local damp = 40
-	
+
 	local legAng = spine2:GetAngles()
-	legAng:RotateAroundAxis(legAng:Up(), 180) 
-	
-	hg.ShadowControl(rag, 8, 0.001, legAng, mul, damp, vector_origin, 0, 0)
-	hg.ShadowControl(rag, 9, 0.001, legAng, mul, damp, vector_origin, 0, 0)
-	hg.ShadowControl(rag, 11, 0.001, legAng, mul, damp, vector_origin, 0, 0)
-	hg.ShadowControl(rag, 12, 0.001, legAng, mul, damp, vector_origin, 0, 0)
-	
+	legAng:RotateAroundAxis(legAng:Up(), 180)
+
+	hg.ShadowControl(rag, 8, 0.001, legAng, legMul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 9, 0.001, legAng, legMul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 11, 0.001, legAng, legMul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 12, 0.001, legAng, legMul, damp, vector_origin, 0, 0)
+
 	if rag:EntIndex() % 2 == 0 then
-		hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPosChest - spineAng:Right() * 6, mul * 2, damp)
-		hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPosChest - spineAng:Right() * 8, mul * 1.5, damp)
-		
-		hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPosExt + spineAng:Right() * 6, mul * 2, damp)
-		hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPosExt + spineAng:Right() * 8, mul * 1.5, damp)
+		hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPosChest - spineAng:Right() * 6, mul * 1.6, damp)
+		hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPosChest - spineAng:Right() * 8, mul * 1.2, damp)
+
+		hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPosExt + spineAng:Right() * 6, mul * 1.6, damp)
+		hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPosExt + spineAng:Right() * 8, mul * 1.2, damp)
 	else
-		hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPosExt - spineAng:Right() * 6, mul * 2, damp)
-		hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPosExt - spineAng:Right() * 8, mul * 1.5, damp)
-		
-		hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPosChest + spineAng:Right() * 6, mul * 2, damp)
-		hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPosChest + spineAng:Right() * 8, mul * 1.5, damp)
+		hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPosExt - spineAng:Right() * 6, mul * 1.6, damp)
+		hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPosExt - spineAng:Right() * 8, mul * 1.2, damp)
+
+		hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPosChest + spineAng:Right() * 6, mul * 1.6, damp)
+		hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPosChest + spineAng:Right() * 8, mul * 1.2, damp)
 	end
-	
-	hg.ShadowControl(rag, 2, 0.001, spineAng, mul * 0.5, damp, vector_origin, 0, 0)
-	hg.ShadowControl(rag, 3, 0.001, spineAng, mul * 0.5, damp, vector_origin, 0, 0)
+
+	hg.ShadowControl(rag, 2, 0.001, spineAng, legMul * 0.5, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 3, 0.001, spineAng, legMul * 0.5, damp, vector_origin, 0, 0)
 end
 
 local function applyDecorticateToPlayer(ply, org)
 	if not IsValid(ply) or not ply:Alive() then return end
-	if org.decorticate then return end 
-	
-	local dur = math_rand(10, 20) 
+	if org.decorticate then return end
+
+	local dur = math_rand(10, 20)
 	org.decorticate = true
 	org.decorticateEnd = CurTime() + dur
 	org.decorticateDur = dur
-	
+
 
 	if ply.FakeRagdoll and IsValid(ply.FakeRagdoll) then
 		local rag = ply.FakeRagdoll
@@ -207,6 +209,46 @@ local function applyDecorticateToPlayer(ply, org)
 end
 
 hg.applyDecorticateToPlayer = applyDecorticateToPlayer
+
+local function applyLazarusToPlayer(ply, org)
+	if not IsValid(ply) or not ply:Alive() then return end
+	if org.lazarus then return end
+
+	local dur = math_rand(8, 18)
+	org.lazarus = true
+	org.lazarusEnd = CurTime() + dur
+	org.lazarusDur = dur
+
+
+	if ply.FakeRagdoll and IsValid(ply.FakeRagdoll) then
+		local rag = ply.FakeRagdoll
+		rag.lazarus = true
+		rag.lazarusEnd = org.lazarusEnd
+		rag.lazarusDur = dur
+	end
+end
+
+hg.applyLazarusToPlayer = applyLazarusToPlayer
+
+local function applyCushingToPlayer(ply, org)
+	if not IsValid(ply) or not ply:Alive() then return end
+	if org.cushing then return end
+
+	local dur = math_rand(6, 14)
+	org.cushing = true
+	org.cushingEnd = CurTime() + dur
+	org.cushingDur = dur
+
+
+	if ply.FakeRagdoll and IsValid(ply.FakeRagdoll) then
+		local rag = ply.FakeRagdoll
+		rag.cushing = true
+		rag.cushingEnd = org.cushingEnd
+		rag.cushingDur = dur
+	end
+end
+
+hg.applyCushingToPlayer = applyCushingToPlayer
 
 local function processDecorticate(rag, fade)
 	local org = rag.organism
@@ -226,9 +268,9 @@ local function processDecorticate(rag, fade)
 	t = t * easeIn
 	
 	local chestPos = spinePos + spineAng:Forward() * 5 + spineAng:Up() * 10
-	local pelvisPos = spinePos - spineAng:Forward() * 10 + spineAng:Up() * 5
-	
-	local targetPos = LerpVector(t, pelvisPos, chestPos)
+	local restPos = spinePos + spineAng:Up() * 5
+
+	local targetPos = LerpVector(t, restPos, chestPos)
 	local shake = VectorRand(-2, 2) * t
 	targetPos = targetPos + shake
 	
@@ -243,15 +285,98 @@ local function processDecorticate(rag, fade)
 	hg.ShadowControl(rag, 9, 0.001, legAng, mul, damp, vector_origin, 0, 0)
 	hg.ShadowControl(rag, 11, 0.001, legAng, mul, damp, vector_origin, 0, 0)
 	hg.ShadowControl(rag, 12, 0.001, legAng, mul, damp, vector_origin, 0, 0)
-	
-	hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPos - spineAng:Right() * 6, mul * 2, damp)
-	hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPos + spineAng:Right() * 6, mul * 2, damp)
-	
-	hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPos - spineAng:Right() * 8, mul * 1.5, damp)
-	hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPos + spineAng:Right() * 8, mul * 1.5, damp)
-	
+
+	hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, targetPos - spineAng:Right() * 6, mul * 1.6, damp)
+	hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, targetPos + spineAng:Right() * 6, mul * 1.6, damp)
+
+	hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, targetPos - spineAng:Right() * 8, mul * 1.2, damp)
+	hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, targetPos + spineAng:Right() * 8, mul * 1.2, damp)
+
 	hg.ShadowControl(rag, 2, 0.001, spineAng, mul * 0.5, damp, vector_origin, 0, 0)
 	hg.ShadowControl(rag, 3, 0.001, spineAng, mul * 0.5, damp, vector_origin, 0, 0)
+end
+
+local function processLazarus(rag, fade)
+	local boneSpine2 = rag:LookupBone("ValveBiped.Bip01_Spine2")
+	if not boneSpine2 then return end
+	local spine2 = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(boneSpine2))
+	if not IsValid(spine2) then return end
+
+	local spineAng = spine2:GetAngles()
+	local spinePos = spine2:GetPos()
+
+	local t = math_clamp((fade - 0.1) / 0.9, 0, 1)
+	local legEase = t * t * (3 - 2 * t)
+
+	local cycleRate = 0.5
+	local phase = (CurTime() * cycleRate) % 1
+	local lift
+	if phase < 0.3 then
+		lift = phase / 0.3
+	elseif phase < 0.5 then
+		lift = 1 - ((phase - 0.3) / 0.2)
+	else
+		lift = 0
+	end
+	lift = lift * t
+
+	local upPos = spinePos + spineAng:Up() * 45 + spineAng:Forward() * 6
+	local crossedPos = spinePos + spineAng:Forward() * 3 + spineAng:Up() * 8
+
+	local armPos = LerpVector(lift, crossedPos, upPos)
+	local shake = VectorRand(-2, 2) * t
+	armPos = armPos + shake
+
+	local mul = (900 * lift + 120) * t
+	local armMul = (900 * lift + 120) * legEase
+	local damp = 50
+
+	hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, armPos - spineAng:Right() * 10, mul * 1.6, damp)
+	hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, armPos + spineAng:Right() * 10, mul * 1.6, damp)
+
+	hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, armPos - spineAng:Right() * 12, mul * 1.2, damp)
+	hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, armPos + spineAng:Right() * 12, mul * 1.2, damp)
+
+	hg.ShadowControl(rag, 2, 0.001, spineAng, armMul * 0.3, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 3, 0.001, spineAng, armMul * 0.3, damp, vector_origin, 0, 0)
+end
+
+local function processCushing(rag, fade)
+	local boneSpine2 = rag:LookupBone("ValveBiped.Bip01_Spine2")
+	if not boneSpine2 then return end
+	local spine2 = rag:GetPhysicsObjectNum(rag:TranslateBoneToPhysBone(boneSpine2))
+	if not IsValid(spine2) then return end
+
+	local spineAng = spine2:GetAngles()
+	local spinePos = spine2:GetPos()
+
+	local t = math_clamp((fade - 0.05) / 0.95, 0, 1)
+	local legEase = t * t * (3 - 2 * t)
+
+	local archAng = Angle(spineAng.pitch + 30 * t, spineAng.yaw, spineAng.roll)
+	local legAng = Angle(spineAng.pitch + 18 * t, spineAng.yaw + 180, spineAng.roll)
+
+	local armPos = spinePos + archAng:Up() * 15
+	local shake = VectorRand(-2, 2) * t
+	armPos = armPos + shake
+
+	local mul = (1200 * t + 200) * t
+	local armMul = (1000 * t + 150) * legEase
+	local damp = 50
+
+	hg.ShadowControl(rag, 8, 0.001, legAng, mul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 9, 0.001, legAng, mul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 11, 0.001, legAng, mul, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 12, 0.001, legAng, mul, damp, vector_origin, 0, 0)
+
+	hg.ShadowControl(rag, 2, 0.001, archAng, armMul * 0.5, damp, vector_origin, 0, 0)
+	hg.ShadowControl(rag, 3, 0.001, archAng, armMul * 0.5, damp, vector_origin, 0, 0)
+
+	hg.ShadowControl(rag, 5, 0.001, nil, 0, 0, armPos - spineAng:Right() * 20, mul * 1.4, damp)
+	hg.ShadowControl(rag, 6, 0.001, nil, 0, 0, armPos + spineAng:Right() * 20, mul * 1.4, damp)
+
+	hg.ShadowControl(rag, 4, 0.001, nil, 0, 0, armPos - spineAng:Right() * 22, mul * 1.1, damp)
+	hg.ShadowControl(rag, 7, 0.001, nil, 0, 0, armPos + spineAng:Right() * 22, mul * 1.1, damp)
 end
 
 local function clearFencing(rag)
@@ -260,6 +385,14 @@ end
 
 local function clearDecorticate(rag)
 	rag.decorticate, rag.decorticateEnd, rag.decorticateDur = nil, nil, nil
+end
+
+local function clearLazarus(rag)
+	rag.lazarus, rag.lazarusEnd, rag.lazarusDur = nil, nil, nil
+end
+
+local function clearCushing(rag)
+	rag.cushing, rag.cushingEnd, rag.cushingDur = nil, nil, nil
 end
 
 local function clearSpasm(rag)
@@ -282,11 +415,23 @@ hook.Add("Should Fake Up", "BrainfuckFencing", function(ply)
 	if org and org.decorticate and org.decorticateEnd and CurTime() < org.decorticateEnd then
 		return false
 	end
+	if org and org.lazarus and org.lazarusEnd and CurTime() < org.lazarusEnd then
+		return false
+	end
+	if org and org.cushing and org.cushingEnd and CurTime() < org.cushingEnd then
+		return false
+	end
 	local rag = ply.FakeRagdoll
 	if IsValid(rag) and rag.fencing and rag.fencingEnd and CurTime() < rag.fencingEnd then
 		return false
 	end
 	if IsValid(rag) and rag.decorticate and rag.decorticateEnd and CurTime() < rag.decorticateEnd then
+		return false
+	end
+	if IsValid(rag) and rag.lazarus and rag.lazarusEnd and CurTime() < rag.lazarusEnd then
+		return false
+	end
+	if IsValid(rag) and rag.cushing and rag.cushingEnd and CurTime() < rag.cushingEnd then
 		return false
 	end
 end)
@@ -302,11 +447,16 @@ hook.Add("RagdollDeath", "BrainfuckStart", function(ply, rag)
 		local hadSkullDamage = org.skull and org.skull > 0
 		local hadHeadDamage = org.dmgstack and org.dmgstack[HITGROUP_HEAD] and (org.dmgstack[HITGROUP_HEAD][1] or 0) > 0
 		local headshot = hadBrainDamage or hadSkullDamage or hadHeadDamage
-		
+
 		if headshot and math_random() < CHANCE then
 			local stype = "fencing"
 			applySpasm(rag, stype)
 			if rag.organism then rag.organism.spasm, rag.organism.spasmType = true, stype end
+		end
+
+		local brainLevel = org.brain or 0
+		if brainLevel >= 0.75 and headshot and math_random() < CHANCE then
+			hg.applyCushingToPlayer(ply, org)
 		end
 	end)
 end)
@@ -340,6 +490,32 @@ hook.Add("Org Think", "BrainfuckThink", function(owner)
 			end
 		end
 	end
+
+	if org.lazarus and org.lazarusEnd then
+		local rag = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or (owner:IsRagdoll() and owner or nil)
+		if IsValid(rag) then
+			if CurTime() > org.lazarusEnd then
+				clearLazarus(rag)
+				org.lazarus, org.lazarusEnd, org.lazarusDur = nil, nil, nil
+			else
+				local fade = math_clamp((org.lazarusEnd - CurTime()) / (org.lazarusDur or 5), 0.1, 1)
+				processLazarus(rag, fade)
+			end
+		end
+	end
+
+	if org.cushing and org.cushingEnd then
+		local rag = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or (owner:IsRagdoll() and owner or nil)
+		if IsValid(rag) then
+			if CurTime() > org.cushingEnd then
+				clearCushing(rag)
+				org.cushing, org.cushingEnd, org.cushingDur = nil, nil, nil
+			else
+				local fade = math_clamp((org.cushingEnd - CurTime()) / (org.cushingDur or 5), 0.1, 1)
+				processCushing(rag, fade)
+			end
+		end
+	end
 	
 	local deathRag = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or (owner:IsRagdoll() and owner or nil)
 	if IsValid(deathRag) and deathRag.spasm and deathRag.spasmEnd then
@@ -359,23 +535,39 @@ end)
 
 hook.Add("Org Clear", "BrainfuckClear", function(org)
 	if not org or not org.owner then return end
-	if IsValid(org.owner) then 
+	if IsValid(org.owner) then
 		clearSpasm(org.owner)
 		clearFencing(org.owner)
 		clearDecorticate(org.owner)
+		clearLazarus(org.owner)
+		clearCushing(org.owner)
 	end
 	org.fencing, org.fencingEnd = nil, nil
 	org.decorticate, org.decorticateEnd = nil, nil
+	org.lazarus, org.lazarusEnd = nil, nil
+	org.cushing, org.cushingEnd = nil, nil
 end)
 
 hook.Add("HomigradDamage", "DecorticateTrigger", function(ply, dmgInfo, hitgroup, ent, harm, hitBoxs, inputHole)
 	local org = ply.organism
 	if not org then return end
-	
+
 	local brain = org.brain or 0
 	if brain >= 0.20 and (dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_BULLET) or dmgInfo:IsDamageType(DMG_BUCKSHOT)) then
-		if not org.fencing and not org.decorticate and math_random() < CHANCE then
+		if not org.fencing and not org.decorticate and not org.lazarus and math_random() < CHANCE then
 			hg.applyDecorticateToPlayer(ply, org)
+		end
+	end
+
+	if brain >= 0.50 and (dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_BULLET) or dmgInfo:IsDamageType(DMG_BUCKSHOT)) then
+		if not org.fencing and not org.decorticate and not org.lazarus and not org.cushing and math_random() < CHANCE then
+			hg.applyLazarusToPlayer(ply, org)
+		end
+	end
+
+	if brain >= 0.75 and (dmgInfo:IsDamageType(DMG_CLUB) or dmgInfo:IsDamageType(DMG_BULLET) or dmgInfo:IsDamageType(DMG_BUCKSHOT)) then
+		if not org.fencing and not org.decorticate and not org.lazarus and not org.cushing and math_random() < CHANCE then
+			hg.applyCushingToPlayer(ply, org)
 		end
 	end
 end)
