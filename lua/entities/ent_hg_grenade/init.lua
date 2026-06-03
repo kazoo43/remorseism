@@ -2,6 +2,19 @@ AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
+local CUSTOM_EXPLOSION_SOUNDS = {
+	"explosions/explode3.wav",
+	"explosions/explode4.wav",
+	"explosions/explode5.wav"
+}
+local CUSTOM_EXPLOSION_PITCH_MIN = 110
+local CUSTOM_EXPLOSION_PITCH_MAX = 120
+local CUSTOM_EXPLOSION_VOLUME = 1
+local CUSTOM_EXPLOSION_LEVEL = 140
+local GRENADE_BLAST_RADIUS_MULT = 1.5
+local GRENADE_BLAST_DAMAGE = 20
+local GRENADE_DISORIENTATION_RADIUS = 12
+
 function ENT:InitAdd()
 end
 
@@ -240,6 +253,7 @@ function ENT:Explode()
 	end
 
 	EmitSound(self.Sound[math.random(#self.Sound)], self:GetPos(), self:EntIndex() + 100, CHAN_STATIC, 1, 140, nil, math.random(75, 85))
+	EmitSound(table.Random(CUSTOM_EXPLOSION_SOUNDS), self:GetPos(), self:EntIndex() + 104, CHAN_STATIC, CUSTOM_EXPLOSION_VOLUME, CUSTOM_EXPLOSION_LEVEL, nil, math.random(CUSTOM_EXPLOSION_PITCH_MIN, CUSTOM_EXPLOSION_PITCH_MAX))
 
 	if self:WaterLevel() > 0 then
 		self:EmitSound(self.SoundWater, 100, 100, 1, CHAN_WEAPON)
@@ -265,11 +279,11 @@ function ENT:Explode()
 		EmitSound(self.DebrisSounds[math.random(#self.DebrisSounds)], self:GetPos(), self:EntIndex(), CHAN_AUTO, 1, 80)
 	end
 
-	util.BlastDamage(self, IsValid(self.owner) and self.owner or self, selfPos, self.BlastDis / 0.01905, 35)
+	util.BlastDamage(self, IsValid(self.owner) and self.owner or self, selfPos, self.BlastDis / 0.01905 * GRENADE_BLAST_RADIUS_MULT, GRENADE_BLAST_DAMAGE)
 
 	--;; Расскажу вам тайну но у нас трассировка делалась просто ужасно
-	local dis = self.BlastDis / 0.01905
-	local disorientation_dis = 6 / 0.01905  
+	local dis = self.BlastDis / 0.01905 * GRENADE_BLAST_RADIUS_MULT
+	local disorientation_dis = GRENADE_DISORIENTATION_RADIUS / 0.01905
 	local entsCount = 0
 	for i, enta in ipairs(ents.FindInSphere(selfPos, disorientation_dis)) do
 		local tracePos = enta:IsPlayer() and (enta:GetPos() + enta:OBBCenter()) or enta:GetPos()
@@ -288,8 +302,7 @@ function ENT:Explode()
 		local forceadd = force * physics_frac * 50000  
 
 		if enta.organism then
-			local behindwall = tr.Entity != enta and tr.MatType != MAT_GLASS
-			if IsValid(enta.organism.owner) and enta.organism.owner:IsPlayer() and not behindwall then
+			if IsValid(enta.organism.owner) and enta.organism.owner:IsPlayer() then
 				hg.ExplosionDisorientation(enta, 5 * frac, 6 * frac)
 				hg.RunZManipAnim(enta.organism.owner, "shieldexplosion")
 			end

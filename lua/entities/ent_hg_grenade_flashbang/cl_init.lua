@@ -13,15 +13,14 @@ end
 
 net.Receive("flashbang",function()
 	local pos = net.ReadVector()
-	 
+	local time = net.ReadFloat()
 
-	local time = math.Clamp(5200-(lply:GetPos():Distance(pos)), 1, 5)
 
 	lply:AddTinnitus(time,true)
 
 	local IsLookingFlash = IsLookingAt(lply, pos)
 	local viewsetup = render.GetViewSetup(true)
-	
+
 	if IsLookingFlash < -0.5 then
 		hg.AddFlash(viewsetup.origin,IsLookingFlash,pos,time*5,50000)
 	end
