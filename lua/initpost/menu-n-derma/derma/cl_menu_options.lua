@@ -32,6 +32,8 @@ local function MenuUnit(num)
     return math.floor(num * math.min(ScrW(), ScrH()) / 1000)
 end
 
+local settings_header_height = 70
+
 local function CreateSettingsFonts()
     local usefont = font()
     local scale = math.min(ScrW(), ScrH()) / 1000
@@ -596,15 +598,23 @@ function hg.DrawSettings(ParentPanel)
         surface.DrawRect(w - MenuUnit(1), 0, MenuUnit(1), h)
     end
 
-    local sidebarHeader = vgui.Create("DLabel", sidebar)
+    local sidebarHeader = vgui.Create("DPanel", sidebar)
     sidebarHeader:Dock(TOP)
-    sidebarHeader:DockMargin(MenuUnit(15), MenuUnit(20), 0, 0)
-    sidebarHeader:SetFont("ZCity_Settings_Small")
-    sidebarHeader:SetTextColor(settings_color_whitey)
-    sidebarHeader:SetText("SETTINGS")
-    sidebarHeader:SizeToContents()
-    sidebarHeader.OpenTime = CurTime()
-    function sidebarHeader:Think()
+    sidebarHeader:SetTall(MenuUnit(settings_header_height))
+    sidebarHeader.Paint = function(self, w, h)
+        draw.RoundedBox(0, 0, 0, w, h, Color(15, 15, 20, 120))
+        surface.SetDrawColor(settings_color_whitey.r, settings_color_whitey.g, settings_color_whitey.b, 140)
+        surface.DrawRect(0, h - MenuUnit(1), w, MenuUnit(1))
+    end
+
+    local sidebarHeaderTitle = vgui.Create("DLabel", sidebarHeader)
+    sidebarHeaderTitle:SetPos(MenuUnit(15), MenuUnit(18))
+    sidebarHeaderTitle:SetFont("ZCity_Settings_Small")
+    sidebarHeaderTitle:SetTextColor(settings_color_whitey)
+    sidebarHeaderTitle:SetText("SETTINGS")
+    sidebarHeaderTitle:SizeToContents()
+    sidebarHeaderTitle.OpenTime = CurTime()
+    function sidebarHeaderTitle:Think()
         local elapsed = CurTime() - (self.OpenTime or CurTime())
         local charsToShow = math.floor(elapsed * 18)
         local target = "SETTINGS"
@@ -620,15 +630,6 @@ function hg.DrawSettings(ParentPanel)
             self:SetText(ntxt)
             self:SizeToContents()
         end
-    end
-
-    local sep = vgui.Create("DPanel", sidebar)
-    sep:Dock(TOP)
-    sep:DockMargin(MenuUnit(15), MenuUnit(6), MenuUnit(15), MenuUnit(10))
-    sep:SetTall(MenuUnit(1))
-    sep.Paint = function(self, w, h)
-        surface.SetDrawColor(settings_color_whitey.r, settings_color_whitey.g, settings_color_whitey.b, 180)
-        surface.DrawRect(0, 0, w, h)
     end
 
     for categoryName, _ in SortedPairs(hg.settings.tbl) do
@@ -650,6 +651,7 @@ function hg.DrawSettings(ParentPanel)
     backBtn.OpenTime = CurTime()
     backBtn.HoverLerp = 0
     backBtn.LineLerp = 0
+    backBtn.HoverScale = 0.008
     function backBtn:DoClick()
         if IsValid(ParentPanel) then 
             local luaMenu = ParentPanel:GetParent()
@@ -712,7 +714,7 @@ function hg.DrawSettings(ParentPanel)
         end
         surface.SetFont(self:GetFont())
         local tw, th = surface.GetTextSize(self:GetText())
-        local scale = 1 + (self.HoverLerp or 0) * 0.02
+        local scale = 1 + (self.HoverLerp or 0) * (self.HoverScale or 0.02)
         local matrix = Matrix()
         matrix:Translate(Vector(0, h * (1 - scale) * 0.5, 0))
         matrix:Scale(Vector(scale, scale, 1))
@@ -744,7 +746,7 @@ function hg.DrawSettings(ParentPanel)
     local header = vgui.Create("DPanel", mainPanel)
     header:Dock(TOP)
     header:DockMargin(0, 0, 0, 0)
-    header:SetTall(MenuUnit(70))
+    header:SetTall(MenuUnit(settings_header_height))
     header.Paint = function(self, w, h)
         draw.RoundedBox(0, 0, 0, w, h, Color(15, 15, 20, 120))
         surface.SetDrawColor(settings_color_whitey.r, settings_color_whitey.g, settings_color_whitey.b, 140)

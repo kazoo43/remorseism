@@ -1,10 +1,18 @@
 local PANEL = {}
 local curent_panel 
 local red_select = Color(192,0,0)
-local menu_music_path = "sound/rem_mainmenu.mp3"
+local menu_music_default_path = "sound/rem_mainmenu.mp3"
+local menu_music_appearance_path = "sound/rem_track1.mp3"
 local menu_music_flags = "noblock noplay"
 local menu_music_volume = 0.25
+local menu_music_fade_speed = 1.8
 local menu_music_station
+local menu_music_station_path
+local menu_music_station_lerp = 0
+local menu_music_pending_station
+local menu_music_pending_path
+local menu_music_pending_lerp = 0
+local menu_music_target_path = menu_music_default_path
 
 DISCORD_URL = "https://discord.gg/475EmEdTgH"
 
@@ -13,22 +21,88 @@ local function StopMainMenuMusic()
         menu_music_station:Stop()
         menu_music_station = nil
     end
+    menu_music_station_path = nil
+    menu_music_station_lerp = 0
+    if menu_music_pending_station then
+        menu_music_pending_station:Stop()
+        menu_music_pending_station = nil
+    end
+    menu_music_pending_path = nil
+    menu_music_pending_lerp = 0
+    menu_music_target_path = menu_music_default_path
 end
 
-local function StartMainMenuMusic(owner)
-    StopMainMenuMusic()
-    sound.PlayFile(menu_music_path, menu_music_flags, function(station)
+local function QueueMainMenuMusic(owner, path)
+    path = path or menu_music_default_path
+    menu_music_target_path = path
+
+    if not IsValid(owner) or MainMenu ~= owner then return end
+    if menu_music_station and menu_music_station_path == path and not menu_music_pending_station then return end
+    if menu_music_pending_station and menu_music_pending_path == path then return end
+
+    sound.PlayFile(path, menu_music_flags, function(station)
         if not station then return end
-        if not IsValid(owner) or MainMenu ~= owner then
+        if not IsValid(owner) or MainMenu ~= owner or menu_music_target_path ~= path then
             station:Stop()
             return
         end
 
-        menu_music_station = station
+        if menu_music_pending_station and menu_music_pending_station ~= station then
+            menu_music_pending_station:Stop()
+        end
+
+        menu_music_pending_station = station
+        menu_music_pending_path = path
+        menu_music_pending_lerp = 0
         station:EnableLooping(true)
-        station:SetVolume(menu_music_volume)
+        station:SetVolume(0)
         station:Play()
     end)
+end
+
+local function UpdateMainMenuMusic(owner)
+    if not IsValid(owner) or MainMenu ~= owner then
+        StopMainMenuMusic()
+        return
+    end
+
+    if menu_music_station and menu_music_station_path ~= menu_music_target_path and not menu_music_pending_station then
+        QueueMainMenuMusic(owner, menu_music_target_path)
+    end
+
+    local fadeStep = FrameTime() * menu_music_fade_speed
+
+    if menu_music_pending_station then
+        menu_music_pending_lerp = math.min(1, menu_music_pending_lerp + fadeStep)
+        menu_music_pending_station:SetVolume(menu_music_volume * menu_music_pending_lerp)
+
+        if menu_music_station then
+            menu_music_station_lerp = math.max(0, menu_music_station_lerp - fadeStep)
+            menu_music_station:SetVolume(menu_music_volume * menu_music_station_lerp)
+
+            if menu_music_station_lerp <= 0.001 then
+                menu_music_station:Stop()
+                menu_music_station = menu_music_pending_station
+                menu_music_station_path = menu_music_pending_path
+                menu_music_station_lerp = menu_music_pending_lerp
+                menu_music_pending_station = nil
+                menu_music_pending_path = nil
+                menu_music_pending_lerp = 0
+            end
+        elseif menu_music_pending_lerp >= 0.999 then
+            menu_music_station = menu_music_pending_station
+            menu_music_station_path = menu_music_pending_path
+            menu_music_station_lerp = 1
+            menu_music_pending_station = nil
+            menu_music_pending_path = nil
+            menu_music_pending_lerp = 0
+        end
+    elseif menu_music_station then
+        menu_music_station_lerp = math.min(1, menu_music_station_lerp + fadeStep)
+        menu_music_station:SetVolume(menu_music_volume * menu_music_station_lerp)
+    elseif menu_music_target_path then
+        QueueMainMenuMusic(owner, menu_music_target_path)
+    end
 end
 
 local function MenuUnit(num)
@@ -316,7 +390,7 @@ local menu_live = {
     title_float_x = 4,
     title_float_y = 3,
     title_hover_scale = 0.08,
-    button_hover_scale = 0.02,
+    button_hover_scale = 0.008,
     button_drift_x = 4,
     button_drift_y = 1,
     button_shake_x = 0,
@@ -397,6 +471,8 @@ function PANEL:GetLiveShake(seedX, seedY, xAmount, yAmount)
 end
 
 function PANEL:Think()
+    UpdateMainMenuMusic(self)
+
     if self.DisconnectBlackStart then
         local blackFrac = math.Clamp((CurTime() - self.DisconnectBlackStart) / math.max(disconnect_cutscene.black_fade_time, 0.001), 0, 1)
         self.DisconnectBlackAlpha = 255 * blackFrac
@@ -559,6 +635,21 @@ function PANEL:CreateAppearancePreview()
     holder.ClosedY = ScrH()
     holder:SetMouseInputEnabled(false)
     holder.Paint = function() end
+    holder.Think = function(this)
+        if not this.AppearanceFollow then return end
+        local x, y = this:GetPos()
+        local targetPosX = this.TargetX or x
+        local targetPosY = this.TargetY or y
+        local nextX = LerpFT(0.18, x, targetPosX)
+        local nextY = LerpFT(0.18, y, targetPosY)
+        if math.abs(targetPosX - nextX) < 1 then
+            nextX = targetPosX
+        end
+        if math.abs(targetPosY - nextY) < 1 then
+            nextY = targetPosY
+        end
+        this:SetPos(math.Round(nextX), math.Round(nextY))
+    end
 
     local preview = vgui.Create("DModelPanel", holder)
     self.previewModel = preview
@@ -654,9 +745,9 @@ function PANEL:CreateAppearancePreview()
         end
         
         ent:SetSubMaterial()
-        self:SetCamPos(appearance_preview.cam_pos)
-        self:SetFOV(appearance_preview.fov)
-        self:SetLookAng(appearance_preview.look_ang)
+        self:SetCamPos(self.CamPosOverride or appearance_preview.cam_pos)
+        self:SetFOV(self.FOVOverride or appearance_preview.fov)
+        self:SetLookAng(self.LookAngOverride or appearance_preview.look_ang)
 
         if ent:GetModel() != modelData.mdl then
             CleanupPreviewAccessories(ent)
@@ -744,7 +835,7 @@ function PANEL:Init()
     self.DisconnectCutscene = false
     self.DisconnectBackgroundAlpha = 255
     self.DisconnectBlackAlpha = 0
-    StartMainMenuMusic(self)
+    self:UseDefaultMenuMusic()
 
     timer.Simple(0, function()
         if self.First then
@@ -961,8 +1052,10 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     btn.OpenTime = CurTime()
     btn.LineLerp = 0
     btn.HoverLerp = 0
+    btn.HoverOffset = 0.5
     function btn:DoClick()
         if luaMenu.DisconnectCutscene then return end
+        if luaMenu.SwitchingPanel then return end
 		for i = 1, 3 do
 			surface.PlaySound("shitty/tap_depress.wav")
 		end
@@ -973,14 +1066,16 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
         end
 
         for _, child in ipairs(luaMenu:GetChildren()) do
-            if child ~= luaMenu.panelparrent then
+            if child ~= luaMenu.panelparrent and not (strTitle == "Appearance" and child == luaMenu.previewHolder) then
                 child:AlphaTo(0, 0.2, 0, function()
                     if IsValid(child) then child:SetVisible(false) end
                 end)
             end
         end
 
-        luaMenu.panelparrent:AlphaTo(0,0.2,0,function()
+        luaMenu.SwitchingPanel = true
+        local oldPanel = luaMenu.panelparrent
+        local function openPanel()
             if IsValid(luaMenu.panelparrent) then
                 luaMenu.panelparrent:Remove()
             end
@@ -992,7 +1087,14 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
             luaMenu.panelparrent.Paint = function(this, w, h) end
             btn.Func(luaMenu,luaMenu.panelparrent)
             curent_panel = string.lower(strTitle)
-        end)
+            luaMenu.SwitchingPanel = false
+        end
+
+        if IsValid(oldPanel) then
+            oldPanel:AlphaTo(0,0.2,0,openPanel)
+        else
+            openPanel()
+        end
     end
 
     function btn:Think()
@@ -1003,7 +1105,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
         local mouseX, mouseY = luaMenu:GetLiveOffset(MenuUnit(menu_live.button_drift_x), MenuUnit(menu_live.button_drift_y))
         local shakeX, shakeY = luaMenu:GetLiveShake(id * 0.91, id * 1.27, MenuUnit(menu_live.button_shake_x), MenuUnit(menu_live.button_shake_y))
         self:DockMargin(
-            math.Round(MenuUnit(15) + mouseX * 0.3 + shakeX + self.HoverLerp * MenuUnit(2)),
+            math.Round(MenuUnit(15) + mouseX * 0.3 + shakeX + self.HoverLerp * (self.HoverOffset or MenuUnit(2))),
             math.Round(MenuUnit(2) + mouseY * 0.1 + shakeY),
             0,
             0
@@ -1071,6 +1173,7 @@ function PANEL:Close()
         CleanupPreviewAccessories(self.previewModel.Entity)
     end
     if IsValid(self.previewHolder) then
+        self.previewHolder.AppearanceFollow = false
         self.previewHolder:MoveTo(self.previewHolder.TargetX or self.previewHolder:GetX(), self.previewHolder.ClosedY or ScrH(), appearance_preview.exit_time, 0, appearance_preview.exit_delay)
         self.previewHolder:AlphaTo(0, appearance_preview.exit_time * 0.75, appearance_preview.exit_delay)
     end
@@ -1085,6 +1188,18 @@ end
 
 function PANEL:OnRemove()
     StopMainMenuMusic()
+end
+
+function PANEL:SetMenuMusic(path)
+    QueueMainMenuMusic(self, path)
+end
+
+function PANEL:UseDefaultMenuMusic()
+    self:SetMenuMusic(menu_music_default_path)
+end
+
+function PANEL:UseAppearanceMenuMusic()
+    self:SetMenuMusic(menu_music_appearance_path)
 end
 
 vgui.Register( "ZMainMenu", PANEL, "ZFrame")
