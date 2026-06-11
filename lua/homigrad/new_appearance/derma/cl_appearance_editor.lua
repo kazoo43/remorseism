@@ -300,6 +300,64 @@ local appearance_preview_selector_shift_x = 165
 local appearance_name_fade_speed = 0.18
 local appearance_return_move_time = 0.32
 local appearance_header_height = 70
+local appearance_unsaved_box_width = 420
+local appearance_unsaved_box_height = 170
+local appearance_unsaved_button_width = 140
+local appearance_unsaved_button_height = 34
+local appearance_unsaved_message = "You havent saved your changes."
+local appearance_unsaved_fade_in_time = 0.12
+local appearance_unsaved_fade_out_time = 0.1
+local appearance_unsaved_box_rise = 10
+
+local function BuildComparableAppearanceTable(tblAppearance)
+    local appearance = table.Copy(tblAppearance or {})
+    appearance.AAttachments = appearance.AAttachments or {}
+    appearance.AAttachments[1] = appearance.AAttachments[1] or "none"
+    appearance.AAttachments[2] = appearance.AAttachments[2] or "none"
+    appearance.AAttachments[3] = appearance.AAttachments[3] or "none"
+    appearance.AClothes = appearance.AClothes or {}
+    appearance.ABodygroups = appearance.ABodygroups or {}
+    if IsColor(appearance.AColor) then
+        appearance.AColor = {
+            r = appearance.AColor.r,
+            g = appearance.AColor.g,
+            b = appearance.AColor.b,
+            a = appearance.AColor.a
+        }
+    elseif istable(appearance.AColor) then
+        appearance.AColor = {
+            r = appearance.AColor.r or appearance.AColor[1] or 255,
+            g = appearance.AColor.g or appearance.AColor[2] or 255,
+            b = appearance.AColor.b or appearance.AColor[3] or 255,
+            a = appearance.AColor.a or appearance.AColor[4] or 255
+        }
+    else
+        appearance.AColor = {
+            r = 255,
+            g = 255,
+            b = 255,
+            a = 255
+        }
+    end
+    return appearance
+end
+
+local function AppearanceValueEqual(a, b)
+    if istable(a) and istable(b) then
+        for k, v in pairs(a) do
+            if not AppearanceValueEqual(v, b[k]) then
+                return false
+            end
+        end
+        for k, v in pairs(b) do
+            if not AppearanceValueEqual(v, a[k]) then
+                return false
+            end
+        end
+        return true
+    end
+    return a == b
+end
 
 local function CreateAppearanceTextButton(pParent, strTitle, fnClick, fnIsActive)
     local btn = vgui.Create("DLabel", pParent)
@@ -541,6 +599,8 @@ function PANEL:PostInit()
     local selectorContent
     local currentSelectorSection
     local CloseSelectorPanel
+    local savedAppearanceSnapshot
+    local unsavedOverlay
 
     local function CloseAllAccessoryMenus()
     end
@@ -762,7 +822,111 @@ function PANEL:PostInit()
             net.WriteTable(main.AppearanceTable)
         net.SendToServer()
         main.SharedPreviewOriginal = table.Copy(main.AppearanceTable)
+        savedAppearanceSnapshot = BuildComparableAppearanceTable(main.AppearanceTable)
         surface.PlaySound("pwb2/weapons/iron.wav")
+    end
+
+    local function HasUnsavedChanges()
+        return not AppearanceValueEqual(savedAppearanceSnapshot or {}, BuildComparableAppearanceTable(main.AppearanceTable))
+    end
+
+    local function CloseUnsavedPrompt(fnOnClosed)
+        if IsValid(unsavedOverlay) then
+            if unsavedOverlay.IsClosing then return end
+            unsavedOverlay.IsClosing = true
+            local overlay = unsavedOverlay
+            local box = overlay.BoxPanel
+            if IsValid(box) then
+                box:MoveTo(box:GetX(), box.TargetY or box:GetY(), appearance_unsaved_fade_out_time, 0, -1)
+                box:AlphaTo(0, appearance_unsaved_fade_out_time, 0)
+            end
+            overlay:AlphaTo(0, appearance_unsaved_fade_out_time, 0, function()
+                if IsValid(overlay) then
+                    overlay:Remove()
+                end
+                if fnOnClosed then
+                    fnOnClosed()
+                end
+            end)
+        end
+        unsavedOverlay = nil
+    end
+
+    local function ShowUnsavedPrompt()
+        if IsValid(unsavedOverlay) then return end
+        unsavedOverlay = vgui.Create("DButton", main)
+        unsavedOverlay:SetText("")
+        unsavedOverlay:SetCursor("arrow")
+        unsavedOverlay:SetSize(main:GetWide(), main:GetTall())
+        unsavedOverlay:SetPos(0, 0)
+        unsavedOverlay:SetAlpha(0)
+        unsavedOverlay:MakePopup()
+        unsavedOverlay.Paint = function(this, w, h)
+            surface.SetDrawColor(0, 0, 0, 170)
+            surface.DrawRect(0, 0, w, h)
+        end
+
+        local box = vgui.Create("DPanel", unsavedOverlay)
+        box:SetSize(MenuUnit(appearance_unsaved_box_width), MenuUnit(appearance_unsaved_box_height))
+        box:Center()
+        box.TargetY = box:GetY()
+        box:SetY(box.TargetY + MenuUnit(appearance_unsaved_box_rise))
+        box:SetAlpha(0)
+        box.Paint = function(this, w, h)
+            surface.SetDrawColor(0, 0, 0, 245)
+            surface.DrawRect(0, 0, w, h)
+            surface.SetDrawColor(255, 255, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 1)
+            draw.SimpleText(appearance_unsaved_message, "ZCity_Settings_Small", w * 0.5, MenuUnit(42), appearance_color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        unsavedOverlay.BoxPanel = box
+        unsavedOverlay:AlphaTo(255, appearance_unsaved_fade_in_time, 0)
+        box:MoveTo(box:GetX(), box.TargetY, appearance_unsaved_fade_in_time, 0, -1)
+        box:AlphaTo(255, appearance_unsaved_fade_in_time, 0)
+
+        local saveBtn = vgui.Create("DButton", box)
+        saveBtn:SetSize(MenuUnit(appearance_unsaved_button_width), MenuUnit(appearance_unsaved_button_height))
+        saveBtn:SetPos(MenuUnit(35), box:GetTall() - MenuUnit(56))
+        saveBtn:SetText("")
+        saveBtn.Paint = function(this, w, h)
+            surface.SetDrawColor(0, 0, 0, 255)
+            surface.DrawRect(0, 0, w, h)
+            surface.SetDrawColor(255, 255, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 1)
+            draw.SimpleText("Save", "ZCity_Settings_Small", w * 0.5, h * 0.5, appearance_color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        saveBtn.DoClick = function()
+            ApplyAppearance()
+            CloseUnsavedPrompt(function()
+                main:ReturnToMenu()
+            end)
+        end
+
+        local dontSaveBtn = vgui.Create("DButton", box)
+        dontSaveBtn:SetSize(MenuUnit(appearance_unsaved_button_width), MenuUnit(appearance_unsaved_button_height))
+        dontSaveBtn:SetPos(box:GetWide() - MenuUnit(35) - dontSaveBtn:GetWide(), box:GetTall() - MenuUnit(56))
+        dontSaveBtn:SetText("")
+        dontSaveBtn.Paint = function(this, w, h)
+            surface.SetDrawColor(0, 0, 0, 255)
+            surface.DrawRect(0, 0, w, h)
+            surface.SetDrawColor(255, 255, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 1)
+            draw.SimpleText("Dont Save", "ZCity_Settings_Small", w * 0.5, h * 0.5, appearance_color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        dontSaveBtn.DoClick = function()
+            CloseUnsavedPrompt(function()
+                main:ReturnToMenu()
+            end)
+        end
+    end
+
+    local function TryExitAppearance()
+        CloseAllAccessoryMenus()
+        if HasUnsavedChanges() then
+            ShowUnsavedPrompt()
+            return
+        end
+        main:ReturnToMenu()
     end
 
     local function SaveCurrentPreset()
@@ -1170,6 +1334,8 @@ function PANEL:PostInit()
         main:SyncSharedPreview()
     end
 
+    savedAppearanceSnapshot = BuildComparableAppearanceTable(main.AppearanceTable)
+
     CreateAppearanceTextButton(sidebar, "Model", function() OpenModelMenu() end, function() return main.ActiveSection == "Model" end)
     CreateAppearanceTextButton(sidebar, "Hat", function() OpenAccessorySlot(1, "Hat", {head = true, ears = true}) end, function() return main.ActiveSection == "Hat" end)
     CreateAppearanceTextButton(sidebar, "Face", function() OpenAccessorySlot(2, "Face", {face = true}) end, function() return main.ActiveSection == "Face" end)
@@ -1194,8 +1360,7 @@ function PANEL:PostInit()
     returnBtn.LineLerp = 0
     returnBtn.HoverScale = 0.008
     function returnBtn:DoClick()
-        CloseAllAccessoryMenus()
-        main:ReturnToMenu()
+        TryExitAppearance()
     end
     function returnBtn:Think()
         local isHovered = self:IsHovered()
@@ -1265,8 +1430,7 @@ function PANEL:PostInit()
     deletePresetBtn.HoverScale = 0.008
 
     function self:Close()
-        CloseAllAccessoryMenus()
-        self:ReturnToMenu()
+        TryExitAppearance()
     end
     self:CallbackAppearance()
 end
