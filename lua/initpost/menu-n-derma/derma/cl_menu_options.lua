@@ -6,7 +6,7 @@ function hg.settings:AddOpt( strCategory, strConVar, strTitle, bDecimals, bStrin
     self.tbl[strCategory][strConVar] = { strCategory, strConVar, strTitle, bDecimals or false, bString or false, category }
 end
 local hg_firstperson_death = CreateClientConVar("hg_firstperson_death", "0", true, false, "Toggle first-person death camera view", 0, 1)
-local hg_font = CreateClientConVar("hg_font", "Bahnschrift", true, false, "change every text font to selected because ui customization is cool")
+local hg_font = CreateClientConVar("hg_font", "Courier Prime", true, false, "change every text font to selected because ui customization is cool")
 local hg_attachment_draw_distance = CreateClientConVar("hg_attachment_draw_distance", 0, true, nil, "distance to draw attachments", 0, 4096)
 
 xbars = 17
@@ -21,7 +21,7 @@ local sw, sh = ScrW(), ScrH()
 local font = function()
     local usefont = "Verily Serif Mono"
 
-    if hg_font:GetString() != "" and hg_font:GetString() != "Bahnschrift" then
+    if hg_font:GetString() != "" and hg_font:GetString() != "Courier Prime" then
         usefont = hg_font:GetString()
     end
 

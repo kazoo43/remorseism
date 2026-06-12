@@ -243,14 +243,14 @@ function MODE:RoundStart()
 end
 
 surface.CreateFont("ZB_TDM_MENU", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(12),
     extended = true,
     weight = 400,
     antialias = true
 })
 surface.CreateFont("ZB_TDM_DESC", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(7),
     extended = true,
     weight = 400,
@@ -258,7 +258,7 @@ surface.CreateFont("ZB_TDM_DESC", {
 })
 
 surface.CreateFont("ZB_TDM_CATEGORY", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(6),
     extended = true,
     weight = 400,
@@ -266,7 +266,7 @@ surface.CreateFont("ZB_TDM_CATEGORY", {
 })
 
 surface.CreateFont("ZB_TDM_DESCSMALL", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(5),
     extended = true,
     weight = 400,

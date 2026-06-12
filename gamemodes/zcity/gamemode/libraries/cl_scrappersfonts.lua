@@ -1,5 +1,5 @@
 surface.CreateFont("ZB_ScrappersSmall", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(4),
     extended = true,
     weight = 400,
@@ -7,7 +7,7 @@ surface.CreateFont("ZB_ScrappersSmall", {
 })
 
 surface.CreateFont("ZB_ScrappersMedium", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(10),
     extended = true,
     weight = 400,
@@ -15,7 +15,7 @@ surface.CreateFont("ZB_ScrappersMedium", {
 })
 
 surface.CreateFont("ZB_ScrappersMediumLarge", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(20),
     extended = true,
     weight = 400,
@@ -23,7 +23,7 @@ surface.CreateFont("ZB_ScrappersMediumLarge", {
 })
 
 surface.CreateFont("ZB_ScrappersLarge", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(30),
     extended = true,
     weight = 400,
@@ -31,7 +31,7 @@ surface.CreateFont("ZB_ScrappersLarge", {
 })
 
 surface.CreateFont("ZB_ScrappersHumongous", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = 255,
     extended = true,
     weight = 400,

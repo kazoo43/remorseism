@@ -47,9 +47,179 @@ local left_arm = {
 	["ValveBiped.Bip01_L_Hand"] = true,
 }
 
+local wound_hold_hand_offset = 4
+local wound_hold_forearm_offset = 8
+local wound_hold_upperarm_offset = 14
+local wound_hold_reach_speed = 55
+local wound_hold_reach_damp = 14
+local wound_hold_arm_speed = 18
+local wound_hold_arm_damp = 12
+local realPhysNum
+
+local wound_hold_arterial_priority_mul = 14
+local wound_hold_arteria_offset = Vector(2, -2.85, 0)
+local wound_hold_spineartery_offset = Vector(1.5, 0, 4)
+local wound_hold_larmartery_offset = Vector(0.5, 0, 1.5)
+local wound_hold_rarmartery_offset = Vector(0.5, 0, 1.5)
+local wound_hold_llegartery_offset = Vector(1, 0, 2.5)
+local wound_hold_rlegartery_offset = Vector(1, 0, 2.5)
+local wound_hold_larmstump_offset = Vector(2, 0, 2.5)
+local wound_hold_rarmstump_offset = Vector(2, 0, 2.5)
+local wound_hold_llegstump_offset = Vector(2.5, 0, 4)
+local wound_hold_rlegstump_offset = Vector(2.5, 0, 4)
+local stumpArteries = {
+	["ValveBiped.Bip01_L_Forearmartery"] = "larm",
+	["ValveBiped.Bip01_R_Forearmartery"] = "rarm",
+	["ValveBiped.Bip01_L_Calfartery"] = "lleg",
+	["ValveBiped.Bip01_R_Calfartery"] = "rleg"
+}
+
+local function setManualWoundHold(ply, org, active, wound, hands, useRight, arterial)
+	active = active and wound and true or false
+	org.manualHoldWound = active
+	org.manualHoldWoundTarget = active and wound or nil
+	org.manualHoldWoundHands = active and (hands or 0) or 0
+	org.manualHoldWoundUseRight = active and useRight or false
+	org.manualHoldWoundArterial = active and arterial or false
+
+	if ply._manualHoldWound ~= active then
+		ply._manualHoldWound = active
+		ply:SetNWBool("hg_hold_wound_manual", active)
+	end
+
+	local twoHanded = active and (hands or 0) >= 2
+	if ply._manualHoldWoundTwoHand ~= twoHanded then
+		ply._manualHoldWoundTwoHand = twoHanded
+		ply:SetNWBool("hg_hold_wound_twohand", twoHanded)
+	end
+
+	local rightHandBusy = active and useRight or false
+	if ply._manualHoldWoundRight ~= rightHandBusy then
+		ply._manualHoldWoundRight = rightHandBusy
+		ply:SetNWBool("hg_hold_wound_right", rightHandBusy)
+	end
+end
+
+local function getHoldWoundPos(ragdoll, wound)
+	if not wound then return end
+
+	local bone = ragdoll:LookupBone(wound[4])
+	if not bone then return end
+
+	local bonePos, boneAng = ragdoll:GetBonePosition(bone)
+	if not bonePos or not boneAng then return end
+
+	local pos = LocalToWorld(wound[2], wound[3], bonePos, boneAng)
+	local artery = wound[7]
+
+	if artery == "arteria" then
+		return pos + boneAng:Forward() * wound_hold_arteria_offset[1] + boneAng:Right() * wound_hold_arteria_offset[2] + boneAng:Up() * wound_hold_arteria_offset[3]
+	elseif artery == "spineartery" then
+		return pos + boneAng:Forward() * wound_hold_spineartery_offset[1] + boneAng:Right() * wound_hold_spineartery_offset[2] + boneAng:Up() * wound_hold_spineartery_offset[3]
+	elseif artery == "larmartery" then
+		return pos + boneAng:Forward() * wound_hold_larmartery_offset[1] + boneAng:Right() * wound_hold_larmartery_offset[2] + boneAng:Up() * wound_hold_larmartery_offset[3]
+	elseif artery == "rarmartery" then
+		return pos + boneAng:Forward() * wound_hold_rarmartery_offset[1] + boneAng:Right() * wound_hold_rarmartery_offset[2] + boneAng:Up() * wound_hold_rarmartery_offset[3]
+	elseif artery == "llegartery" then
+		return pos + boneAng:Forward() * wound_hold_llegartery_offset[1] + boneAng:Right() * wound_hold_llegartery_offset[2] + boneAng:Up() * wound_hold_llegartery_offset[3]
+	elseif artery == "rlegartery" then
+		return pos + boneAng:Forward() * wound_hold_rlegartery_offset[1] + boneAng:Right() * wound_hold_rlegartery_offset[2] + boneAng:Up() * wound_hold_rlegartery_offset[3]
+	elseif artery == "ValveBiped.Bip01_L_Forearmartery" then
+		return pos + boneAng:Forward() * wound_hold_larmstump_offset[1] + boneAng:Right() * wound_hold_larmstump_offset[2] + boneAng:Up() * wound_hold_larmstump_offset[3]
+	elseif artery == "ValveBiped.Bip01_R_Forearmartery" then
+		return pos + boneAng:Forward() * wound_hold_rarmstump_offset[1] + boneAng:Right() * wound_hold_rarmstump_offset[2] + boneAng:Up() * wound_hold_rarmstump_offset[3]
+	elseif artery == "ValveBiped.Bip01_L_Calfartery" then
+		return pos + boneAng:Forward() * wound_hold_llegstump_offset[1] + boneAng:Right() * wound_hold_llegstump_offset[2] + boneAng:Up() * wound_hold_llegstump_offset[3]
+	elseif artery == "ValveBiped.Bip01_R_Calfartery" then
+		return pos + boneAng:Forward() * wound_hold_rlegstump_offset[1] + boneAng:Right() * wound_hold_rlegstump_offset[2] + boneAng:Up() * wound_hold_rlegstump_offset[3]
+	end
+
+	return pos
+end
+
+local function isStumpArterialWound(wound)
+	return wound and stumpArteries[wound[7]] != nil
+end
+
+local function getHoldTarget(pos, phys, offset)
+	if not pos or not IsValid(phys) then return pos end
+
+	local dir = pos - phys:GetPos()
+	if dir:LengthSqr() <= 0.001 then return pos end
+
+	return pos - dir:GetNormalized() * offset
+end
+
+local function getWoundScore(ragdoll, spinePos, spineAng, wound, priorityMul)
+	local pos = getHoldWoundPos(ragdoll, wound)
+	if not pos then return -math.huge end
+
+	local dir = pos - spinePos
+	if dir:LengthSqr() <= 0.001 then return (wound[1] or 0) * (priorityMul or 1) end
+
+	local dot = dir:GetNormalized():Dot(spineAng:Forward())
+	return dot * 100 + (wound[1] or 0) * (priorityMul or 1), dot
+end
+
+local function chooseFrontWound(ragdoll, wounds, preferred, priorityMul)
+	if not IsValid(ragdoll) or not wounds or table.IsEmpty(wounds) then return preferred end
+
+	local spine = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 1))
+	if not IsValid(spine) then return preferred end
+
+	local spinePos = spine:GetPos()
+	local spineAng = spine:GetAngles()
+	local best, bestScore
+
+	for i, wound in pairs(wounds) do
+		local score, dot = getWoundScore(ragdoll, spinePos, spineAng, wound, priorityMul)
+		if dot and dot > -0.15 and (not bestScore or score > bestScore) then
+			best = wound
+			bestScore = score
+		end
+	end
+
+	if best then return best end
+
+	best = preferred
+	bestScore = preferred and select(1, getWoundScore(ragdoll, spinePos, spineAng, preferred, priorityMul)) or nil
+
+	for i, wound in pairs(wounds) do
+		local score = select(1, getWoundScore(ragdoll, spinePos, spineAng, wound, priorityMul))
+		if not bestScore or score > bestScore then
+			best = wound
+			bestScore = score
+		end
+	end
+
+	return best
+end
+
+local function getHoldWound(org, ragdoll)
+	if not org then return end
+
+	local wound = chooseFrontWound(ragdoll, org.wounds, org.holdWoundArterial and nil or org.holdWound, 1)
+	local arterial = chooseFrontWound(ragdoll, org.arterialwounds, org.holdWoundArterial and org.holdWound or nil, wound_hold_arterial_priority_mul)
+
+	if wound and arterial then
+		local spine = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 1))
+		if IsValid(spine) then
+			local spinePos = spine:GetPos()
+			local spineAng = spine:GetAngles()
+			local woundScore = select(1, getWoundScore(ragdoll, spinePos, spineAng, wound, 1))
+			local arterialScore = select(1, getWoundScore(ragdoll, spinePos, spineAng, arterial, wound_hold_arterial_priority_mul))
+			if arterialScore >= woundScore then
+				return arterial, true
+			end
+		end
+	end
+
+	return arterial and arterial or wound, arterial ~= nil
+end
+
 hg.cachedmodels = hg.cachedmodels or {}
 
-local function realPhysNum(ragdoll, physNumber)
+realPhysNum = function(ragdoll, physNumber)
 	local bone = defaultBones[physNumber]
 	local model = ragdoll:GetModel()
 	
@@ -108,6 +278,31 @@ hook.Add("HG_OnWakeOtrub", "OtrubCollapseEnd", function(ply)
 	end
 end)
 
+hook.Add("Player Think", "HG_ClearManualWoundHold", function(ply)
+	if IsValid(ply.FakeRagdoll) then return end
+
+	if ply._manualHoldWound then
+		ply._manualHoldWound = false
+		ply:SetNWBool("hg_hold_wound_manual", false)
+	end
+	if ply._manualHoldWoundTwoHand then
+		ply._manualHoldWoundTwoHand = false
+		ply:SetNWBool("hg_hold_wound_twohand", false)
+	end
+	if ply._manualHoldWoundRight then
+		ply._manualHoldWoundRight = false
+		ply:SetNWBool("hg_hold_wound_right", false)
+	end
+
+	if ply.organism then
+		ply.organism.manualHoldWound = false
+		ply.organism.manualHoldWoundTarget = nil
+		ply.organism.manualHoldWoundHands = 0
+		ply.organism.manualHoldWoundUseRight = false
+		ply.organism.manualHoldWoundArterial = false
+	end
+end)
+
 local function triggerOtrubCollapse(ply)
 	if not IsValid(ply) or not ply:IsPlayer() then return end
 	if ply.otrubCollapseStart and CurTime() - ply.otrubCollapseStart < 1.5 then return end
@@ -136,7 +331,7 @@ local hg_fake_stamina = CreateConVar("hg_fake_stamina", "1", FCVAR_ARCHIVE + FCV
 local util_TraceLine, util_TraceHull = util.TraceLine, util.TraceHull
 local game_GetWorld = game.GetWorld
 local ang, ang2, ang3 = Angle(0, 0, 0), Angle(0, 0, 0),  Angle(0, 0, 0)
-local spine, time, rhand, lhand
+local spine, time, rupper, lupper, rforearm, lforearm, rhand, lhand
 
 local height = Vector(0, 0, 72) --28 eye level if crouched
 local util_PointContents, bit_band, hook_Run = util.PointContents, bit.band, hook.Run
@@ -346,9 +541,54 @@ hook.Add("Think", "Fake", function()
 		end
 
 		spine = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,1))
+		rupper = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,2))
+		lupper = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,3))
+		lforearm = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,4))
 		rhand = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,7))
+		rforearm = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,6))
 		lhand = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,5))
 		ang = spine:GetAngles()
+		local holdWound, holdWoundArterial = getHoldWound(org, ragdoll)
+		local wantsManualHold = holdWound and org.canmove and hg.KeyDown(ply, IN_USE) and hg.KeyDown(ply, IN_JUMP)
+		local canHoldLeft = IsValid(lupper) and IsValid(lforearm) and IsValid(lhand) and not org.larmamputated
+		local canHoldRight = IsValid(rupper) and IsValid(rforearm) and IsValid(rhand) and not org.rarmamputated
+		local hasBothArms = canHoldLeft and canHoldRight
+		local canUseTwoHandHold = not IsValid(wep) or wep:GetClass() == "weapon_hands_sh"
+		local manualUseLeft = false
+		local manualUseRight = false
+
+		if wantsManualHold and hasBothArms then
+			if holdWoundArterial then
+				if canUseTwoHandHold then
+					manualUseLeft = canHoldLeft
+					manualUseRight = canHoldRight
+					if not manualUseLeft or not manualUseRight then
+						if isStumpArterialWound(holdWound) then
+							manualUseLeft = canHoldLeft
+							manualUseRight = canHoldRight
+						else
+							manualUseLeft = false
+							manualUseRight = false
+						end
+					end
+				elseif canHoldLeft then
+					manualUseLeft = true
+				elseif canHoldRight then
+					manualUseRight = true
+				end
+			elseif canUseTwoHandHold and canHoldLeft and canHoldRight then
+				manualUseLeft = true
+				manualUseRight = true
+			elseif canHoldLeft then
+				manualUseLeft = true
+			elseif canHoldRight then
+				manualUseRight = true
+			end
+		end
+
+		local manualHoldHands = (manualUseLeft and 1 or 0) + (manualUseRight and 1 or 0)
+		local manualHoldWound = wantsManualHold and manualHoldHands > 0
+		setManualWoundHold(ply, org, manualHoldWound, holdWound, manualHoldHands, manualUseRight, holdWoundArterial)
 
 		if org.alive and IsValid(spine) and ragdoll.otrubCollapseStart and (CurTime() - ragdoll.otrubCollapseStart) < 1.5 then
 			inmove = true
@@ -391,18 +631,18 @@ hook.Add("Think", "Fake", function()
 				shadowControl(ragdoll, 7, otrub_ss, nil, nil, nil, armHoldPos, otrub_maxspeed, otrub_maxspeeddamp)
 			end
 
-			if ply.organism.wounds and not table.IsEmpty(ply.organism.wounds) then
-				local wounds = ply.organism.wounds
-				local wound = wounds[table.maxn(wounds) - 1] or wounds[table.maxn(wounds)]
-				if wound and ragdoll:LookupBone(wound[4]) then
-					local wPos = LocalToWorld(wound[2], wound[3], ragdoll:GetBonePosition(ragdoll:LookupBone(wound[4])))
-					if not left_arm[wound[4]] then
-						shadowControl(ragdoll, 3, otrub_ss, nil, nil, nil, wPos - (wPos - lhand:GetPos()):GetNormalized() * 2, otrub_maxspeed, otrub_maxspeeddamp)
-						shadowControl(ragdoll, 5, otrub_ss, nil, nil, nil, wPos - (wPos - lhand:GetPos()):GetNormalized() * 2, otrub_maxspeed, otrub_maxspeeddamp)
+			if manualHoldWound then
+				local wPos = getHoldWoundPos(ragdoll, holdWound)
+				if wPos then
+					if manualUseLeft then
+						shadowControl(ragdoll, 3, otrub_ss, nil, nil, nil, getHoldTarget(wPos, lupper, wound_hold_upperarm_offset), wound_hold_arm_speed * strength, wound_hold_arm_damp * strength)
+						shadowControl(ragdoll, 4, otrub_ss, nil, nil, nil, getHoldTarget(wPos, lforearm, wound_hold_forearm_offset), wound_hold_reach_speed * strength, wound_hold_reach_damp * strength)
+						shadowControl(ragdoll, 5, otrub_ss, nil, nil, nil, getHoldTarget(wPos, lhand, wound_hold_hand_offset), wound_hold_reach_speed * strength, wound_hold_reach_damp * strength)
 					end
-					if not right_arm[wound[4]] then
-						shadowControl(ragdoll, 2, otrub_ss, nil, nil, nil, wPos - (wPos - rhand:GetPos()):GetNormalized() * 2, otrub_maxspeed, otrub_maxspeeddamp)
-						shadowControl(ragdoll, 7, otrub_ss, nil, nil, nil, wPos - (wPos - rhand:GetPos()):GetNormalized() * 2, otrub_maxspeed, otrub_maxspeeddamp)
+					if manualUseRight then
+						shadowControl(ragdoll, 2, otrub_ss, nil, nil, nil, getHoldTarget(wPos, rupper, wound_hold_upperarm_offset), wound_hold_arm_speed * strength, wound_hold_arm_damp * strength)
+						shadowControl(ragdoll, 6, otrub_ss, nil, nil, nil, getHoldTarget(wPos, rforearm, wound_hold_forearm_offset), wound_hold_reach_speed * strength, wound_hold_reach_damp * strength)
+						shadowControl(ragdoll, 7, otrub_ss, nil, nil, nil, getHoldTarget(wPos, rhand, wound_hold_hand_offset), wound_hold_reach_speed * strength, wound_hold_reach_damp * strength)
 					end
 				end
 			end
@@ -415,7 +655,7 @@ hook.Add("Think", "Fake", function()
 		local back = ply:KeyDown(IN_BACK)
 		time = CurTime()
 		
-		if ply.organism and ply.organism.wounds and not table.IsEmpty(ply.organism.wounds) and org.canmove and (ply.fakecd and (ply.fakecd + 1) > CurTime()) then
+		if manualHoldWound and org.canmove then
 			local tr = {}
 			tr.start = ragdoll:GetPos()
 			tr.endpos = ragdoll:GetPos() - vector_up * 60
@@ -423,29 +663,17 @@ hook.Add("Think", "Fake", function()
 			local tracehuy = util.TraceLine(tr)
 
 			if tracehuy.Hit then
-				local wounds = ply.organism.wounds
-				local wound = wounds[table.maxn(wounds) - 1] or wounds[table.maxn(wounds)]
-
-				if ragdoll:LookupBone(wound[4]) then
-					local pos, ang = LocalToWorld(wound[2], wound[3], ragdoll:GetBonePosition(ragdoll:LookupBone(wound[4])))
-					
-					if not ply:KeyDown(IN_ATTACK) and !left_arm[wound[4]] then
-						shadowControl(ragdoll, 3, 0.001, nil, nil, nil, spine:GetPos() + spine:GetAngles():Right() * -50, 25, 10)
-						shadowControl(ragdoll, 5, 0.001, nil, nil, nil, pos - (pos - lhand:GetPos()):GetNormalized() * 2, 100, 10)
+				local pos = getHoldWoundPos(ragdoll, holdWound)
+				if pos then
+					if manualUseLeft then
+						shadowControl(ragdoll, 3, 0.03, nil, nil, nil, getHoldTarget(pos, lupper, wound_hold_upperarm_offset), wound_hold_arm_speed, wound_hold_arm_damp)
+						shadowControl(ragdoll, 4, 0.03, nil, nil, nil, getHoldTarget(pos, lforearm, wound_hold_forearm_offset), wound_hold_reach_speed, wound_hold_reach_damp)
+						shadowControl(ragdoll, 5, 0.03, nil, nil, nil, getHoldTarget(pos, lhand, wound_hold_hand_offset), wound_hold_reach_speed, wound_hold_reach_damp)
 					end
-
-					if not ply:KeyDown(IN_ATTACK2) and !right_arm[wound[4]] then
-						shadowControl(ragdoll, 2, 0.001, nil, nil, nil,spine:GetPos() + spine:GetAngles():Right() * -50, 25, 10)
-						shadowControl(ragdoll, 7, 0.001, nil, nil, nil, pos - (pos - rhand:GetPos()):GetNormalized() * 2, 100, 10)
-					end
-
-					if not ply:KeyDown(IN_USE) then
-						shadowControl(ragdoll, 10, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,8)):GetPos(), 40, 10)
-						shadowControl(ragdoll, 1, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,8)):GetPos(), 00, 10)
-						shadowControl(ragdoll, 2, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,8)):GetPos(), 0, 10)
-						shadowControl(ragdoll, 3, 0.001, nil, nil, nil, ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll,8)):GetPos(), 20, 10)
-						shadowControl(ragdoll, 11, 0.001, nil, nil, nil, spine:GetPos() + spine:GetAngles():Forward() * 50, 30, 10)
-						shadowControl(ragdoll, 8, 0.001, nil, nil, nil, spine:GetPos() + spine:GetAngles():Forward() * 50, 30, 10)
+					if manualUseRight then
+						shadowControl(ragdoll, 2, 0.03, nil, nil, nil, getHoldTarget(pos, rupper, wound_hold_upperarm_offset), wound_hold_arm_speed, wound_hold_arm_damp)
+						shadowControl(ragdoll, 6, 0.03, nil, nil, nil, getHoldTarget(pos, rforearm, wound_hold_forearm_offset), wound_hold_reach_speed, wound_hold_reach_damp)
+						shadowControl(ragdoll, 7, 0.03, nil, nil, nil, getHoldTarget(pos, rhand, wound_hold_hand_offset), wound_hold_reach_speed, wound_hold_reach_damp)
 					end
 				end
 			end
@@ -453,7 +681,7 @@ hook.Add("Think", "Fake", function()
 		
 		if not wep.RagdollFunc then
 			local force = math.max(1 - org.larm / 1.3, 0)
-			if !IsValid(ragdoll.ConsLH) and (ply:KeyDown(IN_ATTACK) and !ishgweapon(wep)) or (((ishgweapon(wep) and (!wep:IsResting() or ply:KeyDown(IN_FORWARD) or ply:KeyDown(IN_BACK))) or wep.ismelee2) and (ply:KeyDown(IN_USE) or ply:KeyDown(IN_ATTACK2))) then// || ply:InVehicle() then
+			if not manualHoldWound and (!IsValid(ragdoll.ConsLH) and (ply:KeyDown(IN_ATTACK) and !ishgweapon(wep)) or (((ishgweapon(wep) and (!wep:IsResting() or ply:KeyDown(IN_FORWARD) or ply:KeyDown(IN_BACK))) or wep.ismelee2) and (ply:KeyDown(IN_USE) or ply:KeyDown(IN_ATTACK2)))) then// || ply:InVehicle() then
 				if org.canmove then
 					//if !ply:InVehicle() then
 						ang2:Set(angles)
@@ -568,7 +796,7 @@ hook.Add("Think", "Fake", function()
 
 			local force = math.max(1 - org.rarm / 1.3, 0)
 
-			if !IsValid(ragdoll.ConsRH) and ply:KeyDown(IN_ATTACK2) or ((ishgweapon(wep) or wep.ismelee2) and ply:KeyDown(IN_USE)) then// || ply:InVehicle() then
+			if (!IsValid(ragdoll.ConsRH) and ply:KeyDown(IN_ATTACK2) or ((ishgweapon(wep) or wep.ismelee2) and ply:KeyDown(IN_USE))) then// || ply:InVehicle() then
 				if org.canmove then
 					--if org.shock > 1 and not ply:KeyDown(IN_ATTACK2) then angles = spine:GetAngles() end
 					//if !ply:InVehicle() then

@@ -251,7 +251,7 @@ end)
 surface.CreateFont(
 	"BODYCAMFONT",
 	{
-		font = "Bahnschrift",
+		font = "Courier Prime",
 		size = ScreenScale(16),
 		italic = true,
 		weight = 1500

@@ -670,7 +670,7 @@ if CLIENT then
 	end
 
 	surface.CreateFont("AttachFONT", {
-		font = "Bahnschrift",
+		font = "Courier Prime",
 		size = ScreenScale(5),
 		extended = true,
 		weight = 500,

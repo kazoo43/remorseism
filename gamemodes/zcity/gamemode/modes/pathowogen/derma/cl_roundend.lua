@@ -13,7 +13,7 @@ surface.CreateFont("ZB_UWUEnd1", {
 })
 
 surface.CreateFont("ZB_UWUEnd2", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(10),
     extended = true,
     weight = 400,
@@ -29,7 +29,7 @@ surface.CreateFont("ZB_UWUEnd3", {
 })
 
 surface.CreateFont("ZB_UWUEnd4", {
-    font = "Bahnschrift",
+    font = "Courier Prime",
     size = ScreenScale(50),
     extended = true,
     weight = 400,

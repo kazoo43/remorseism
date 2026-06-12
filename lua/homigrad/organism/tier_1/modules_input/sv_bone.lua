@@ -29,44 +29,24 @@ local function damageBone(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ric
 end
 
 local huyasd = {
-	["spine1"] = "I don't feel anything below my hips.",
-	["spine2"] = "I cant't feel or move anything below my torso.",
-	["spine3"] = "I can't move at all. I can barely even breathe.",
-	["skull"] = "My head is aching.",
+	["spine1"] = "Your lower spine is broken.",
+	["spine2"] = "Your upper spine is broken.",
+	["spine3"] = "Your neck is broken.",
+	["skull"] = "Your skull is fractured.",
 }
 
-local broke_arm = {
-	"AAAAH OH GOD, IT'S BROKEN! MY ARM! IT'S BROKEN!",
-	"FUCK MY FUCKING ARM IS BROKEN!",
-	"NONONO MY ARM IS BENT ALL WRONG!",
-	"IT'S.. MY ARM.. SNAPPED- I HEARD IT SNAP!",
-	"MY ARM IS NOT SUPPOSED TO BEND IN HALF!",
+local broken_messages = {
+	["larm"] = "Your left arm is broken.",
+	["rarm"] = "Your right arm is broken.",
+	["lleg"] = "Your left leg is broken.",
+	["rleg"] = "Your right leg is broken.",
 }
 
-local dislocated_arm = {
-	"MY ARM- GOD, IT'S POPPED OUT OF THE SOCKET!",
-	"FUCK- THE SHOULDER'S JUST- HANGING LOOSE!",
-	"MY ARM..! IT'S DISLOCATED! I CAN SEE THE BULGE WHERE IT'S WRONG!",
-	"THE ARM'S JUST- DEAD WEIGHT- IT'S NOT ATTACHED RIGHT!",
-	"SHIT! I CAN FEEL THE BONE OUT OF PLACE!",
-}
-
-local broke_leg = {
-	"MY LEG- FUCK, IT'S BROKEN- I HEARD THE SNAP!",
-	"FUCK! THE SHIN'S SNAPPED CLEAN THROUGH!",
-	"THE KNEE'S WRONG- THE WHOLE LEG'S TWISTED WRONG!",
-	"MY LEG..! IT'S JUST- HANGING BY MUSCLE AND SKIN!",
-	"THE PAIN'S SHOOTING UP TO MY HIP- FUCK, IT'S BAD!",
-	"I CAN'T MOVE MY FOOT- THE ANKLE'S BROKEN TOO!",
-}
-
-local dislocated_leg = {
-	"MY LEG- FUCK, IT'S DISLOCATED AT THE KNEE!",
-	"I CAN SEE THE KNEECAP IN THE WRONG PLACE!",
-	"AGHH- THE HIP'S POPPED OUT- IT'S STUCK OUTWARD!",
-	"IT'S BENT BACKWARD- THE KNEE SHOULDN'T BEND THIS WAY!",
-	"FUCK! THE HIP'S DISLOCATED!",
-	"THE ANKLE'S TWISTED- BUT THE KNEE'S THE REAL PROBLEM!",
+local dislocated_messages = {
+	["larm"] = "Your left arm is dislocated.",
+	["rarm"] = "Your right arm is dislocated.",
+	["lleg"] = "Your left leg is dislocated.",
+	["rleg"] = "Your right leg is dislocated.",
 }
 
 local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
@@ -100,7 +80,7 @@ local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		org.immobilization = org.immobilization + dmg * 25
 		org.fearadd = org.fearadd + 0.5
 
-		--if org.isPly and !org[key.."amputated"] then org.owner:Notify(broke_leg[math.random(#broke_leg)], 1, "broke"..key, 1, nil, nil) end
+		if org.isPly and !org[key.."amputated"] then org.owner:Notify(broken_messages[key], true, "broke" .. key, 1) end
 
 		timer.Simple(0, function() hg.LightStunPlayer(org.owner,2) end)
 		org.owner:EmitSound("bones/bone"..math.random(8)..".mp3", 75, 100, 1, CHAN_AUTO)
@@ -114,7 +94,7 @@ local function legs(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		org.immobilization = org.immobilization + dmg * 10
 		org.fearadd = org.fearadd + 0.5
 
-		--if org.isPly and !org[key.."amputated"] then org.owner:Notify(dislocated_leg[math.random(#dislocated_leg)], 1, "dislocated"..key, 1, nil, nil) end
+		if org.isPly and !org[key.."amputated"] then org.owner:Notify(dislocated_messages[key], true, "dislocated" .. key, 1) end
 
 		timer.Simple(0, function() hg.LightStunPlayer(org.owner,2) end)
 		org.owner:EmitSound("bones/bone"..math.random(8)..".mp3", 75, 100, 1, CHAN_AUTO)
@@ -156,7 +136,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		org.owner:AddNaturalAdrenaline(1)
 		org.fearadd = org.fearadd + 0.5
 
-		--if org.isPly and !org[key.."amputated"] then org.owner:Notify(broke_arm[math.random(#broke_arm)], 1, "broke"..key, 1, nil, nil) end
+		if org.isPly and !org[key.."amputated"] then org.owner:Notify(broken_messages[key], true, "broke" .. key, 1) end
 
 		--timer.Simple(0, function() hg.LightStunPlayer(org.owner,1) end)
 		org.owner:EmitSound("bones/bone"..math.random(8)..".mp3", 75, 100, 1, CHAN_AUTO)
@@ -169,7 +149,7 @@ local function arms(org, bone, dmg, dmgInfo, key, boneindex, dir, hit, ricochet)
 		org.owner:AddNaturalAdrenaline(0.5)
 		org.fearadd = org.fearadd + 0.5
 
-		--if org.isPly and !org[key.."amputated"] then org.owner:Notify(dislocated_arm[math.random(#dislocated_arm)], 1, "dislocated"..key, 1, nil, nil) end
+		if org.isPly and !org[key.."amputated"] then org.owner:Notify(dislocated_messages[key], true, "dislocated" .. key, 1) end
 
 		--timer.Simple(0, function() hg.LightStunPlayer(org.owner,1) end)
 		org.owner:EmitSound("bones/bone"..math.random(8)..".mp3", 75, 100, 1, CHAN_AUTO)
@@ -229,15 +209,11 @@ local function spine(org, bone, dmg, dmgInfo, number, boneindex, dir, hit, ricoc
 end
 
 local jaw_broken_msg = {
-	"I FEEL PIECES OF MY JAW... FUCK-FUCK-FUCK",
-	"MY JAW IS FUCKING FLOATING IN MY HEAD",
-	"MY JAW... OHH IT HURTS REALLY BAD... I FEEL PIECES OF IT MOVING",
+	"Your jaw is broken.",
 }
 
 local jaw_dislocated_msg = {
-	"I CAN'T CLOSE MY JAW... IT FUCKING HURTS",
-	"MY JAW... ITS JUST STUCK THERE-- OH ITS PAINING",
-	"I CANT MOVE MY JAW AT ALL... AND ITS REALLY ACHING",
+	"Your jaw is dislocated.",
 	//"I CANT EVEN SPEAK, I NEED TO PUNCH IT BACK IN PLACE... BUT IT HURTS REAL BAD",
 }
 
@@ -286,7 +262,7 @@ hook.Add("CanListenOthers", "CantHaveShitInDetroit", function(output, input, isC
 	if IsValid(output) and (output.organism.jaw == 1 or output.organism.jawdislocation) and output:Alive() and (output:IsSpeaking() or isChat) then
 		-- and !isChat and output:IsSpeaking()
 		output.organism.painadd = output.organism.painadd + 2 * (output:IsSpeaking() and 1 or (isChat and 5 or 0))
-		output:Notify("My jaw is really hurting when I speak.", 60, "painfromjawspeak", 0, nil, Color(255, 210, 210))
+		output:Notify("Your jaw hurts when you speak.", 60, "painfromjawspeak", 0, nil, Color(255, 210, 210))
 	end
 end)
 

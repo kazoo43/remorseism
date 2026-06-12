@@ -1311,6 +1311,10 @@ local IsValid = IsValid
 	function hg.CanUseLeftHand(ply)
 		local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
 
+		if IsValid(ply.FakeRagdoll) and ply:GetNWBool("hg_hold_wound_manual", false) then
+			return false
+		end
+
 		if ent.organism and ent.organism.larmamputated then
 			return false
 		end
@@ -1334,6 +1338,10 @@ local IsValid = IsValid
 
 	function hg.CanUseRightHand(ply)
 		local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
+
+		if IsValid(ply.FakeRagdoll) and ply:GetNWBool("hg_hold_wound_right", false) then
+			return false
+		end
 
 		if ent.organism and ent.organism.rarmamputated then
 			return false

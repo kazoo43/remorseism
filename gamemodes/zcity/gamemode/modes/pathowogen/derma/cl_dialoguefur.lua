@@ -7,7 +7,7 @@ local text = "There's an unknown pathowogen virus ravaging your current area. Yo
 local COMMANDER = Material("zbattle/FURMANDER.png", "smooth")
 
 surface.CreateFont("ZB_PathowogenDialogue", {
-	font = "Bahnschrift",
+	font = "Courier Prime",
 	size = ScreenScale(6),
 	extended = true,
 	weight = 400,
@@ -16,7 +16,7 @@ surface.CreateFont("ZB_PathowogenDialogue", {
 })
 
 surface.CreateFont("ZB_PathowogenDialogueTitle", {
-	font = "Bahnschrift",
+	font = "Courier Prime",
 	size = ScreenScale(10),
 	extended = true,
 	weight = 400,

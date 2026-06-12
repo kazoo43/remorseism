@@ -8,54 +8,12 @@ local allowedchars = {
 }
 
 local audible_pain = {
-	"AAAAAGH..FUCK.. IT HURTS.",
-	"I CAN'T TAKE THIS ANYMORE!",
-    "Make it STOP make it STOP MAKE IT STOP",
-    "Why won't IT STOP",
-    "Make me unconscious. PLEASE",
-    "Why was I born to feel this why...",
-    "I'd do anything for it to stop... ANYTHING.",
-    "This isn't living this is being TORTURED",
-    "I don't care anymore just STOP the PAIN",
-    "Nothing matters EXCEPT MAKING IT STOP...",
-    "Every second is an eternity of FIRE.",
-    "DEATH WOULD BE MERCY NOW...",
-    "Just one moment without the pain..",
-	"I WISH I HAD SOME PAINKILLERS NOW. FUCK.",
+	"You are experiencing excruciating pain.",
+	"You are in severe pain."
 }
 
 local sharp_pain = {
-	"AAAHH",
-	"AAAH",
-	"AAaaAH",
-	"AAaaAH",
-	"AAaaAAAGH",
-	"AAaaAH",
-	"AAaAaaH",
-	"AAAAAaaH",
-	"AAaaAHHHH",
-	"AAaAA",
-	"AAAAAa",
-	"AAAAaAAAaaaaghh",
-	"AAAaaAa",
-	"AaaAAaghf",
-	"aaAaaAaff",
-	"aaahhh",
-	"AAAaaGHHH",
-	"AAAaaAAHH",
-	"AAAaaAAAAAaGHHHH",
-	"AAAaaAAAAAaGHAAAHHH",
-	"AAAaaAAAAAaGHHAAAAAAHH",
-	"AAAaaAAAAAaGHHHH",
-	"AAAaaAAAaaAAAaGHHHH",
-	"AAAaaAAAaaAAAaAAAAAAAGHHHH",
-	"AAAaaAAAAAaGHHHH",
-	"AAAaaAAAAAAAAAHHH",
-	"AAAaaAAAAAaGHAaaaHH",
-	"AAAaaAAAAAaAaaaaaAAAAHH",
-	"AAAaaAAAAAaAAAAAAAADGHHHH",
-	"AAAaaAAAaaAAAaAAAAAAAAAAAAGGGGGGAGHHHH",
-	"AAAaaAAAaaAAAaAAAAAAAAAAAAAAAAAAH",
+	"You are in agony."
 }
 
 hg.sharp_pain = sharp_pain
@@ -116,17 +74,9 @@ local is_aimed_at_phrases = {
 }
 
 local near_death_poetic = {
-	"Trying to stand... but I just can't...",
-	"Breathing's just shallow sips of nothing...",
-	"Can't tell if my eyes are open or not anymore...",
-	"Last thing I'll taste is my own blood and copper.",
-	"Eyes keep sliding off things.",
-	"Can't remember how standing works.",
-	"Everything echoes inside my skull.",
-	"Blinking takes too long to come back.",
-	"Fingers won't close around anything.",
-	"Lungs refuse to be full.",
-	"Regrets are pointless now.",
+	"You are losing blood.",
+	"Your condition is critical.",
+	"You are close to blacking out.",
 }
 
 local near_death_positive = {
@@ -146,23 +96,19 @@ local near_death_positive = {
 	"This isn't how I pictured it.",
 }
 
-local broken_limb = {
-	"FUCK. FUCK. ITS DEFINITELY BROKEN!",
-	"I CAN FEEL THE BONE PIECES MOVING!",
-	"IT'S FUCKING BROKEN. I THINK..",
-	"It hurts just thinking about it. Definitely broken.",
-	"I don't think it should bend here.",
-	"Oh fuck. It is snapped.",
-	"I don't see any open fracture, but I feel like I broke something",
-}
+local function get_broken_limb_message(org)
+	if org.rarm == 1 then return "Your right arm is broken." end
+	if org.larm == 1 then return "Your left arm is broken." end
+	if org.rleg == 1 then return "Your right leg is broken." end
+	if org.lleg == 1 then return "Your left leg is broken." end
+end
 
-local dislocated_limb = {
-	"Yeah that shouldn't be bending like that.",
-	"I have to get this bone back in.",
-	"No... I have to move it back in place.",
-	"It just hurts so much there. I might need a check up.",
-	"My limb is out of place.",
-}
+local function get_dislocated_limb_message(org)
+	if org.rarmdislocation or org.rarm == 0.5 then return "Your right arm is dislocated." end
+	if org.larmdislocation or org.larm == 0.5 then return "Your left arm is dislocated." end
+	if org.rlegdislocation or org.rleg == 0.5 then return "Your right leg is dislocated." end
+	if org.llegdislocation or org.lleg == 0.5 then return "Your left leg is dislocated." end
+end
 
 local hungry_a_bit = {
     "Mgh, I'm hungry...",
@@ -178,28 +124,14 @@ local very_hungry = {
 }
 
 local after_unconscious = {
-    "What happened? It hurts...",
-	"Where am I? Why does it hurt...",
-	"I-I thought I was going to die...",
-	"My head... What happened?",
-	"Did I almost die a second ago?",
-	"It felt like I died.",
-	"The heavens didn't take me?",
-	"Ohh-fuck... my head is aching...",
-	"Oh it's gonna be hard to get up right now... but I have to...",
-	"I don't recognize this place at all... or do I?",
-	"I don't want to experience this EVER AGAIN!",
+    "You are awake.",
+	"You regain consciousness.",
+	"You wake up.",
 }
 
 local slight_braindamage_phraselist = {
-	"I don't understand...",
-	"It doesn't make sense...",
-	"Where am I?",
-	"Huh? What is this..?",
-	"I don't know what is happening...",
-	"Hello?",
-	"Ughhh ohhhh...      huh...",
-	"What... is happening?",
+	"Reality becomes a myth.",
+	"You suffer a traumatic brain injury.",
 }
 
 local braindamage_phraselist = {
@@ -321,6 +253,93 @@ function IsAimedAt(ply)
     return ply.aimed_at or 0
 end
 
+local function pick_message(org, list, key)
+	if not istable(list) or #list == 0 then return "" end
+
+	local index = math.random(#list)
+	local last = org[key]
+
+	if #list > 1 and list[index] == last then
+		index = index % #list + 1
+	end
+
+	local msg = list[index]
+	org[key] = msg
+
+	return msg
+end
+
+local function reset_pain_message_state(org)
+	org.pain_message_state = nil
+	org.pain_message_locked = nil
+end
+
+local function get_pain_message_pool()
+	local pool = {}
+
+	for _, msg in ipairs(audible_pain) do
+		pool[#pool + 1] = msg
+	end
+
+	for _, msg in ipairs(sharp_pain) do
+		local exists = false
+
+		for _, old in ipairs(pool) do
+			if old == msg then
+				exists = true
+				break
+			end
+		end
+
+		if not exists then
+			pool[#pool + 1] = msg
+		end
+	end
+
+	return pool
+end
+
+local function pick_pain_message(org)
+	local list = get_pain_message_pool()
+	if #list == 0 then return "" end
+
+	if org.pain_message_locked then return "" end
+
+	local state = org.pain_message_state
+
+	if not istable(state) or state.count != #list then
+		state = {
+			index = 1,
+			repeats = 0,
+			count = #list,
+			exhausted = false
+		}
+
+		org.pain_message_state = state
+	end
+
+	if state.exhausted then
+		org.pain_message_locked = true
+		return ""
+	end
+
+	local msg = list[state.index]
+
+	state.repeats = state.repeats + 1
+
+	if state.repeats >= 2 then
+		state.repeats = 0
+		state.index = state.index + 1
+
+		if state.index > #list then
+			state.exhausted = true
+			org.pain_message_locked = true
+		end
+	end
+
+	return msg
+end
+
 local function get_status_message(ply)
 	if not IsValid(ply) then
 		if CLIENT then
@@ -346,12 +365,18 @@ local function get_status_message(ply)
 	local hungry = org.hungry
 	local broken_dislocated = org.just_damaged_bone and ((org.just_damaged_bone + 3 - CurTime()) < -3)
 
+	if pain < 30 then
+		reset_pain_message_state(org)
+	end
+
 	if broken_dislocated and org.just_damaged_bone then
 		org.just_damaged_bone = nil
 	end
 	
-	local broken_notify = (org.rarm == 1) or (org.larm == 1) or (org.rleg == 1) or (org.lleg == 1)
-	local dislocated_notify = (org.rarm == 0.5) or (org.larm == 0.5) or (org.rleg == 0.5) or (org.lleg == 0.5)
+	local broken_limb_message = get_broken_limb_message(org)
+	local dislocated_limb_message = get_dislocated_limb_message(org)
+	local broken_notify = broken_limb_message != nil
+	local dislocated_notify = dislocated_limb_message != nil
 	local after_unconscious_notify = org.after_otrub
 
 	if not isnumber(pain) then return "" end
@@ -372,11 +397,11 @@ local function get_status_message(ply)
 
 	if (blood < 3100) or (pain > 75) or (broken_dislocated) or (broken_notify) or (dislocated_notify) then
 		if pain > 75 and (broken_dislocated) then
-			most_wanted_phraselist = math.random(2) == 1 and audible_pain or (broken_notify and broken_limb or dislocated_limb)
+			most_wanted_phraselist = math.random(2) == 1 and audible_pain or {broken_notify and broken_limb_message or dislocated_limb_message}
 		elseif pain > 75 then
 			most_wanted_phraselist = audible_pain
 		elseif broken_dislocated then
-			most_wanted_phraselist = (broken_notify and broken_limb or dislocated_limb)
+			most_wanted_phraselist = {broken_notify and broken_limb_message or dislocated_limb_message}
 		end
 
 		if pain > 100 then
@@ -384,8 +409,8 @@ local function get_status_message(ply)
 		end
 
 		if not most_wanted_phraselist then
-			if (broken_dislocated_notify) and (blood < 3100) then
-				most_wanted_phraselist = blood < 2900 and (near_death_poetic) or (math.random(2) == 1 and (broken_notify and broken_limb or dislocated_limb) or near_death_poetic)
+			if (broken_notify or dislocated_notify) and (blood < 3100) then
+				most_wanted_phraselist = blood < 2900 and (near_death_poetic) or (math.random(2) == 1 and {broken_notify and broken_limb_message or dislocated_limb_message} or near_death_poetic)
 			--elseif(broken_dislocated_notify)then
 				--most_wanted_phraselist = (broken_notify and broken_limb or dislocated_limb)
 			elseif(blood < 3100)then
@@ -409,7 +434,13 @@ local function get_status_message(ply)
 	end
 	
 	if most_wanted_phraselist then
-		str = most_wanted_phraselist[math.random(#most_wanted_phraselist)]
+		if most_wanted_phraselist == sharp_pain then
+			str = pick_pain_message(org)
+		elseif most_wanted_phraselist == audible_pain then
+			str = pick_pain_message(org)
+		else
+			str = pick_message(org, most_wanted_phraselist, "last_status_message")
+		end
 
 		return str
 	else
@@ -442,7 +473,7 @@ function hg.get_phraselist(ply, type)
 
 	local needed_list = allowedlist_types[type]
 
-	local str = needed_list[math.random(#needed_list)]
+	local str = pick_message(org, needed_list, "last_typed_phraselist")
 	return str
 end
 
@@ -450,4 +481,26 @@ function hg.get_status_message(ply)
 	local txt = get_status_message(ply)
 
 	return txt
+end
+
+function hg.get_status_message_notify_key(ply)
+	if not IsValid(ply) or not ply.organism then return "phrase" end
+
+	local org = ply.organism
+
+	if org.brain > 0.1 then return "phrase_brain" end
+	if org.pain > 75 then return "phrase_pain" end
+
+	return "phrase"
+end
+
+function hg.get_status_message_notify_delay(ply)
+	if not IsValid(ply) or not ply.organism then return 1 end
+
+	local org = ply.organism
+
+	if org.brain > 0.1 then return 2.5 end
+	if org.pain > 75 then return 4 end
+
+	return 1
 end

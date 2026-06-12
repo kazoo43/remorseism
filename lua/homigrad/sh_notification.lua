@@ -97,9 +97,9 @@ if CLIENT then
 	})
 
 	surface.CreateFont("HuyFont", {
-		font = "BudgetLabel",
+		font = "Courier Prime",
 		extended = true,
-		size = ScreenScale(9),
+		size = ScreenScale(12),
 		weight = 0,
 		blursize = 0,
 		scanlines = 0,
@@ -110,9 +110,9 @@ if CLIENT then
 	})
 
 	surface.CreateFont("SmallHuyFont", {
-		font = "BudgetLabel",
+		font = "Courier Prime",
 		extended = true,
-		size = ScreenScale(7),
+		size = ScreenScale(12),
 		weight = 0,
 		blursize = 0,
 		scanlines = 0,
@@ -146,7 +146,12 @@ if CLIENT then
 		hg.notifications = {}
 	end)
 
-	local defaultShowTimer = 3
+	local defaultShowTimer = 1.2
+	local notificationTypeSpeed = 0.038
+	local notificationSlowMul = 2
+	local notificationWaitDiv = 4
+	local notificationMinWait = 0.3
+	local notificationMaxWait = 1
 
 	local function CreateNotification(msg, showTimer, clr)
 		if hg_furcity:GetBool() or lply.PlayerClassName == "furry" then
@@ -272,10 +277,10 @@ if CLIENT then
 		if tbl and istable(tbl) and not table.IsEmpty(tbl) then
 			local msg, time, timeshow, clr = tbl[1], tbl[2], tbl[3], tbl[4]
 
-			local mul = ((org.brain > 0.1 or org.pulse < 50) and 3 or 1)// * (org.fear > 0 and math.max(1 - org.fear, 0.6) or 1)
-			local time_one_symbol = 0.06 * mul//(lply.organism and lply.organism.fear >= 0.5 and 0.5 or 1)
+			local mul = ((org.brain > 0.1 or org.pulse < 50) and notificationSlowMul or 1)// * (org.fear > 0 and math.max(1 - org.fear, 0.6) or 1)
+			local time_one_symbol = notificationTypeSpeed * mul//(lply.organism and lply.organism.fear >= 0.5 and 0.5 or 1)
 			local time_to_read = (utf8.len(msg) * time_one_symbol)
-			local wait = math.Clamp(time_to_read / 3 * math.Clamp(1 - #hg.notifications / 1, 0.25, 1), 1, 4) + timeshow
+			local wait = math.Clamp(time_to_read / notificationWaitDiv * math.Clamp(1 - #hg.notifications / 1, 0.25, 1), notificationMinWait, notificationMaxWait) + timeshow
 
 			if (time + time_to_read + wait > time_spent) then
 				local part = math.min(1 - (time + time_to_read - time_spent) / time_to_read, 1)

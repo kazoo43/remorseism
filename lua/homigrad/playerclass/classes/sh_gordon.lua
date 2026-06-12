@@ -357,7 +357,7 @@ if CLIENT then
     local armorlerp = 0
 
     surface.CreateFont("HEVFontDefault",{
-        font = "Bahnschrift",
+        font = "Courier Prime",
         extended = true,
         size = ScreenScale(24),
         weight = 500,
@@ -367,7 +367,7 @@ if CLIENT then
     })
 
     surface.CreateFont("HEVFontSmall",{
-        font = "Bahnschrift",
+        font = "Courier Prime",
         extended = true,
         size = ScreenScale(7.5),
         weight = 1500,
@@ -377,7 +377,7 @@ if CLIENT then
     })
 
     surface.CreateFont("HEVFontSmallBG",{
-        font = "Bahnschrift",
+        font = "Courier Prime",
         extended = true,
         size = ScreenScale(7.5),
         weight = 500,
@@ -387,7 +387,7 @@ if CLIENT then
     })
 
     surface.CreateFont("HEVFontDefaultBG",{
-        font = "Bahnschrift",
+        font = "Courier Prime",
         extended = true,
         size = ScreenScale(24.5),
         weight = 1500,

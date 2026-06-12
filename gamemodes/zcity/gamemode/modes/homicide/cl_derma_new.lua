@@ -33,7 +33,7 @@ local PANEL = {}
 local sw, sh = ScrW(), ScrH()
 
 surface.CreateFont("ZB_TraitorSelectionFont", {
-	font = "Bahnschrift",
+	font = "Courier Prime",
 	size = ScreenScale(6),
 	extended = true,
 	weight = 400,
