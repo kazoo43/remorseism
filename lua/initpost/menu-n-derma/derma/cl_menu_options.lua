@@ -310,6 +310,39 @@ local function InfoGetPlayerStat(ply, key)
     return 0
 end
 
+local function InfoRequestStoredStat(ply, key)
+    if not IsValid(ply) then return end
+    net.Start("get_svPData")
+        net.WriteEntity(ply)
+        net.WriteString(key)
+    net.SendToServer()
+end
+
+local function InfoRefreshLocalRankData()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+
+    net.Start("zb_xp_get")
+        net.WriteEntity(ply)
+    net.SendToServer()
+
+    for _, statData in ipairs(info_stat_rows) do
+        InfoRequestStoredStat(ply, statData[2])
+    end
+
+    if hg and hg.achievements and hg.achievements.LoadAchievements then
+        hg.achievements.LoadAchievements()
+    end
+end
+
+hook.Add("RoundInfoCalled", "InfoRankRoundRefresh", function()
+    timer.Simple(0, function()
+        if zb and zb.ROUND_STATE == 3 then
+            InfoRefreshLocalRankData()
+        end
+    end)
+end)
+
 local function SettingsCreateCategoryButton(pParent, strTitle, categoryKey)
     local id = #settings_category_buttons + 1
     settings_category_buttons[id] = vgui.Create("DLabel", pParent)
@@ -970,9 +1003,7 @@ function InfoRefreshContent()
     local contentHeight = info_content_panel:GetTall()
 
     if sectionKey == "rank" then
-        if hg and hg.achievements and hg.achievements.LoadAchievements then
-            hg.achievements.LoadAchievements()
-        end
+        InfoRefreshLocalRankData()
 
         local holder = vgui.Create("DPanel", info_content_panel)
         holder:Dock(FILL)
