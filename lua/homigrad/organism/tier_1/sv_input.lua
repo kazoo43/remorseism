@@ -14,6 +14,8 @@ local head_otrub_chance_mul = 1.25
 local head_otrub_max_chance = 0.35
 local head_consciousness_mul = 28
 local head_otrub_consciousness_cap = 0.04
+local player_limb_gib_threshold = 160
+local player_head_gib_threshold = 175
 local function Trace_Bullet(box, hit, ricochet, org, organs, dmg, dmgInfo, dir)
 	dmg = dmgInfo:GetDamage() / 25
 	local organ = box[6] and organs[box[6]][box[7]]
@@ -953,7 +955,10 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	org.dmgstack[hitgroup][3] = (org.dmgstack[hitgroup][3] or 0) + damageStack / 500
 
 	local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(bone))
-	local hitgroup_max = 100--hitgroup == HITGROUP_HEAD and 150 or 30
+	local hitgroup_max = 100
+	if org.isPly then
+		hitgroup_max = hitgroup == HITGROUP_HEAD and player_head_gib_threshold or hitgrouptolimb[hitgroup] and player_limb_gib_threshold or hitgroup_max
+	end
 	local instant = org.dmgstack[hitgroup][1] > hitgroup_max
 	--print(damageStack, org.dmgstack[hitgroup][1], org.dmgstack[hitgroup][3])
 	local blast = dmgInfo:IsDamageType(DMG_BLAST)

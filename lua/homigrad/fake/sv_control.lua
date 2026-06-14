@@ -235,9 +235,24 @@ end
 
 hg.realPhysNum = realPhysNum
 local oldtime
+local function isFloppyPhys(ragdoll, physNumber, alreadyReal)
+	if not IsValid(ragdoll) or not ragdoll.hg_floppy_bones then return false end
+
+	local real = alreadyReal and physNumber or (realPhysNum(ragdoll, physNumber) or 0)
+	local bone = ragdoll:TranslatePhysBoneToBone(real)
+	if bone < 0 then return false end
+
+	return ragdoll.hg_floppy_bones[ragdoll:GetBoneName(bone)] == true
+end
+
 function hg.ShadowControl(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
 	physNumber = realPhysNum(ragdoll, physNumber) or 0
 	local phys = ragdoll:GetPhysicsObjectNum(physNumber)
+	if not IsValid(phys) then return end
+	if isFloppyPhys(ragdoll, physNumber, true) then
+		phys:Wake()
+		return false
+	end
 
 	shadowparams.secondstoarrive = ss
 	shadowparams.angle = ang
@@ -404,6 +419,19 @@ hook.Add("Think", "Fake", function()
 
 		local org = ply.organism
 		local wep = ply:GetActiveWeapon()
+		local floppyBones = ragdoll.hg_floppy_bones or org.fake_floppy_bones
+		local leftArmFloppy = floppyBones and (floppyBones["ValveBiped.Bip01_L_UpperArm"] or floppyBones["ValveBiped.Bip01_L_Forearm"])
+		local rightArmFloppy = floppyBones and (floppyBones["ValveBiped.Bip01_R_UpperArm"] or floppyBones["ValveBiped.Bip01_R_Forearm"])
+
+		if leftArmFloppy and IsValid(ragdoll.ConsLH) then
+			ragdoll.ConsLH:Remove()
+			ragdoll.ConsLH = nil
+		end
+
+		if rightArmFloppy and IsValid(ragdoll.ConsRH) then
+			ragdoll.ConsRH:Remove()
+			ragdoll.ConsRH = nil
+		end
 
 		local tr = {}
 		tr.start = ply:GetPos()
@@ -460,7 +488,9 @@ hook.Add("Think", "Fake", function()
 							end
 						else
 							ply.jumpedfake = nil
-							physobj:ComputeShadowControl(p)
+							if not isFloppyPhys(ragdoll, i, true) then
+								physobj:ComputeShadowControl(p)
+							end
 						end
 					end
 				end

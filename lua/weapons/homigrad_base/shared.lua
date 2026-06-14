@@ -307,13 +307,13 @@ function SWEP:IsZoom()
 		-- and owner.posture ~= 1 and owner.posture ~= 3-- and (not IsValid(owner.FakeRagdoll) or self:KeyDown(IN_JUMP))
 end
 
-function SWEP:CanUse()
+function SWEP:CanUse(ignoreSprint)
     local owner = self:GetOwner()
 	if not IsValid(owner) then return true end
     if owner:IsNPC() then return true end
 	if owner:IsPlayer() and owner:GetNWBool("hg_hold_wound_twohand", false) then return false end
 	if owner.organism and owner.organism.rarmamputated and !self:IsPistolHoldType() then return false end
-	return not (self.reload or self.deploy or (owner:IsPlayer() and (self:IsSprinting() or (owner.organism and owner.organism.otrub))))
+	return not (self.reload or self.deploy or (owner:IsPlayer() and ((!ignoreSprint and self:IsSprinting()) or (owner.organism and owner.organism.otrub))))
 end
 
 function SWEP:IsSprinting()
@@ -483,7 +483,7 @@ function SWEP:Shoot(override)
 	if owner:IsNPC() then self.drawBullet = true end
 
 	if !override and !self:CanPrimaryAttack() then return false end
-	if !override and !self:CanUse() then return false end
+	if !override and !self:CanUse(true) then return false end
 	if CLIENT and owner != LocalPlayer() and !override then return false end
 
 	local primary = self.Primary

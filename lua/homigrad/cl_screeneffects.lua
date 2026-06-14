@@ -255,6 +255,14 @@ local consciousnessTypeBeatVolume = 0.18
 local dying2Volume = 0.4
 local painBeatOverlayPath = "sound/rem_pain.mp3"
 local painBeatOverlayVolumeMul = 1.25
+local PainStationLoading = false
+local PainStationOverlayLoading = false
+local AssimilationStationLoading = false
+local BrainTraumaStationLoading = false
+local TinnitusLoading = false
+local NoiseStationLoading = false
+local NoiseStation2Loading = false
+local NoiseStation2DyingLoading = false
 
 local function stopthings()
 	PainLerp = 0
@@ -265,11 +273,19 @@ local function stopthings()
 	consciousnessLerp = 1
 
 	lply.tinnitus = 0
+	PainStationLoading = false
+	PainStationOverlayLoading = false
+	AssimilationStationLoading = false
+	BrainTraumaStationLoading = false
+	TinnitusLoading = false
+	NoiseStationLoading = false
+	NoiseStation2Loading = false
+	NoiseStation2DyingLoading = false
 	
-	--[[if IsValid(PainStation) then
+	if IsValid(PainStation) then
 		PainStation:Stop()
 		PainStation = nil
-	end--]]
+	end
 
 	if IsValid(NoiseStation) then
 		NoiseStation:Stop()
@@ -392,8 +408,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		//ViewPunch2(Angle(-amt * 1, amt2 * 1,0))
 	end
 
-	if !IsValid(PainStation) or PainStation:GetState() != GMOD_CHANNEL_PLAYING then
+	if (!IsValid(PainStation) or PainStation:GetState() != GMOD_CHANNEL_PLAYING) and not PainStationLoading then
+		PainStationLoading = true
 		sound.PlayFile("sound/zbattle/pain_beat.ogg", "noblock noplay", function(station)
+			PainStationLoading = false
 			if IsValid(station) then
 				station:SetVolume(0)
 				station:Play()
@@ -404,8 +422,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end)
 	end
 
-	if !IsValid(PainStationOverlay) or PainStationOverlay:GetState() != GMOD_CHANNEL_PLAYING then
+	if (!IsValid(PainStationOverlay) or PainStationOverlay:GetState() != GMOD_CHANNEL_PLAYING) and not PainStationOverlayLoading then
+		PainStationOverlayLoading = true
 		sound.PlayFile(painBeatOverlayPath, "noblock noplay", function(station)
+			PainStationOverlayLoading = false
 			if IsValid(station) then
 				station:SetVolume(0)
 				station:Play()
@@ -460,8 +480,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		assimilationMat:SetFloat("$c1_y", val)
 		assimilationMat:SetFloat("$c1_x", val2 - 0.5)
 
-		if !IsValid(AssimilationStation) or AssimilationStation:GetState() != GMOD_CHANNEL_PLAYING then
+		if (!IsValid(AssimilationStation) or AssimilationStation:GetState() != GMOD_CHANNEL_PLAYING) and not AssimilationStationLoading then
+			AssimilationStationLoading = true
 			sound.PlayFile("sound/zbattle/furry/conversion/assimilation_noise3.ogg", "noblock noplay", function(station, err)
+				AssimilationStationLoading = false
 				if IsValid(station) then
 					station:SetVolume(0)
 					station:Play()
@@ -573,13 +595,19 @@ hook.Add("Post Post Processing", "ItHurts", function()
 			end
 		end
 	
-		if !IsValid(BrainTraumaStation) or choosera != chooser or BrainTraumaStation:GetState() != GMOD_CHANNEL_PLAYING then
+		if choosera != chooser then
+			BrainTraumaStationLoading = false
+		end
+
+		if (!IsValid(BrainTraumaStation) or choosera != chooser or BrainTraumaStation:GetState() != GMOD_CHANNEL_PLAYING) and not BrainTraumaStationLoading then
 			if IsValid(BrainTraumaStation) then
 				BrainTraumaStation:Stop()
 				BrainTraumaStation = nil
 			end
 
+			BrainTraumaStationLoading = true
 			sound.PlayFile("sound/zcitysnd/real_sonar/brainhemorrhagestage"..chooser..".mp3", "noblock noplay", function(station, err)
+				BrainTraumaStationLoading = false
 				if IsValid(station) then
 					station:SetVolume(0)
 					station:Play()
@@ -602,8 +630,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 
 	//if brain > 0.1 and not org.otrub and show_some_images_time > 0 and false then
 	if lply.tinnitus and lply.tinnitus > CurTime() and lply:Alive() then
-		if !IsValid(Tinnitus) or Tinnitus:GetState() != GMOD_CHANNEL_PLAYING  then
+		if (!IsValid(Tinnitus) or Tinnitus:GetState() != GMOD_CHANNEL_PLAYING) and not TinnitusLoading then
+			TinnitusLoading = true
 			sound.PlayFile("sound/zcitysnd/real_sonar/tinnitus"..math.random(3)..".mp3", "noblock noplay", function(station, err)
+				TinnitusLoading = false
 				if IsValid(station) then
 					station:SetVolume(0)
 					station:Play()
@@ -669,8 +699,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		render.DrawScreenQuad()
 		
 		if o2 > 50 and !org.otrub then
-			if !IsValid(NoiseStation2) or NoiseStation2:GetState() != GMOD_CHANNEL_PLAYING then
+			if (!IsValid(NoiseStation2) or NoiseStation2:GetState() != GMOD_CHANNEL_PLAYING) and not NoiseStation2Loading then
+				NoiseStation2Loading = true
 				sound.PlayFile("sound/rem_dying1.mp3", "noblock noplay", function(station)
+					NoiseStation2Loading = false
 					if IsValid(station) then
 						station:SetVolume(0)
 						station:Play()
@@ -681,8 +713,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 				end)
 			end
 
-			if !IsValid(NoiseStation2Dying) or NoiseStation2Dying:GetState() != GMOD_CHANNEL_PLAYING then
+			if (!IsValid(NoiseStation2Dying) or NoiseStation2Dying:GetState() != GMOD_CHANNEL_PLAYING) and not NoiseStation2DyingLoading then
+				NoiseStation2DyingLoading = true
 				sound.PlayFile("sound/rem_dying2.mp3", "noblock noplay", function(station)
+					NoiseStation2DyingLoading = false
 					if IsValid(station) then
 						station:SetVolume(0)
 						station:Play()
@@ -710,8 +744,10 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 		
 		if o2 > 20 and org.otrub then
-			if !IsValid(NoiseStation) or NoiseStation:GetState() != GMOD_CHANNEL_PLAYING then
+			if (!IsValid(NoiseStation) or NoiseStation:GetState() != GMOD_CHANNEL_PLAYING) and not NoiseStationLoading then
+				NoiseStationLoading = true
 				sound.PlayFile("sound/rem_dying1.mp3", "noblock noplay", function(station)
+					NoiseStationLoading = false
 					if IsValid(station) then
 						station:SetVolume(0)
 						station:Play()

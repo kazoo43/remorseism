@@ -222,13 +222,13 @@ local isValidMainMenuPanel = false
 
 local info_sections = {
     {title = "Rank", key = "rank"},
-    {title = "Credits", key = "credits"},
+    {title = "Credits", key = "credits", disabled = true, disabledColor = Color(105, 105, 105, 180)},
     {title = "Socials", key = "socials"}
 }
 local info_credit_lines = {
-    "Remorseism",
-    "Credits section placeholder",
-    "Add your real team names here"
+    "PLACEHOLDER",
+    "PLACEHOLDER",
+    "PLACEHOLDER"
 }
 local info_fallback_band = {
     icon = Material("vgui/mats_jack_awards/10")
@@ -243,24 +243,30 @@ local info_stat_rows = {
 }
 local info_social_links = {
     {
-        title = "Official Discord",
-        subtitle = "Main community server",
-        url = DISCORD_URL or "https://discord.gg/475EmEdTgH",
-        icon = Material("icon16/group.png", "smooth")
+        title = "Lapse",
+        subtitle = "In judgement. (Official)",
+        url = DISCORD_URL or "https://discord.gg/Tgz7N58PzV",
+        icon = Material("vgui/lapseinjudgement.png", "smooth")
     },
     {
-        title = "Events Discord",
-        subtitle = "Replace with your events invite",
-        url = "https://discord.gg/your-link",
-        icon = Material("icon16/comments.png", "smooth")
+        title = "Z-CITY English Community Server",
+        subtitle = "Official community server for the Z-CITY repository. (ENG)",
+        url = "https://discord.gg/SjqRcv3yYY",
+        icon = Material("vgui/zcityeng.png", "smooth")
     },
     {
-        title = "Dev Discord",
-        subtitle = "Replace with your dev invite",
-        url = "https://discord.gg/your-link",
-        icon = Material("icon16/world_link.png", "smooth")
+        title = "Z-CITY Russian Community Server",
+        subtitle = "Official community server for the Z-CITY repository. (RUS)",
+        url = "https://discord.gg/475EmEdTgH",
+        icon = Material("vgui/zcityrus.png", "smooth")
     }
 }
+local info_social_icon_size = MenuUnit(24)
+local info_social_icon_x = MenuUnit(18)
+local info_social_text_x = MenuUnit(54)
+local info_social_button_w = MenuUnit(72)
+local info_social_button_h = MenuUnit(24)
+local info_social_button_right = MenuUnit(18)
 local info_active_section = nil
 local info_section_buttons = {}
 local info_content_panel = nil
@@ -310,9 +316,16 @@ local function InfoGetPlayerStat(ply, key)
     return 0
 end
 
+local INFO_STORED_STAT_NET = "get_svPData"
+local INFO_RANK_NET = "zb_xp_get"
+
+local function InfoCanStartNet(messageName)
+    return util.NetworkStringToID(messageName) ~= 0
+end
+
 local function InfoRequestStoredStat(ply, key)
-    if not IsValid(ply) then return end
-    net.Start("get_svPData")
+    if not IsValid(ply) or not InfoCanStartNet(INFO_STORED_STAT_NET) then return end
+    net.Start(INFO_STORED_STAT_NET)
         net.WriteEntity(ply)
         net.WriteString(key)
     net.SendToServer()
@@ -322,9 +335,11 @@ local function InfoRefreshLocalRankData()
     local ply = LocalPlayer()
     if not IsValid(ply) then return end
 
-    net.Start("zb_xp_get")
-        net.WriteEntity(ply)
-    net.SendToServer()
+    if InfoCanStartNet(INFO_RANK_NET) then
+        net.Start(INFO_RANK_NET)
+            net.WriteEntity(ply)
+        net.SendToServer()
+    end
 
     for _, statData in ipairs(info_stat_rows) do
         InfoRequestStoredStat(ply, statData[2])
@@ -912,20 +927,30 @@ local function InfoCreateSectionButton(pParent, strTitle, sectionKey)
     btn:Dock(TOP)
     btn:DockMargin(MenuUnit(15), MenuUnit(2), 0, 0)
     btn.SectionKey = sectionKey
-    btn.RColor = Color(225,225,225)
+    local sectionData
+    for _, data in ipairs(info_sections) do
+        if data.key == sectionKey then
+            sectionData = data
+            break
+        end
+    end
+    btn.SectionDisabled = sectionData and sectionData.disabled or false
+    btn.DisabledColor = sectionData and sectionData.disabledColor or Color(105, 105, 105, 180)
+    btn.RColor = btn.SectionDisabled and btn.DisabledColor or Color(225,225,225)
     btn.OpenTime = CurTime()
     btn.LineLerp = 0
     btn.HoverLerp = 0
 
     function btn:DoClick()
         if not IsValid(self) then return end
+        if self.SectionDisabled then return end
         surface.PlaySound("shitty/tap_depress.wav")
         info_active_section = self.SectionKey
         InfoRefreshContent()
     end
 
     function btn:Think()
-        local isHovered = self:IsHovered()
+        local isHovered = not self.SectionDisabled and self:IsHovered()
         self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, isHovered and 1 or 0)
         self.LineLerp = LerpFT(0.2, self.LineLerp or 0, isHovered and 1 or 0)
         self:DockMargin(
@@ -937,7 +962,7 @@ local function InfoCreateSectionButton(pParent, strTitle, sectionKey)
 
         local elapsed = CurTime() - self.OpenTime
         local charsToShow = math.floor(elapsed * 15)
-        local isActive = info_active_section == self.SectionKey
+        local isActive = not self.SectionDisabled and info_active_section == self.SectionKey
         local targetText = isActive and ("[ " .. strTitle .. " ]") or strTitle
         local len = #targetText
         if charsToShow > len then charsToShow = len end
@@ -954,7 +979,7 @@ local function InfoCreateSectionButton(pParent, strTitle, sectionKey)
     end
 
     function btn:Paint(w, h)
-        local isHovered = self:IsHovered()
+        local isHovered = not self.SectionDisabled and self:IsHovered()
         local flash = isHovered and (0.5 + 0.5 * math.sin(CurTime() * 10)) or 0
         local textColor = self.RColor
         local outlineColor = Color(0, 0, 0, 255)
@@ -987,6 +1012,15 @@ function InfoRefreshContent()
     if not IsValid(info_content_panel) then return end
     info_content_panel:Clear()
 
+    local sectionKey = info_active_section or "rank"
+    for _, sectionData in ipairs(info_sections) do
+        if sectionData.key == sectionKey and sectionData.disabled then
+            sectionKey = "rank"
+            info_active_section = "rank"
+            break
+        end
+    end
+
     if IsValid(info_header_label) then
         local currentTitle = "INFORMATION"
         for _, sectionData in ipairs(info_sections) do
@@ -997,8 +1031,6 @@ function InfoRefreshContent()
         end
         info_header_label:SetText(currentTitle)
     end
-
-    local sectionKey = info_active_section or "rank"
     local contentWidth = info_content_panel:GetWide()
     local contentHeight = info_content_panel:GetTall()
 
@@ -1403,6 +1435,13 @@ function InfoRefreshContent()
             end
             row.Paint = function(self, w, h)
                 local alpha = 120 + 30 * (self.HoverLerp or 0)
+                local iconSize = info_social_icon_size
+                local iconX = info_social_icon_x
+                local iconY = math.floor(h * 0.5 - iconSize * 0.5)
+                local buttonW = info_social_button_w
+                local buttonH = info_social_button_h
+                local buttonX = w - info_social_button_right - buttonW
+                local buttonY = math.floor(h * 0.5 - buttonH * 0.5)
                 surface.SetDrawColor(20, 20, 30, alpha)
                 surface.DrawRect(0, 0, w, h)
                 surface.SetDrawColor(settings_color_whitey.r, settings_color_whitey.g, settings_color_whitey.b, 80 + 80 * (self.HoverLerp or 0))
@@ -1410,11 +1449,15 @@ function InfoRefreshContent()
                 if social.icon then
                     surface.SetMaterial(social.icon)
                     surface.SetDrawColor(255, 255, 255, 220)
-                    surface.DrawTexturedRect(MenuUnit(18), h * 0.5 - MenuUnit(8), MenuUnit(16), MenuUnit(16))
+                    surface.DrawTexturedRect(iconX, iconY, iconSize, iconSize)
                 end
-                draw.SimpleText(social.title, "ZCity_Settings_Small", MenuUnit(48), MenuUnit(20), settings_color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                draw.SimpleText(social.subtitle, "ZCity_Settings_Tiny", MenuUnit(48), MenuUnit(42), settings_color_text_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                draw.SimpleText(social.url, "ZCity_Settings_Tiny", w - MenuUnit(18), h * 0.5, settings_color_whitey, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(social.title, "ZCity_Settings_Small", info_social_text_x, MenuUnit(20), settings_color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(social.subtitle, "ZCity_Settings_Tiny", info_social_text_x, MenuUnit(42), settings_color_text_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                surface.SetDrawColor(0, 0, 0, 245)
+                surface.DrawRect(buttonX, buttonY, buttonW, buttonH)
+                surface.SetDrawColor(255, 255, 255, 210)
+                surface.DrawOutlinedRect(buttonX, buttonY, buttonW, buttonH, 1)
+                draw.SimpleText("Join", "ZCity_Settings_Tiny", buttonX + buttonW * 0.5, buttonY + buttonH * 0.5, settings_color_whitey, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             end
         end
     end
@@ -1625,7 +1668,7 @@ function hg.DrawInformation(ParentPanel)
     headerHint:SetPos(MenuUnit(25), MenuUnit(45))
     headerHint:SetFont("ZCity_Settings_Tiny")
     headerHint:SetTextColor(settings_color_text_dim)
-    headerHint:SetText("View rank, credits, and social links")
+    headerHint:SetText("View rank and social links")
     headerHint:SizeToContents()
 
     local contentHolder = vgui.Create("DPanel", mainPanel)
