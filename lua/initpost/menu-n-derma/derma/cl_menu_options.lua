@@ -18,16 +18,6 @@ local blur = Material("pp/blurscreen")
 local blur2 = Material("effects/shaders/zb_blur" )
 local sw, sh = ScrW(), ScrH()
 
-local font = function()
-    local usefont = "Verily Serif Mono"
-
-    if hg_font:GetString() != "" and hg_font:GetString() != "Courier Prime" then
-        usefont = hg_font:GetString()
-    end
-
-    return usefont
-end
-
 local function MenuUnit(num)
     return math.floor(num * math.min(ScrW(), ScrH()) / 1000)
 end
@@ -35,46 +25,41 @@ end
 local settings_header_height = 70
 
 local function CreateSettingsFonts()
-    local usefont = font()
     local scale = math.min(ScrW(), ScrH()) / 1000
 
-    surface.CreateFont("ZCity_Settings_Medium", {
-        font = usefont,
+    surface.CreateFont("ZCity_Menu_Small", {
+        font = "Verily Serif Mono",
+        size = ScreenScale(20),
+        weight = 200,
+    })
+    surface.CreateFont("ZCity_Menu_Tiny", {
+        font = "Verily Serif Mono",
+        size = ScreenScale(8),
+        weight = 200,
+    })
+    surface.CreateFont("ZCity_Menu_Settings_Medium", {
+        font = "Verily Serif Mono",
         size = math.max(16, math.floor(32 * scale)),
         weight = 300,
     })
-    surface.CreateFont("ZCity_Settings_Small", {
-        font = usefont,
+    surface.CreateFont("ZCity_Menu_Settings_Small", {
+        font = "Verily Serif Mono",
         size = math.max(14, math.floor(22 * scale)),
         weight = 300,
     })
-    surface.CreateFont("ZCity_Settings_Tiny", {
-        font = usefont,
+    surface.CreateFont("ZCity_Menu_Settings_Tiny", {
+        font = "Verily Serif Mono",
         size = math.max(12, math.floor(16 * scale)),
         weight = 300,
+    })
+    surface.CreateFont("ZCity_Menu_Settings_Category", {
+        font = "Verily Serif Mono",
+        size = ScreenScale(15),
+        weight = 100
     })
 end
 hook.Add("OnScreenSizeChanged", "ZCity_Settings_Fonts", CreateSettingsFonts)
 CreateSettingsFonts()
-
-surface.CreateFont("ZCity_setiings_tiny", {
-	font = font(),
-	size = ScreenScale(7),
-	weight = 100
-})
-
-surface.CreateFont("ZCity_setiings_fine", {
-	font = font(),
-	size = ScreenScale(10),
-	weight = 100
-})
-
-surface.CreateFont("ZCity_setiings_category", {
-	font = font(),
-	size = ScreenScale(15),
-	weight = 100
-})
-
 
 hg.settings:AddOpt("Gameplay","hg_old_notificate", "Old Notifications")
 hg.settings:AddOpt("Gameplay","hg_cheats", "Enable Cheats")
@@ -144,7 +129,7 @@ function hg.CreateCategory(ctgName, ParentPanel, yPos)
 		surface.SetDrawColor(42, 42, 42, 184)
 		surface.DrawRect(0, h-5, w, 5)
     
-        draw.SimpleText(ctgName, 'ZCity_setiings_category', w / 2, h / 2, color3, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        draw.SimpleText(ctgName, 'ZCity_Menu_Settings_Category', w / 2, h / 2, color3, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
     end
     
     return pppanel
@@ -365,7 +350,7 @@ local function SettingsCreateCategoryButton(pParent, strTitle, categoryKey)
     btn:SetText(string.rep("#", #strTitle))
     btn:SetMouseInputEnabled(true)
     btn:SizeToContents()
-    btn:SetFont("ZCity_Settings_Small")
+    btn:SetFont("ZCity_Menu_Settings_Small")
     btn:SetTall(MenuUnit(42))
     btn:Dock(TOP)
     btn:DockMargin(MenuUnit(15), MenuUnit(2), 0, 0)
@@ -507,14 +492,14 @@ function SettingsRefreshContent()
 
         local title = vgui.Create("DLabel", row)
         title:SetPos(MenuUnit(12), MenuUnit(6))
-        title:SetFont("ZCity_Settings_Small")
+        title:SetFont("ZCity_Menu_Settings_Small")
         title:SetTextColor(settings_color_text)
         title:SetText(settingData[3])
         title:SizeToContents()
 
         local help = vgui.Create("DLabel", row)
         help:SetPos(MenuUnit(12), MenuUnit(28))
-        help:SetFont("ZCity_Settings_Tiny")
+        help:SetFont("ZCity_Menu_Settings_Tiny")
         help:SetTextColor(settings_color_text_dim)
         help:SetText(convar:GetHelpText() or "")
         help:SizeToContents()
@@ -619,7 +604,7 @@ function SettingsRefreshContent()
             local valLabel = vgui.Create("DTextEntry", row)
             valLabel:SetSize(MenuUnit(60), MenuUnit(20))
             valLabel:SetPos(ctrlX - sliderBg:GetWide() - MenuUnit(70), MenuUnit(18))
-            valLabel:SetFont("ZCity_Settings_Tiny")
+            valLabel:SetFont("ZCity_Menu_Settings_Tiny")
             valLabel:SetTextColor(settings_color_text)
             valLabel:SetText(tostring(curVal))
             valLabel:SetNumeric(true)
@@ -656,7 +641,7 @@ function SettingsRefreshContent()
             textEntry:SetPos(ctrlX - ctrlW, MenuUnit(16))
             textEntry:SetText(convar:GetString())
             textEntry:SetUpdateOnType(true)
-            textEntry:SetFont("ZCity_Settings_Tiny")
+            textEntry:SetFont("ZCity_Menu_Settings_Tiny")
             textEntry.Paint = function(self, w, h)
                 surface.SetDrawColor(20, 20, 20, 240)
                 surface.DrawRect(0, 0, w, h)
@@ -747,7 +732,7 @@ function hg.DrawSettings(ParentPanel)
 
     local sidebarHeaderTitle = vgui.Create("DLabel", sidebarHeader)
     sidebarHeaderTitle:SetPos(MenuUnit(15), MenuUnit(18))
-    sidebarHeaderTitle:SetFont("ZCity_Settings_Small")
+    sidebarHeaderTitle:SetFont("ZCity_Menu_Settings_Small")
     sidebarHeaderTitle:SetTextColor(settings_color_whitey)
     sidebarHeaderTitle:SetText("SETTINGS")
     sidebarHeaderTitle:SizeToContents()
@@ -780,7 +765,7 @@ function hg.DrawSettings(ParentPanel)
     local backBtn = vgui.Create("DLabel", sidebar)
     backBtn:Dock(BOTTOM)
     backBtn:DockMargin(MenuUnit(15), MenuUnit(2), 0, MenuUnit(20))
-    backBtn:SetFont("ZCity_Settings_Small")
+    backBtn:SetFont("ZCity_Menu_Settings_Small")
     backBtn:SetTextColor(settings_color_text)
     backBtn:SetText(string.rep("#", #"<- Return"))
     backBtn:SetMouseInputEnabled(true)
@@ -893,7 +878,7 @@ function hg.DrawSettings(ParentPanel)
 
     local headerTitle = vgui.Create("DLabel", header)
     headerTitle:SetPos(MenuUnit(25), MenuUnit(18))
-    headerTitle:SetFont("ZCity_Settings_Medium")
+    headerTitle:SetFont("ZCity_Menu_Settings_Medium")
     headerTitle:SetTextColor(settings_color_whitey)
     headerTitle:SetText(settings_active_category and settings_active_category:upper() or "SETTINGS")
     headerTitle:SetWide(settings_sw - sidebarWidth - MenuUnit(50))
@@ -901,7 +886,7 @@ function hg.DrawSettings(ParentPanel)
 
     local headerHint = vgui.Create("DLabel", header)
     headerHint:SetPos(MenuUnit(25), MenuUnit(45))
-    headerHint:SetFont("ZCity_Settings_Tiny")
+    headerHint:SetFont("ZCity_Menu_Settings_Tiny")
     headerHint:SetTextColor(settings_color_text_dim)
     headerHint:SetText("Configure ZCity to your liking")
     headerHint:SizeToContents()
@@ -922,7 +907,7 @@ local function InfoCreateSectionButton(pParent, strTitle, sectionKey)
     btn:SetText(string.rep("#", #strTitle))
     btn:SetMouseInputEnabled(true)
     btn:SizeToContents()
-    btn:SetFont("ZCity_Small")
+    btn:SetFont("ZCity_Menu_Small")
     btn:SetTall(MenuUnit(42))
     btn:Dock(TOP)
     btn:DockMargin(MenuUnit(15), MenuUnit(2), 0, 0)
@@ -1092,31 +1077,31 @@ function InfoRefreshContent()
         end
 
         local playerLabel = vgui.Create("DLabel", profileBlock)
-        playerLabel:SetFont("ZCity_Settings_Medium")
+        playerLabel:SetFont("ZCity_Menu_Settings_Medium")
         playerLabel:SetTextColor(settings_color_whitey)
         playerLabel:SetContentAlignment(5)
         playerLabel:SetText("")
 
         local xpLabel = vgui.Create("DLabel", profileBlock)
-        xpLabel:SetFont("ZCity_Settings_Small")
+        xpLabel:SetFont("ZCity_Menu_Settings_Small")
         xpLabel:SetTextColor(settings_color_text)
         xpLabel:SetContentAlignment(5)
         xpLabel:SetText("")
 
         local skillLabel = vgui.Create("DLabel", profileBlock)
-        skillLabel:SetFont("ZCity_Settings_Small")
+        skillLabel:SetFont("ZCity_Menu_Settings_Small")
         skillLabel:SetTextColor(settings_color_text_dim)
         skillLabel:SetContentAlignment(5)
         skillLabel:SetText("")
 
         local medalLabel = vgui.Create("DLabel", profileBlock)
-        medalLabel:SetFont("ZCity_Settings_Small")
+        medalLabel:SetFont("ZCity_Menu_Settings_Small")
         medalLabel:SetTextColor(settings_color_text)
         medalLabel:SetContentAlignment(5)
         medalLabel:SetText("")
 
         local bandLabel = vgui.Create("DLabel", profileBlock)
-        bandLabel:SetFont("ZCity_Settings_Tiny")
+        bandLabel:SetFont("ZCity_Menu_Settings_Tiny")
         bandLabel:SetTextColor(settings_color_text_dim)
         bandLabel:SetContentAlignment(5)
         bandLabel:SetText("")
@@ -1142,7 +1127,7 @@ function InfoRefreshContent()
         local statsTitle = vgui.Create("DLabel", scroll)
         statsTitle:Dock(TOP)
         statsTitle:DockMargin(0, 0, 0, MenuUnit(10))
-        statsTitle:SetFont("ZCity_Settings_Small")
+        statsTitle:SetFont("ZCity_Menu_Settings_Small")
         statsTitle:SetTextColor(settings_color_whitey)
         statsTitle:SetText("STATISTICS")
         statsTitle:SetTall(MenuUnit(28))
@@ -1165,14 +1150,14 @@ function InfoRefreshContent()
 
             local title = vgui.Create("DLabel", statPanel)
             title:SetPos(MenuUnit(12), MenuUnit(10))
-            title:SetFont("ZCity_Settings_Tiny")
+            title:SetFont("ZCity_Menu_Settings_Tiny")
             title:SetTextColor(settings_color_text_dim)
             title:SetText(string.upper(statData[1]))
             title:SizeToContents()
 
             local value = vgui.Create("DLabel", statPanel)
             value:SetPos(MenuUnit(12), MenuUnit(30))
-            value:SetFont("ZCity_Settings_Small")
+            value:SetFont("ZCity_Menu_Settings_Small")
             value:SetTextColor(settings_color_text)
             value:SetText("0")
             value:SizeToContents()
@@ -1194,14 +1179,14 @@ function InfoRefreshContent()
 
         local kdTitle = vgui.Create("DLabel", kdPanel)
         kdTitle:SetPos(MenuUnit(12), MenuUnit(10))
-        kdTitle:SetFont("ZCity_Settings_Tiny")
+        kdTitle:SetFont("ZCity_Menu_Settings_Tiny")
         kdTitle:SetTextColor(settings_color_text_dim)
         kdTitle:SetText("K/D")
         kdTitle:SizeToContents()
 
         local kdValue = vgui.Create("DLabel", kdPanel)
         kdValue:SetPos(MenuUnit(12), MenuUnit(30))
-        kdValue:SetFont("ZCity_Settings_Small")
+        kdValue:SetFont("ZCity_Menu_Settings_Small")
         kdValue:SetTextColor(settings_color_text)
         kdValue:SetText("0.00")
         kdValue:SizeToContents()
@@ -1231,7 +1216,7 @@ function InfoRefreshContent()
         local achievementsTitle = vgui.Create("DLabel", scroll)
         achievementsTitle:Dock(TOP)
         achievementsTitle:DockMargin(0, 0, 0, MenuUnit(10))
-        achievementsTitle:SetFont("ZCity_Settings_Small")
+        achievementsTitle:SetFont("ZCity_Menu_Settings_Small")
         achievementsTitle:SetTextColor(settings_color_whitey)
         achievementsTitle:SetText("OBTAINED ACHIEVEMENTS")
         achievementsTitle:SetTall(MenuUnit(28))
@@ -1242,7 +1227,7 @@ function InfoRefreshContent()
 
         local achievementsEmpty = vgui.Create("DLabel", achievementsHolder)
         achievementsEmpty:Dock(TOP)
-        achievementsEmpty:SetFont("ZCity_Settings_Tiny")
+        achievementsEmpty:SetFont("ZCity_Menu_Settings_Tiny")
         achievementsEmpty:SetTextColor(settings_color_text_dim)
         achievementsEmpty:SetContentAlignment(5)
         achievementsEmpty:SetText("NO ACHIEVEMENTS OBTAINED YET")
@@ -1280,14 +1265,14 @@ function InfoRefreshContent()
 
                 local title = vgui.Create("DLabel", row)
                 title:SetPos(MenuUnit(12), MenuUnit(10))
-                title:SetFont("ZCity_Settings_Small")
+                title:SetFont("ZCity_Menu_Settings_Small")
                 title:SetTextColor(settings_color_text)
                 title:SetText(ach.name or "Achievement")
                 title:SizeToContents()
 
                 local desc = vgui.Create("DLabel", row)
                 desc:SetPos(MenuUnit(12), MenuUnit(30))
-                desc:SetFont("ZCity_Settings_Tiny")
+                desc:SetFont("ZCity_Menu_Settings_Tiny")
                 desc:SetTextColor(settings_color_text_dim)
                 desc:SetText(ach.description or "")
                 row.PerformLayout = function(self, w, h)
@@ -1394,7 +1379,7 @@ function InfoRefreshContent()
 
             local text = vgui.Create("DLabel", row)
             text:SetPos(MenuUnit(18), MenuUnit(18))
-            text:SetFont("ZCity_Settings_Small")
+            text:SetFont("ZCity_Menu_Settings_Small")
             text:SetTextColor(settings_color_text)
             text:SetText(line)
             text:SizeToContents()
@@ -1451,13 +1436,13 @@ function InfoRefreshContent()
                     surface.SetDrawColor(255, 255, 255, 220)
                     surface.DrawTexturedRect(iconX, iconY, iconSize, iconSize)
                 end
-                draw.SimpleText(social.title, "ZCity_Settings_Small", info_social_text_x, MenuUnit(20), settings_color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                draw.SimpleText(social.subtitle, "ZCity_Settings_Tiny", info_social_text_x, MenuUnit(42), settings_color_text_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(social.title, "ZCity_Menu_Settings_Small", info_social_text_x, MenuUnit(20), settings_color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                draw.SimpleText(social.subtitle, "ZCity_Menu_Settings_Tiny", info_social_text_x, MenuUnit(42), settings_color_text_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                 surface.SetDrawColor(0, 0, 0, 245)
                 surface.DrawRect(buttonX, buttonY, buttonW, buttonH)
                 surface.SetDrawColor(255, 255, 255, 210)
                 surface.DrawOutlinedRect(buttonX, buttonY, buttonW, buttonH, 1)
-                draw.SimpleText("Join", "ZCity_Settings_Tiny", buttonX + buttonW * 0.5, buttonY + buttonH * 0.5, settings_color_whitey, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                draw.SimpleText("Join", "ZCity_Menu_Settings_Tiny", buttonX + buttonW * 0.5, buttonY + buttonH * 0.5, settings_color_whitey, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             end
         end
     end
@@ -1518,7 +1503,7 @@ function hg.DrawInformation(ParentPanel)
 
     local sidebarHeaderTitle = vgui.Create("DLabel", sidebarHeader)
     sidebarHeaderTitle:SetPos(MenuUnit(15), MenuUnit(18))
-    sidebarHeaderTitle:SetFont("ZCity_Small")
+    sidebarHeaderTitle:SetFont("ZCity_Menu_Small")
     sidebarHeaderTitle:SetTextColor(settings_color_whitey)
     sidebarHeaderTitle:SetText("INFORMATION")
     sidebarHeaderTitle:SizeToContents()
@@ -1548,7 +1533,7 @@ function hg.DrawInformation(ParentPanel)
     local backBtn = vgui.Create("DLabel", sidebar)
     backBtn:Dock(BOTTOM)
     backBtn:DockMargin(MenuUnit(15), MenuUnit(2), 0, MenuUnit(20))
-    backBtn:SetFont("ZCity_Small")
+    backBtn:SetFont("ZCity_Menu_Small")
     backBtn:SetTextColor(settings_color_text)
     backBtn:SetText(string.rep("#", #"<- Return"))
     backBtn:SetMouseInputEnabled(true)
@@ -1658,7 +1643,7 @@ function hg.DrawInformation(ParentPanel)
 
     local headerTitle = vgui.Create("DLabel", header)
     headerTitle:SetPos(MenuUnit(25), MenuUnit(18))
-    headerTitle:SetFont("ZCity_Settings_Medium")
+    headerTitle:SetFont("ZCity_Menu_Settings_Medium")
     headerTitle:SetTextColor(settings_color_whitey)
     headerTitle:SetText("RANK")
     headerTitle:SetWide(settings_sw - sidebarWidth - MenuUnit(50))
@@ -1666,7 +1651,7 @@ function hg.DrawInformation(ParentPanel)
 
     local headerHint = vgui.Create("DLabel", header)
     headerHint:SetPos(MenuUnit(25), MenuUnit(45))
-    headerHint:SetFont("ZCity_Settings_Tiny")
+    headerHint:SetFont("ZCity_Menu_Settings_Tiny")
     headerHint:SetTextColor(settings_color_text_dim)
     headerHint:SetText("View rank and social links")
     headerHint:SizeToContents()

@@ -13,11 +13,15 @@ local low_consciousness_recovery_speed = 16
 local otrub_consciousness_recovery_speed = 20
 local shock_unconsciousness_threshold = 45
 local shock_paincheck_multiplier = 5
+local pain_tolerance = 105
+local otrub_pain_tolerance = 90
+local pain_fake_threshold = 0.9
 module[1] = function(org)
 	org.shock = 0
 	org.pain = 0
 	org.avgpain = 0
 	org.painadd = 0
+	org.nearpainlimit = false
 	org.hurt = 0
 	org.hurtadd = 0
 	org.painkiller = 0
@@ -53,7 +57,7 @@ module[2] = function(owner, org, timeValue)
 		--org.needfake = true
 	end
 
-	org.pain_turn = org.otrub and adrenalineMul * 80 or adrenalineMul * 90
+	org.pain_turn = org.otrub and adrenalineMul * otrub_pain_tolerance or adrenalineMul * pain_tolerance
 
 	local owner = org.owner
 	
@@ -122,6 +126,7 @@ module[2] = function(owner, org, timeValue)
 	org.painlessen = sub
 
 	org.pain = org.avgpain * math.max(1 - adrenaline / 4, 0.75) * math.max(1 - org.analgesia, 0)
+	org.nearpainlimit = not org.otrub and org.pain >= org.pain_turn * pain_fake_threshold
 
 	org.painadd = min(max(org.painadd - add * analgesiaMul, 0), 150)
 
@@ -129,6 +134,10 @@ module[2] = function(owner, org, timeValue)
 
 	if hg.organism.paincheck(org) then
 		org.needotrub = true
+	end
+
+	if org.nearpainlimit then
+		org.needfake = true
 	end
 	
 	org.analgesia =  Approach(org.analgesia, 0, timeValue / 240 * (org.naloxone * 25 + 1))

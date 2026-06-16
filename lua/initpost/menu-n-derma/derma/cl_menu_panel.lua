@@ -109,6 +109,23 @@ local function MenuUnit(num)
     return math.floor(num * math.min(ScrW(), ScrH()) / 1000)
 end
 
+local function CreateMainMenuFonts()
+    surface.CreateFont("ZCity_Menu_Tiny", {
+        font = "Verily Serif Mono",
+        size = ScreenScale(8),
+        weight = 200
+    })
+
+    surface.CreateFont("ZCity_Menu_Small", {
+        font = "Verily Serif Mono",
+        size = ScreenScale(20),
+        weight = 200
+    })
+end
+
+hook.Add("OnScreenSizeChanged", "ZCity_MainMenu_Fonts", CreateMainMenuFonts)
+CreateMainMenuFonts()
+
 local Selects = {
     {Title = "Disconnect", BypassTransition = true, Func = function(luaMenu) luaMenu:PlayDisconnectCutscene() end},
     {Title = "Main Menu", Func = function(luaMenu) gui.ActivateGameUI() luaMenu:Close() end},
@@ -119,7 +136,7 @@ local Selects = {
         btnSOE:SetText( "###" )
         btnSOE:SetMouseInputEnabled( true )
         btnSOE:SizeToContents()
-        btnSOE:SetFont( "ZCity_Small" )
+        btnSOE:SetFont( "ZCity_Menu_Small" )
         btnSOE:SetTall( MenuUnit(42) )
         btnSOE:Dock(BOTTOM)
         btnSOE:DockMargin(MenuUnit(20),MenuUnit(10),0,0)
@@ -193,7 +210,7 @@ local Selects = {
         btnSTD:SetText( "###" )
         btnSTD:SetMouseInputEnabled( true )
         btnSTD:SizeToContents()
-        btnSTD:SetFont( "ZCity_Small" )
+        btnSTD:SetFont( "ZCity_Menu_Small" )
         btnSTD:SetTall( MenuUnit(42) )
         btnSTD:Dock(BOTTOM)
         btnSTD:DockMargin(0,MenuUnit(2),0,0)
@@ -317,14 +334,14 @@ function PANEL:InitializeMarkup()
 	local gm = splasheh[math.random(#splasheh)] .. " | " .. string.NiceName(mapname) 
 
     if hg.PluvTown.Active then
-        local text = "<font=ZC_MM_Title><colour=199,2,2>    </colour>City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+        local text = "<font=ZC_MM_Title><colour=199,2,2>    </colour>City</font>\n<font=ZCity_Menu_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
 
         self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
 
         return markup.Parse(text)
     end
 
-    local text = "<font=ZC_MM_Title><colour=199,2,2,255>Z</colour>-City</font>\n<font=ZCity_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
+    local text = "<font=ZC_MM_Title><colour=199,2,2,255>Z</colour>-City</font>\n<font=ZCity_Menu_Tiny><colour=105,105,105>" .. gm .. "</colour></font>"
     return markup.Parse(text)
 end
 
@@ -548,7 +565,7 @@ function PANEL:CreateProfileInfo()
 
     local username = vgui.Create("DLabel", profile)
     username:SetPos(0, 0)
-    username:SetFont("ZCity_Small")
+    username:SetFont("ZCity_Menu_Small")
     username:SetTextColor(color_white)
     username:SetContentAlignment(7)
     username:SetExpensiveShadow(1, Color(0, 0, 0, 225))
@@ -573,7 +590,7 @@ function PANEL:CreateProfileInfo()
 
     local xp = vgui.Create("DLabel", profile)
     xp:SetPos(MenuUnit(30), MenuUnit(31))
-    xp:SetFont("ZCity_Small")
+    xp:SetFont("ZCity_Menu_Small")
     xp:SetTextColor(Color(175, 175, 175))
     xp:SetContentAlignment(7)
     xp:SetExpensiveShadow(1, Color(0, 0, 0, 225))
@@ -916,7 +933,7 @@ function PANEL:Init()
     local git = vgui.Create("DLabel", bottomDock)
     git:Dock(BOTTOM)
     git:DockMargin(ScreenScale(10), 0, 0, 0)
-    git:SetFont("ZCity_Tiny")
+    git:SetFont("ZCity_Menu_Tiny")
     git:SetTextColor(clr_gray)
     git:SetText("GitHub: github.com/" .. hg.GitHub_ReposOwner .. "/" .. hg.GitHub_ReposName)
     git:SetContentAlignment(4)
@@ -930,7 +947,7 @@ function PANEL:Init()
     local version = vgui.Create("DLabel", bottomDock)
     version:Dock(BOTTOM)
     version:DockMargin(ScreenScale(10), 0, 0, 0)
-    version:SetFont("ZCity_Tiny")
+    version:SetFont("ZCity_Menu_Tiny")
     version:SetTextColor(clr_gray)
     version:SetText(hg.Version)
     version:SetContentAlignment(4)
@@ -939,7 +956,7 @@ function PANEL:Init()
     local zteam = vgui.Create("DLabel", bottomDock)
     zteam:Dock(BOTTOM)
     zteam:DockMargin(ScreenScale(10), 0, 0, 0)
-    zteam:SetFont("ZCity_Tiny")
+    zteam:SetFont("ZCity_Menu_Tiny")
     zteam:SetTextColor(clr_gray)
     zteam:SetText("EARLY-ACCESS")
     zteam:SetContentAlignment(4)
@@ -1042,7 +1059,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     btn:SetText( string.rep("#", #(curent_panel == string.lower(strTitle) and strTitle ~= 'Traitor Role' and '[ '..strTitle..' ]' or strTitle)) )
     btn:SetMouseInputEnabled( true )
     btn:SizeToContents()
-    btn:SetFont( "ZCity_Small" )
+    btn:SetFont( "ZCity_Menu_Small" )
     btn:SetTall( MenuUnit(42) )
     btn:Dock(BOTTOM)
     btn:DockMargin(MenuUnit(15),MenuUnit(2),0,0)

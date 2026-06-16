@@ -16,12 +16,7 @@ local function MenuUnit(num)
 end
 
 local function AchievementFontName()
-    local cvar = GetConVar("hg_font")
-    local usefont = "Verily Serif Mono"
-    if cvar and cvar:GetString() ~= "" and cvar:GetString() ~= "Courier Prime" then
-        usefont = cvar:GetString()
-    end
-    return usefont
+    return "Verily Serif Mono"
 end
 
 local function CreateAchievementFonts()
@@ -127,7 +122,7 @@ local function AchievementCreateReturnButton(sidebar, ParentPanel)
     local backBtn = vgui.Create("DLabel", sidebar)
     backBtn:Dock(BOTTOM)
     backBtn:DockMargin(MenuUnit(15), MenuUnit(2), 0, MenuUnit(20))
-    backBtn:SetFont("ZCity_Small")
+    backBtn:SetFont("ZCity_Ach_Small")
     backBtn:SetTextColor(achievement_color_text)
     backBtn:SetText(string.rep("#", #"<- Return"))
     backBtn:SetMouseInputEnabled(true)
@@ -223,7 +218,7 @@ end
 
 local function AchievementCreateHeaderReturnButton(parent, ParentPanel)
     local backBtn = vgui.Create("DLabel", parent)
-    backBtn:SetFont("ZCity_Small")
+    backBtn:SetFont("ZCity_Ach_Small")
     backBtn:SetTextColor(achievement_color_text)
     backBtn:SetText(string.rep("#", #"<- Return"))
     backBtn:SetMouseInputEnabled(true)

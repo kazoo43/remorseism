@@ -68,7 +68,7 @@ local hg_coolcamera = ConVarExists("hg_coolcamera") and GetConVar("hg_coolcamera
 				if ply.PlayerClassName == "furry" then
 					snd = "zbattle/footstep/hardbarefoot" .. math.random(1, 5) .. ".ogg"
 				else
-					snd = "zcitysnd/"..sound -- missing footsteps fix
+					snd = sound
 				end
 				if SoundDuration(snd) <= 0 or ply.PlayerClassName == "Gordon" then
 					snd = sound
