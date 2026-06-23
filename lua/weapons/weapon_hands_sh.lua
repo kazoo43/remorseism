@@ -743,6 +743,15 @@ end
 
 local trMins, trMaxs = Vector(-5, -5, -5), Vector(5, 5, 5)
 local trMinsClaws, trMaxsClaws = Vector(-8, -8, -8), Vector(8, 8, 8)
+local smallCarryMaxSize = 20
+local smallCarryMaxMass = 35
+local smallCarryAngleDamping = 0.35
+local function ShouldCenterCarry(ent, phys)
+	if not IsValid(ent) or ent:GetClass() == "prop_ragdoll" or not IsValid(phys) then return false end
+	local size = ent:OBBMaxs() - ent:OBBMins()
+	return math.max(size[1], size[2], size[3]) <= smallCarryMaxSize and phys:GetMass() <= smallCarryMaxMass
+end
+
 function SWEP:SecondaryAttack()
 	local owner = self:GetOwner()
 	if owner:InVehicle() then return end
@@ -1083,7 +1092,7 @@ function SWEP:ApplyForce()
 			end
 		end
 
-		if self.CarryPos then
+		if self.CarryPos and not self.CarryCentered then
 			phys:ApplyForceOffset(Force, TargetPos)
 		else
 			phys:ApplyForceCenter(Force)
@@ -1107,7 +1116,7 @@ function SWEP:ApplyForce()
 		end
 
 		phys:ApplyForceCenter(Vector(0, 0, mul))
-		phys:AddAngleVelocity(-phys:GetAngleVelocity() / 10)
+		phys:AddAngleVelocity(-phys:GetAngleVelocity() * (self.CarryCentered and smallCarryAngleDamping or 0.1))
 	end
 end
 
@@ -1125,9 +1134,10 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		self.CarryDist = dist
 
 		local phys = self.CarryEnt:GetPhysicsObjectNum(self.CarryBone)
+		self.CarryCentered = ShouldCenterCarry(ent, phys)
 
 		if ent:GetClass() ~= "prop_ragdoll" then
-			self.CarryPos = ent:WorldToLocal(pos)
+			self.CarryPos = self.CarryCentered and ent:OBBCenter() or ent:WorldToLocal(pos)
 		else
 			self.CarryPos = WorldToLocal(pos, angle_zero, phys:GetPos(), phys:GetAngles())
 		end
@@ -1173,6 +1183,7 @@ function SWEP:SetCarrying(ent, bone, pos, dist)
 		self.CarryBone = nil
 		self.CarryPos = nil
 		self.CarryDist = nil
+		self.CarryCentered = nil
 	end
 end
 

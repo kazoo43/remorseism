@@ -39,13 +39,17 @@ SWEP.traceLen = 5
 function SWEP:SetupDataTables()
 
 	self:NetworkVar( "Bool", 0, "Planted" )
+	self:NetworkVar( "Bool", 1, "Dialing" )
+	self:NetworkVar( "Bool", 2, "Destroyed" )
+	self:NetworkVar( "Bool", 3, "Detonating" )
+	self:NetworkVar( "Float", 0, "DetonateAt" )
 	if SERVER then
 		self:SetPlanted(false)
+		self:SetDialing(false)
+		self:SetDestroyed(false)
+		self:SetDetonating(false)
+		self:SetDetonateAt(0)
 	end
-end
-
-if SERVER then
-	function SWEP:OnRemove() end
 end
 
 SWEP.ViewModel = ""
@@ -92,14 +96,43 @@ end
 
 function SWEP:Think()
 	self:SetHold(self.HoldType)
+	if SERVER and IsValid(self.HaveTheBomb) then
+		self.LastBombPos = self.HaveTheBomb:GetPos() + self.HaveTheBomb:OBBCenter()
+		self.LastBombModel = self.HaveTheBomb:GetModel()
+	end
+
+	if SERVER and self:GetPlanted() and not self:GetDialing() and not self:GetDetonating() and not self.KABOOM and not self.PlantedOnSelf then
+		if not IsValid(self.HaveTheBomb) then
+			MarkIEDDestroyed(self)
+		elseif not IsValid(self.HaveTheBomb:GetPhysicsObject()) then
+			ExplodeTheItem(self, self.HaveTheBomb)
+		end
+	end
 end
 
 function SWEP:GetEyeTrace()
 	return hg.eyeTrace(self:GetOwner())
 end
 
-SWEP.BlastDis = 12
+SWEP.BlastDis = 18
 SWEP.BlastDamage = 350
+SWEP.CallStartDelay = 1
+SWEP.MaxDialTime = 10
+SWEP.MaxDialDistance = 3000
+SWEP.CallSound = "rem_iedcall.mp3"
+SWEP.CallSoundLevel = 100
+SWEP.DisorientationRange = 15
+SWEP.FireEntForceBonus = 70
+SWEP.AttachedBombModel = "models/props_junk/cardboard_jox004a.mdl"
+SWEP.AttachedBombScale = 0.4
+SWEP.ExplosionSounds = {
+	"explosions/explode3.wav",
+	"explosions/explode4.wav",
+	"explosions/explode5.wav"
+}
+SWEP.ExplosionSoundLevel = 100
+SWEP.ExplosionSoundPitchMin = 85
+SWEP.ExplosionSoundPitchMax = 90
 SWEP.KABOOM = false
 
 SWEP.SoundFar = {"iedins/ied_detonate_dist_01.wav","ied/ied_detonate_dist_02.wav","ied/ied_detonate_dist_03.wav"}
@@ -137,7 +170,22 @@ if CLIENT then
 		surface.DrawRect(x - 25 * lerpthing * 0.1, y - 2.5, 50 * lerpthing * 0.1, 5)
 		surface.DrawRect(x - 2.5, y - 25 * lerpthing * 0.1, 5, 50 * lerpthing * 0.1)
 
-		if IsValid(tr.Entity) and not tr.Entity:IsPlayer() and not tr.Entity:IsRagdoll() and not self:GetPlanted() then
+		if self:GetDestroyed() then
+			local xrand,yrand = math.random(-1,1),math.random(-1,1)
+			draw.SimpleText( "IED destroyed", "HomigradFontMedium", toScreen.x + 2 + xrand, toScreen.y + 26 + yrand, color_black, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "IED destroyed", "HomigradFontMedium", toScreen.x + xrand, toScreen.y + 25 + yrand, color_red, TEXT_ALIGN_CENTER )
+		elseif self:GetDetonating() then
+			local xrand,yrand = math.random(-1,1),math.random(-1,1)
+			draw.SimpleText( "Detonating..", "HomigradFontMedium", toScreen.x + 2 + xrand, toScreen.y + 26 + yrand, color_black, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "Detonating..", "HomigradFontMedium", toScreen.x + xrand, toScreen.y + 25 + yrand, color_red, TEXT_ALIGN_CENTER )
+		elseif self:GetDialing() then
+			local xrand,yrand = math.random(-1,1),math.random(-1,1)
+			local timeText = "Time: " .. math.Round(math.max(self:GetDetonateAt() - CurTime(), 0), 1) .. "s"
+			draw.SimpleText( "Dialing...", "HomigradFontMedium", toScreen.x + 2 + xrand, toScreen.y + 26 + yrand, color_black, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "Dialing...", "HomigradFontMedium", toScreen.x + xrand, toScreen.y + 25 + yrand, color_red, TEXT_ALIGN_CENTER )
+			draw.SimpleText( timeText, "HomigradFont", toScreen.x + 2 + xrand, toScreen.y + 56 + yrand, color_black, TEXT_ALIGN_CENTER )
+			draw.SimpleText( timeText, "HomigradFont", toScreen.x + xrand, toScreen.y + 55 + yrand, color_white, TEXT_ALIGN_CENTER )
+		elseif IsValid(tr.Entity) and not tr.Entity:IsPlayer() and not tr.Entity:IsRagdoll() and not self:GetPlanted() then
 			local min, max = tr.Entity:GetModelBounds()
 			local minmaxs = (max - min)
 			local size = minmaxs[1] + minmaxs[2] + minmaxs[3]
@@ -152,9 +200,8 @@ if CLIENT then
 				draw.SimpleText( "It will explode creating a fire.", "HomigradFont", toScreen.x+3, toScreen.y + 25 + 62, color_black, TEXT_ALIGN_CENTER )
 				draw.SimpleText( "It will explode creating a fire.", "HomigradFont", toScreen.x, toScreen.y + 25 + 60, colred, TEXT_ALIGN_CENTER )
 			end
-
-			draw.SimpleText( "Plant into Object.", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER )
-			draw.SimpleText( "Plant into Object.", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "Plant onto Object.", "HomigradFont", toScreen.x + 3, toScreen.y + 27, color_black, TEXT_ALIGN_CENTER )
+			draw.SimpleText( "Plant onto Object.", "HomigradFont", toScreen.x, toScreen.y + 25, color_white, TEXT_ALIGN_CENTER )
 		elseif self:GetPlanted() then		
 			local xrand,yrand = math.random(-1,1),math.random(-1,1)
 			draw.SimpleText( "LMB to explode.", "HomigradFontMedium", toScreen.x + 2 + xrand, toScreen.y + 26 + yrand, color_black, TEXT_ALIGN_CENTER )
@@ -182,41 +229,204 @@ end
 
 function SWEP:CreateFake() end
 
-local function ExplodeTheItem(self,ent)
-	if not IsValid(ent) then self:Remove() return end
+local ExplodeTheItem
+local RemoveAttachedBombVisual
 
+local function MarkIEDDestroyed(self)
+	if not IsValid(self) then return end
+
+	self:SetDialing(false)
+	self:SetDetonateAt(0)
+	self:SetDestroyed(true)
+	self:SetDetonating(false)
+	self:SetPlanted(false)
+	self.HaveTheBomb = nil
+	RemoveAttachedBombVisual(self)
+end
+
+RemoveAttachedBombVisual = function(self)
+	if IsValid(self.AttachedBombVisual) then
+		self.AttachedBombVisual:Remove()
+	end
+
+	self.AttachedBombVisual = nil
+end
+
+local function CreateAttachedBombVisual(self, ent, tr)
+	if not IsValid(ent) or not tr then return end
+
+	RemoveAttachedBombVisual(self)
+
+	local visual = ents.Create("prop_dynamic")
+	if not IsValid(visual) then return end
+
+	visual:SetModel(self.AttachedBombModel)
+	visual:SetModelScale(self.AttachedBombScale, 0)
+	visual:SetSolid(SOLID_NONE)
+	visual:SetMoveType(MOVETYPE_NONE)
+	visual:SetCollisionGroup(COLLISION_GROUP_WORLD)
+	visual:Spawn()
+	visual:Activate()
+
+	local ang = tr.HitNormal:Angle()
+	ang:RotateAroundAxis(ang:Right(), 90)
+	ang:RotateAroundAxis(ang:Up(), 90)
+
+	visual:SetParent(ent)
+	visual:SetLocalPos(ent:WorldToLocal(tr.HitPos + tr.HitNormal * 4))
+	visual:SetLocalAngles(ent:WorldToLocalAngles(ang))
+
+	ent:DeleteOnRemove(visual)
+	self:DeleteOnRemove(visual)
+	self.AttachedBombVisual = visual
+end
+
+local function RegisterIEDBomb(self, ent, tr)
+	if not IsValid(ent) then return end
+
+	self.HaveTheBomb = ent
+	self:SetDestroyed(false)
+	self:SetDetonating(false)
+	self:SetPlanted(true)
+	ent.bombowner = self
+	ent.IEDOwner = self
+	ent.IEDBlastBonus = self.FireEntForceBonus
+	ent:CallOnRemove("ied_destroy_" .. self:EntIndex(), function(removedEnt)
+		if IsValid(self) and not self.KABOOM then
+			if IsValid(removedEnt) then
+				ExplodeTheItem(self, removedEnt)
+			else
+				MarkIEDDestroyed(self)
+			end
+		end
+	end)
+
+	if tr then
+		CreateAttachedBombVisual(self, ent, tr)
+	end
+end
+
+local function GetIEDDialDelay(self, ent)
+	local owner = self:GetOwner()
+	local entPos = IsValid(ent) and (ent:GetPos() + ent:OBBCenter()) or vector_origin
+	local ownerPos = IsValid(owner) and owner:GetPos() or entPos
+	local distance = ownerPos:Distance(entPos)
+	return Lerp(math.Clamp(distance / self.MaxDialDistance, 0, 1), self.CallStartDelay, self.MaxDialTime)
+end
+
+local function PlayIEDExplosionSound(self, ent)
+	if IsValid(ent) then
+		ent:EmitSound(table.Random(self.ExplosionSounds), self.ExplosionSoundLevel, math.random(self.ExplosionSoundPitchMin, self.ExplosionSoundPitchMax), 1, CHAN_AUTO)
+	else
+		sound.Play(table.Random(self.ExplosionSounds), self.LastBombPos or self:GetPos(), self.ExplosionSoundLevel, math.random(self.ExplosionSoundPitchMin, self.ExplosionSoundPitchMax), 1)
+	end
+end
+
+local function StartIEDDetonation(self, ent)
+	if self:GetDialing() then return end
+
+	local delay = GetIEDDialDelay(self, ent)
+
+	self:SetDialing(true)
+	self:SetDestroyed(false)
+	self:SetDetonating(false)
+	self:SetDetonateAt(CurTime() + delay)
+	self:EmitSound("keypad"..math.random(1,3)..".mp3",55)
+
+	timer.Simple(self.CallStartDelay, function()
+		if not IsValid(ent) then return end
+		ent:EmitSound(self.CallSound, self.CallSoundLevel, 100, 1, CHAN_AUTO)
+	end)
+
+	timer.Simple(delay, function()
+		if not IsValid(self) then return end
+
+		self:SetDialing(false)
+		self:SetDetonateAt(0)
+		self:SetDetonating(true)
+
+		if self.KABOOM then return end
+
+		if self.PlantedOnSelf then
+			ExplodeTheItem(self, self:GetOwner())
+		else
+			ExplodeTheItem(self, self.HaveTheBomb)
+		end
+
+		self.HaveTheBomb = nil
+	end)
+end
+
+ExplodeTheItem = function(self,ent)
 	local ent = ent
+	local entValid = IsValid(ent)
+	local EntPos = entValid and (ent:GetPos() + ent:OBBCenter()) or self.LastBombPos
+	if not EntPos then self:Remove() return end
 
-	local EntPos = ent:GetPos() + ent:OBBCenter()
+	local entModel = entValid and ent:GetModel() or self.LastBombModel
+	local entWaterLevel = entValid and ent:WaterLevel() or 0
+	local entAngles = entValid and ent:GetAngles() or angle_zero
+	local mat = entValid and ent:GetMaterialType() or nil
+
 	self.KABOOM = true
+	self:SetDialing(false)
+	self:SetDetonateAt(0)
+	self:SetDestroyed(false)
+	self:SetDetonating(true)
+	RemoveAttachedBombVisual(self)
+	if entValid then
+		ent:StopSound(self.CallSound)
+	end
 	local BlastDamage = self.BlastDamage
 	local BlastDis = self.BlastDis
 	local owner = self:GetOwner()
-	ent:EmitSound("nokia.mp3",55,100,1,CHAN_AUTO)
+
+	if entValid and hg and hg.GasTank and hg.GasTank.ActiveTanks and hg.GasTank.ActiveTanks[ent:EntIndex()] and hg.GasTankDetonate then
+		hg.GasTankDetonate(ent)
+		self.HaveTheBomb = nil
+		if IsValid(self) then
+			self:Remove()
+		end
+		return
+	end
+
+	local fireData = entModel and hg and hg.expItems and hg.expItems[entModel]
+	if entValid and fireData and hg and hg.PropExplosion then
+		local phys = ent:GetPhysicsObject()
+		local mass = IsValid(phys) and phys:GetMass() or 10
+		ent.IEDBlastBonus = nil
+		ent.IEDOwner = nil
+		hg.PropExplosion(ent, fireData.ExpType, ((ent.Volume or fireData.Force) * 2) + self.FireEntForceBonus, mass, fireData)
+		self.HaveTheBomb = nil
+		if IsValid(self) then
+			self:Remove()
+		end
+		return
+	end
+
 	timer.Simple(0.4,function()
-		if not IsValid(ent) then return end
 		timer.Simple(0.1,function()
+			PlayIEDExplosionSound(self, ent)
 			net.Start("projectileFarSound")
 				net.WriteString(table.Random(self.Sound))
 				net.WriteString(table.Random(self.SoundFar))
 				net.WriteVector(EntPos)
-				net.WriteEntity(ent)
-				net.WriteBool(ent:WaterLevel() > 0)
+				net.WriteEntity(entValid and ent or Entity(0))
+				net.WriteBool(entWaterLevel > 0)
 				net.WriteString(self.SoundWater)
 			net.Broadcast()
 
-			if self:WaterLevel() == 0 then
-				ParticleEffect("pcf_jack_groundsplode_medium",ent:GetPos(),-vector_up:Angle())
+			if entWaterLevel == 0 then
+				ParticleEffect("pcf_jack_groundsplode_medium",EntPos,-vector_up:Angle())
 			else
 				local effectdata = EffectData()
-				effectdata:SetOrigin(ent:GetPos())
+				effectdata:SetOrigin(EntPos)
 				effectdata:SetScale(3)
-				effectdata:SetNormal(-ent:GetAngles():Forward())
+				effectdata:SetNormal(-entAngles:Forward())
 				util.Effect("eff_jack_genericboom", effectdata)
 			end
 			hg.ExplosionEffect(EntPos, BlastDis / 0.2, 80)
 
-			local mat = ent:GetMaterialType()
 			if mat == MAT_METAL then
 				local Poof=EffectData()
 				Poof:SetOrigin(EntPos)
@@ -226,11 +436,10 @@ local function ExplodeTheItem(self,ent)
 		end)
 
 		timer.Simple(0.2,function()
-			if not IsValid(ent) then self:Remove() return end
 			util.BlastDamage(self, IsValid(self:GetOwner()) and self:GetOwner() or self, EntPos, BlastDis / 0.01905, BlastDamage * 0.1) -- эта функция полное говно кстати. бьет сковзь любые пропы...
 			
 			local dis = BlastDis / 0.01905
-			local disorientation_dis = 10 / 0.01905  
+			local disorientation_dis = self.DisorientationRange / 0.01905
 			for _, enta in ipairs(ents.FindInSphere(EntPos, disorientation_dis)) do
 				local tracePos = enta:IsPlayer() and (enta:GetPos() + enta:OBBCenter()) or enta:GetPos()
 				local tr = hg.ExplosionTrace(EntPos, tracePos, {ent})
@@ -272,19 +481,18 @@ local function ExplodeTheItem(self,ent)
 			end
 
 			--hgWreckBuildings(ent, EntPos, BlastDamage / 400, BlastDis/8, false)
-			hgBlastDoors(ent, EntPos, BlastDamage / 400, BlastDis/8, false)
+			hgBlastDoors(entValid and ent or self, EntPos, BlastDamage / 400, BlastDis/8, false)
 			util.ScreenShake( EntPos, 45, 225, 2.5, 3000 )
 
-			if FireEnts[ent:GetModel()] then
+			if FireEnts[entModel] then
 				local Tr = util.QuickTrace(EntPos, -vector_up*500, {EntPos})
-				local fire = CreateVFire(game.GetWorld(), Tr.HitPos, Tr.HitNormal, 300, Ent)
+				local fire = CreateVFire(game.GetWorld(), Tr.HitPos, Tr.HitNormal, 300, IsValid(owner) and owner or self)
 				if IsValid(fire) then
 					fire:ChangeLife(300)
 				end
 			end
 
-			local mat = ent:GetMaterialType()
-			if mat == MAT_METAL then
+			if mat == MAT_METAL and entValid and IsValid(ent:GetPhysicsObject()) then
 				local co = coroutine.create(function()
 					local LastShrapnel = SysTime()
 
@@ -332,6 +540,11 @@ local function ExplodeTheItem(self,ent)
 				end
 
 				timer.Create("IEDCheck_" .. index, 0, 0, function()
+					if not IsValid(ent) then
+						timer.Remove("IEDCheck_" .. index)
+						return
+					end
+
 					coroutine.resume(co)
 					if ent.ShrapnelDone then
 						ent:Remove()
@@ -344,7 +557,7 @@ local function ExplodeTheItem(self,ent)
 				self:Remove()
 			end
 
-			if mat != MAT_METAL then
+			if mat != MAT_METAL and IsValid(ent) then
 				ent:Remove()
 			end
 		end)
@@ -378,7 +591,7 @@ function SWEP:SecondaryAttack(calledFrom)
 			end
 
 			self.Planted = true
-			self.HaveTheBomb = bomb
+			RegisterIEDBomb(self, bomb)
 
 			self.WorldModel = "models/saraphines/insurgency explosives/ied/insurgency_ied_phone.mdl"
 
@@ -398,6 +611,12 @@ function SWEP:Initialize()
 	self.Planted = false
 	self.HaveTheBomb = false
 	self.WorldModel = "models/props_junk/cardboard_jox004a.mdl"
+end
+
+if SERVER then
+	function SWEP:OnRemove()
+		RemoveAttachedBombVisual(self)
+	end
 end
 
 if CLIENT then
@@ -444,8 +663,7 @@ if SERVER then
 				--bomb:GetPhysicsObject():SetMass(bomb:GetPhysicsObject():GetMass()+20)
 
 				self.Planted = true
-				self.HaveTheBomb = bomb
-				bomb.bombowner = self
+				RegisterIEDBomb(self, bomb, Tr)
 
 				self.WorldModel = "models/saraphines/insurgency explosives/ied/insurgency_ied_phone.mdl"
 
@@ -464,14 +682,12 @@ if SERVER then
 			end
 		end
 
-		if (self.nextattackhuy or 0) <= CurTime() and (self.Planted or self.HaveTheBomb or self.PlantedOnSelf) and not self.KABOOM then
+		if (self.nextattackhuy or 0) <= CurTime() and (self.Planted or self.HaveTheBomb or self.PlantedOnSelf) and not self.KABOOM and not self:GetDialing() then
 			if self.PlantedOnSelf then
-				ExplodeTheItem(self, self:GetOwner())
+				StartIEDDetonation(self, self:GetOwner())
 			else
-				ExplodeTheItem(self, self.HaveTheBomb)
+				StartIEDDetonation(self, self.HaveTheBomb)
 			end
-			self:EmitSound("keypad"..math.random(1,3)..".mp3",55)
-			self.HaveTheBomb = nil
 		end
 	end
 

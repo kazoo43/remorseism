@@ -461,6 +461,28 @@ function hg.PropExplosion(ent, expType, force, mass, info)
 	ExpTypes[expType](ent, force, mass, info)
 end
 
+local function ConsumeIEDBonus(ent)
+	local bonus = ent.IEDBlastBonus or 0
+	local ied = ent.IEDOwner
+
+	ent.IEDBlastBonus = nil
+	ent.IEDOwner = nil
+
+	if IsValid(ied) then
+		ied.KABOOM = true
+		ied.HaveTheBomb = nil
+		ied:SetDialing(false)
+		ied:SetDetonateAt(0)
+		ent:StopSound(ied.CallSound)
+		if IsValid(ied.AttachedBombVisual) then
+			ied.AttachedBombVisual:Remove()
+			ied.AttachedBombVisual = nil
+		end
+	end
+
+	return bonus, ied
+end
+
 local expItems = {
 	["models/props_c17/oildrum001_explosive.mdl"] = {ExpType = "Fire", Force = 75, RangeMul = 1.35},
 	["models/props_junk/gascan001a.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.3},
@@ -830,7 +852,8 @@ function hg.GasTankDetonate(ent)
 
 	local phys = ent:GetPhysicsObject()
 	local mass = IsValid(phys) and phys:GetMass() or 30
-	hg.PropExplosion(ent, "CustomBarrel", baseGas * 2.15 * ratio, mass, {
+	local iedBonus, ied = ConsumeIEDBonus(ent)
+	hg.PropExplosion(ent, "CustomBarrel", (baseGas * 2.15 * ratio) + iedBonus, mass, {
 		RangeMul = 1.15,
 		DamageMul = 1.2,
 		KnockbackMul = 1.1,
@@ -838,6 +861,9 @@ function hg.GasTankDetonate(ent)
 		MinDamageFrac = 0.08,
 		DamageExponent = 1.2
 	})
+	if IsValid(ied) then
+		ied:Remove()
+	end
 end
 
 hook.Add("OnEntityCreated", "hg_gastank_spawn", function(ent)
@@ -1089,8 +1115,12 @@ hook.Add("EntityTakeDamage", "ExplosiveDamage", function(target, dmginfo)
 				local tbl = expItems[target:GetModel()]
 				local phys = target:GetPhysicsObject()
 				local mass = IsValid(phys) and phys:GetMass() or 10
+				local iedBonus, ied = ConsumeIEDBonus(target)
 				target.babahnut = true
-				hg.PropExplosion(target, tbl.ExpType, (target.Volume or tbl.Force) * 2, mass, tbl)
+				hg.PropExplosion(target, tbl.ExpType, ((target.Volume or tbl.Force) * 2) + iedBonus, mass, tbl)
+				if IsValid(ied) then
+					ied:Remove()
+				end
 			end
 		end
 		dmginfo:ScaleDamage(0)

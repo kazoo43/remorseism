@@ -1,4 +1,4 @@
-﻿if SERVER then AddCSLuaFile() end
+if SERVER then AddCSLuaFile() end
 SWEP.PrintName = "TPIK Base"
 SWEP.Instructions = "Tpik Base"
 SWEP.Category = "ZCity Anims items"
