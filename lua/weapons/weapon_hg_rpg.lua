@@ -106,7 +106,7 @@ function SWEP:Shoot(override)
 
 		local phys = projectile:GetPhysicsObject()
 		if IsValid(phys) then
-			local initialVelocity = owner:GetVelocity() + ang:Forward() * 5249
+			local initialVelocity = owner:GetVelocity() + ang:Forward() * (projectile.InitialVelocity or projectile.Speed or 5249)
 			phys:SetVelocity(initialVelocity)
 			phys:EnableGravity(false)
 			timer.Simple(0.2, function()

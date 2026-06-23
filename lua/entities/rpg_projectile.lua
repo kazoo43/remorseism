@@ -1,4 +1,8 @@
 if SERVER then AddCSLuaFile() end
+if CLIENT then
+    PrecacheParticleSystem("fire_jet_01")
+end
+
 ENT.Base = "projectile_base"
 ENT.Author = "Sadsalat"
 ENT.Category = "ZCity Other"
@@ -9,8 +13,14 @@ ENT.Model = "models/weapons/tfa_ins2/w_rpg7_projectile.mdl"
 ENT.Sound = "snd_jack_bigsplodeclose.wav"
 ENT.SoundFar = "mortar_strike_far_dist_03.wav"
 ENT.SoundWater = "iedins/water/ied_water_detonate_01.wav"
-ENT.Speed = 5249
+ENT.InitialVelocity = 1200
+ENT.Speed = 2200
 ENT.TruhstTime = 0.4
+ENT.Stage2Delay = 0.28
+ENT.Stage2Sound = "rem_rpgstage2.ogg"
+ENT.Stage2SoundLevel = 155
+ENT.Stage2SoundPitch = 100
+ENT.Stage2SoundVolume = 3
 ENT.IconOverride = "vgui/inventory/weapon_rpg7"
 
 ENT.BlastDamage = 200
@@ -22,13 +32,35 @@ ENT.UseType = SIMPLE_USE
 ENT.SafetyDistance = 7 * 52.49
 
 function ENT:Initialize()
-    self.BaseClass.Initialize(self)
+    if SERVER then
+        self.BaseClass.Initialize(self)
+    end
+
+    self.Stage2Start = CurTime() + self.Stage2Delay
     
     if SERVER then
         self:SetUseType(SIMPLE_USE)
         
         self.StartPos = self:GetPos()
         self.SafetyArmed = false
+    elseif CLIENT then
+        self.Stage2Dummy = ClientsideModel("models/props_junk/PopCan01a.mdl", RENDERGROUP_NONE)
+
+        if not IsValid(self.Stage2Dummy) then return end
+
+        self.Stage2Dummy:SetRenderMode(RENDERMODE_TRANSCOLOR)
+        self.Stage2Dummy:SetColor(Color(0, 0, 0, 0))
+    end
+end
+
+function ENT:ActivateStage2()
+    if self.Stage2Activated or self.Exploded or self.Removed then return end
+    self.Stage2Activated = true
+
+    if SERVER and self.Stage2Sound and self.Stage2Sound ~= "" then
+        EmitSound(self.Stage2Sound, self:GetPos(), self:EntIndex() + 2048, CHAN_ITEM, self.Stage2SoundVolume, self.Stage2SoundLevel, 0, self.Stage2SoundPitch)
+    elseif CLIENT and IsValid(self.Stage2Dummy) then
+        self.Stage2Jet = CreateParticleSystem(self.Stage2Dummy, "fire_jet_01", PATTACH_ABSORIGIN_FOLLOW, 0)
     end
 end
 
@@ -449,8 +481,26 @@ function ENT:CheckProximityToProblematicNPCs()
 end
 
 function ENT:Think()
+    if CLIENT then
+        if IsValid(self.Stage2Dummy) then
+            self.Stage2Dummy:SetPos(self:GetPos())
+            self.Stage2Dummy:SetAngles((-self:GetAngles():Forward()):Angle())
+        end
+
+        if CurTime() >= (self.Stage2Start or math.huge) then
+            self:ActivateStage2()
+        end
+
+        self:SetNextClientThink(CurTime())
+        return true
+    end
+
     if SERVER and not self.SafetyArmed then
         self:CheckSafetyDistance()
+    end
+
+    if CurTime() >= (self.Stage2Start or math.huge) then
+        self:ActivateStage2()
     end
     
     if SERVER and not self.Exploded then
@@ -461,4 +511,10 @@ function ENT:Think()
     end
     
     self.BaseClass.Think(self)
+end
+
+function ENT:OnRemove()
+    if CLIENT and IsValid(self.Stage2Dummy) then
+        self.Stage2Dummy:Remove()
+    end
 end

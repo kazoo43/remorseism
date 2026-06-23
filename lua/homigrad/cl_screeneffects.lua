@@ -255,6 +255,14 @@ local consciousnessTypeBeatVolume = 0.18
 local dying2Volume = 0.4
 local painBeatOverlayPath = "sound/rem_pain.mp3"
 local painBeatOverlayVolumeMul = 1.25
+local painThresholdMax = 120
+local painAgonyThreshold = 0.45
+local painExcruciatingThreshold = 0.87
+local painAgonyVolumeMul = 1.15
+local painExcruciatingVolumeMul = 0.85
+local painLayerFadeLerp = 0.06
+local painEffectIntensity = 2
+local painPulseIntensity = 0.45
 local PainStationLoading = false
 local PainStationOverlayLoading = false
 local AssimilationStationLoading = false
@@ -263,6 +271,63 @@ local TinnitusLoading = false
 local NoiseStationLoading = false
 local NoiseStation2Loading = false
 local NoiseStation2DyingLoading = false
+local painAudioGeneration = 0
+local painLayers = {
+	agony = {
+		path = "rem_agony.ogg",
+		threshold = painAgonyThreshold,
+		volumeMul = painAgonyVolumeMul,
+		fadeLerp = painLayerFadeLerp,
+		currentVolume = 0,
+		targetVolume = 0
+	},
+	excruciating = {
+		path = "rem_excruciatingpain.ogg",
+		threshold = painExcruciatingThreshold,
+		volumeMul = painExcruciatingVolumeMul,
+		fadeLerp = painLayerFadeLerp,
+		currentVolume = 0,
+		targetVolume = 0
+	}
+}
+
+local function stopPainLayer(layer)
+	layer.targetVolume = 0
+	layer.currentVolume = 0
+	if layer.station then
+		layer.station:Stop()
+		layer.station = nil
+	end
+end
+
+local function stopPainLayers()
+	painAudioGeneration = painAudioGeneration + 1
+	for _, layer in pairs(painLayers) do
+		stopPainLayer(layer)
+	end
+end
+
+local function ensurePainLayer(layer)
+	if layer.station then return end
+	layer.station = CreateSound(lply, layer.path)
+	if !layer.station then return end
+	layer.station:PlayEx(0, 100)
+end
+
+local function updatePainLayer(layer, normalizedPain, baseVolume)
+	local shouldPlay = normalizedPain >= layer.threshold and baseVolume > 0.001
+	layer.targetVolume = shouldPlay and math.Clamp(math.Remap(normalizedPain, layer.threshold, 1, 0, layer.volumeMul), 0, layer.volumeMul) * math.min(baseVolume, 1) or 0
+	layer.currentVolume = LerpFT(layer.fadeLerp, layer.currentVolume or 0, layer.targetVolume)
+	if shouldPlay then
+		ensurePainLayer(layer)
+	end
+	if !layer.station then return end
+	layer.station:ChangeVolume(layer.currentVolume, 0)
+	if !shouldPlay and layer.currentVolume <= 0.01 then
+		layer.station:Stop()
+		layer.station = nil
+	end
+end
 
 local function stopthings()
 	PainLerp = 0
@@ -281,6 +346,7 @@ local function stopthings()
 	NoiseStationLoading = false
 	NoiseStation2Loading = false
 	NoiseStation2DyingLoading = false
+	stopPainLayers()
 	
 	if IsValid(PainStation) then
 		PainStation:Stop()
@@ -358,6 +424,8 @@ local addtime = CurTime()
 local hurtoverlay = Material("zcity/neurotrauma/damageOverlay.png", "smooth")
 hook.Add("Post Post Processing", "ItHurts", function()
 	local spect = IsValid(lply:GetNWEntity("spect")) and lply:GetNWEntity("spect")
+	local painVolume = 0
+	local normalizedPain = 0
 	
 	if IsValid(PainStation) then
 		PainStation:SetVolume(0)
@@ -409,9 +477,16 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	end
 
 	if (!IsValid(PainStation) or PainStation:GetState() != GMOD_CHANNEL_PLAYING) and not PainStationLoading then
+		local generation = painAudioGeneration
 		PainStationLoading = true
 		sound.PlayFile("sound/zbattle/pain_beat.ogg", "noblock noplay", function(station)
 			PainStationLoading = false
+			if generation != painAudioGeneration then
+				if IsValid(station) then
+					station:Stop()
+				end
+				return
+			end
 			if IsValid(station) then
 				station:SetVolume(0)
 				station:Play()
@@ -423,9 +498,16 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	end
 
 	if (!IsValid(PainStationOverlay) or PainStationOverlay:GetState() != GMOD_CHANNEL_PLAYING) and not PainStationOverlayLoading then
+		local generation = painAudioGeneration
 		PainStationOverlayLoading = true
 		sound.PlayFile(painBeatOverlayPath, "noblock noplay", function(station)
 			PainStationOverlayLoading = false
+			if generation != painAudioGeneration then
+				if IsValid(station) then
+					station:Stop()
+				end
+				return
+			end
 			if IsValid(station) then
 				station:SetVolume(0)
 				station:Play()
@@ -538,14 +620,14 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	end
 
 	if (PainLerp > 0.001 or shockLerp > 5) or org.otrub then
-		local strobe = math.ease.InOutSine(math.abs(math.cos(CurTime() * 2))) * PainLerp / 2
+		local strobe = math.ease.InOutSine(math.abs(math.cos(CurTime() * 2))) * PainLerp * painPulseIntensity
 		pain = PainLerp + strobe
 		shock = shockLerp
 		render.UpdateScreenEffectTexture()
 
 		vignetteMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-		vignetteMat:SetFloat("$c0_z", org.otrub and 5 or (pain / 40 + math.max(shock - 5, 0) / 3)) //ColorIntensity
-		vignetteMat:SetFloat("$c1_y", org.otrub and 10 or (pain / 40 + math.max(shock - 5, 0) / 3)) //Vignette
+		vignetteMat:SetFloat("$c0_z", org.otrub and 5 * painEffectIntensity or (pain / 32 + math.max(shock - 5, 0) / 2.4) * painEffectIntensity) //ColorIntensity
+		vignetteMat:SetFloat("$c1_y", org.otrub and 10 * painEffectIntensity or (pain / 32 + math.max(shock - 5, 0) / 2.4) * painEffectIntensity) //Vignette
 
 		render.SetMaterial(vignetteMat)
 		render.DrawScreenQuad()
@@ -554,9 +636,9 @@ hook.Add("Post Post Processing", "ItHurts", function()
 
 		painMat:SetFloat("$c2_x", CurTime() + 10000) //Time
 		painMat:SetFloat("$c0_y", 0.8) //Gate
-		painMat:SetFloat("$c0_z", 1) //ColorIntensity
-		painMat:SetFloat("$c1_x", math.Clamp(pain / 90, 0, 0.75)) //Lerp
-		painMat:SetFloat("$c1_y", math.Clamp(pain / 90, 0, 0.75)) //Vignette
+		painMat:SetFloat("$c0_z", painEffectIntensity) //ColorIntensity
+		painMat:SetFloat("$c1_x", math.Clamp(pain / 70, 0, 0.95)) //Lerp
+		painMat:SetFloat("$c1_y", math.Clamp(pain / 70, 0, 0.95)) //Vignette
 
 		render.SetMaterial(painMat)
 		render.DrawScreenQuad()
@@ -567,12 +649,14 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 		
 		//if pain > 10 then
+			painVolume = math.Clamp(math.Remap(pain, 0, painThresholdMax, 0, 2), 0, 2)
+			normalizedPain = math.Clamp(pain / painThresholdMax, 0, 1)
 			if IsValid(PainStation) then
-				PainStation:SetVolume(math.Clamp(math.Remap(pain, 0, 120, 0, 2), 0, 2))
+				PainStation:SetVolume(painVolume)
 			end
 
 			if IsValid(PainStationOverlay) then
-				PainStationOverlay:SetVolume(math.Clamp(math.Remap(pain, 0, 120, 0, 2), 0, 2) * painBeatOverlayVolumeMul)
+				PainStationOverlay:SetVolume(painVolume * painBeatOverlayVolumeMul)
 			end
 		//else
 		//	if IsValid(PainStation) then
@@ -586,6 +670,9 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		//	PainStation = nil
 		//end
 	end
+
+	updatePainLayer(painLayers.agony, normalizedPain, painVolume)
+	updatePainLayer(painLayers.excruciating, normalizedPain, painVolume)
 
 	if brain > 0.01 then
 		local chooser = 1
