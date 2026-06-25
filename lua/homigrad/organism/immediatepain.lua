@@ -1,11 +1,19 @@
 if SERVER then
-    local painaddDrainRate = 14
+    local painaddDrainRate = 10
+    local adrenalinePainaddPassiveRate = 12
+    local adrenalinePainaddPassiveCap = 1
+    local adrenalinePainaddPassiveMin = 15
 
     hook.Add("Org Think", "ImmediatePainApply", function(owner, org, timeValue)
         if not org.painadd or org.painadd <= 0 then return end
+        local adrenaline = math.min(org.adrenaline or 0, adrenalinePainaddPassiveCap)
         local add = math.min(org.painadd, timeValue * painaddDrainRate)
+        local passiveDrain = 0
+        if adrenaline > adrenalinePainaddPassiveMin then
+            passiveDrain = math.min(org.painadd - add, timeValue * adrenalinePainaddPassiveRate * adrenaline)
+        end
         org.avgpain = math.min(org.avgpain + add, 150)
-        org.painadd = math.max(org.painadd - add, 0)
+        org.painadd = math.max(org.painadd - add - passiveDrain, 0)
         org.pain = org.avgpain * math.max(1 - (org.adrenaline or 0) / 4, 0.75) * math.max(1 - (org.analgesia or 0), 0)
         org.pain = math.min(org.pain, 150)
     end, HOOK_MONITOR_HIGH)

@@ -40,6 +40,19 @@ end
 function ENT:OnRemove()
 end
 
+function ENT:OnTakeDamage(dmgInfo)
+	if self.broken or self:GetNWBool("ArmorBroken", false) then return end
+	if not dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then return end
+
+	self.shotsLeft = self.shotsLeft or hg.GetArmorBreakShotCount(self.name)
+	self.shotsLeft = self.shotsLeft - 1
+
+	if self.shotsLeft > 0 then return end
+
+	hg.SetArmorBrokenEntity(self)
+	hg.PlayArmorBreakSound(self)
+end
+
 function ENT:Use(activator)
 	self:TakeByPlayer(activator)
 end
@@ -61,6 +74,12 @@ end
 function ENT:ApplyData(ply,equipment)
 	ply:SetNWString("ArmorMaterials" .. equipment, self.mat)
 	ply:SetNWInt("ArmorSkins" .. equipment, self.skin or 0)
+	ply.armors_shots = ply.armors_shots or {}
+	ply.armors_broken = ply.armors_broken or {}
+	ply.armors_broken_mul = ply.armors_broken_mul or {}
+	ply.armors_broken[equipment] = self.broken or self:GetNWBool("ArmorBroken", false) or nil
+	ply.armors_broken_mul[equipment] = self.brokenProtectionMul or nil
+	ply.armors_shots[equipment] = ply.armors_broken[equipment] and nil or self.shotsLeft or hg.GetArmorBreakShotCount(equipment)
 end
 
 function ENT:ReciveData(ply,equipment)
@@ -70,16 +89,28 @@ function ENT:ReciveData(ply,equipment)
 
 	self.skin = ply:GetNWInt("ArmorSkins" .. equipment, self.skin or 0)
 	self:SetSkin(self.skin)
+	self.shotsLeft = ply.armors_shots and ply.armors_shots[equipment] or self.shotsLeft
+	self.brokenProtectionMul = ply.armors_broken_mul and ply.armors_broken_mul[equipment] or self.brokenProtectionMul
+	if ply.armors_broken and ply.armors_broken[equipment] then
+		hg.SetArmorBrokenEntity(self)
+		self.shotsLeft = nil
+	end
 end
 
 hook.Add("ItemsTransfered","TransferMats",function(ply, ragdoll)
 	local armors = ply:GetNetVar("Armor",{})
+	ragdoll.armors = ply.armors
+	ragdoll.armors_shots = ragdoll.armors_shots or {}
+	ragdoll.armors_health = ply.armors_health
+	ragdoll.armors_broken = ply.armors_broken
+	ragdoll.armors_broken_mul = ply.armors_broken_mul
 	for k,v in pairs(armors) do
 		ragdoll:SetNWString("ArmorMaterials" .. v, ply:GetNWString("ArmorMaterials" .. v))
 		ply:SetNWString("ArmorMaterials" .. v, nil)
 
 		ragdoll:SetNWInt("ArmorSkins" .. v, ply:GetNWInt("ArmorSkins" .. v))
 		ply:SetNWInt("ArmorSkins" .. v, nil)
+		ragdoll.armors_shots[v] = ply.armors_shots and ply.armors_shots[v] or nil
 	end
 end)
 
@@ -89,4 +120,10 @@ hook.Add("ItemTransfer", "TransferMats", function(ply, ent, placement, armor)
 
 	ply:SetNWInt("ArmorSkins" .. armor, ent:GetNWInt("ArmorSkins" .. armor))
 	ent:SetNWInt("ArmorSkins" .. armor, nil)
+	ply.armors_shots = ply.armors_shots or {}
+	ply.armors_shots[armor] = ent.armors_shots and ent.armors_shots[armor] or ply.armors_shots[armor]
+	ply.armors_broken = ply.armors_broken or {}
+	ply.armors_broken_mul = ply.armors_broken_mul or {}
+	ply.armors_broken[armor] = ent.armors_broken and ent.armors_broken[armor] or ply.armors_broken[armor]
+	ply.armors_broken_mul[armor] = ent.armors_broken_mul and ent.armors_broken_mul[armor] or ply.armors_broken_mul[armor]
 end)

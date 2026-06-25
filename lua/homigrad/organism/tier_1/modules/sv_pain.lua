@@ -2,24 +2,28 @@ local max, min, Clamp, Approach = math.max, math.min, math.Clamp, math.Approach
 --local Organism = hg.organism
 hg.organism.module.pain = {}
 local module = hg.organism.module.pain
-local consciousness_otrub_threshold = 0.08
+local consciousness_otrub_threshold = 0.3
 local consciousness_fake_threshold = 0.38
 local shock_consciousness_soft_target = 0.5
-local shock_consciousness_hard_target = 0.12
-local otrub_consciousness_target = 0.08
-local shock_consciousness_drain = 10
-local otrub_consciousness_drain = 8
+local shock_consciousness_hard_target = 0
+local shock_consciousness_drain_start = 10
+local shock_consciousness_drain_end = 4
 local consciousness_recovery_speed = 12
 local low_consciousness_recovery_speed = 16
 local otrub_consciousness_recovery_speed = 20
-local shock_consciousness_threshold = 45
+local shock_consciousness_threshold = 25
 local shock_consciousness_max = 85
 local pain_shock_threshold = 80
 local pain_shock_target = 55
 local pain_shock_gain = 2
+local pain_shock_ramp_end = 120
+local pain_shock_max_target = 85
+local pain_shock_max_gain = 10
 local pain_tolerance = 120
 local otrub_pain_tolerance = 90
 local pain_fake_threshold = 0.9
+local pain_drain_base = 20
+local pain_drain_otrub_mul = 4.5
 module[1] = function(org)
 	org.shock = 0
 	org.pain = 0
@@ -63,8 +67,8 @@ module[2] = function(owner, org, timeValue)
 
 	local shouldPainAdd = not (org.otrub or org.spine2 >= hg.organism.fake_spine2 or org.spine3 >= hg.organism.fake_spine3)
 	
-	local add = math.min(timeValue * 20, org.painadd)
-	local sub = (add <= 0.2) and (timeValue * 2 * (org.otrub and 2 or 1) + timeValue * (org.painkiller * 2) + timeValue * (org.analgesia * 4)) or (0)
+	local add = math.min(timeValue * 15, org.painadd)
+	local sub = (add <= 0.2) and (timeValue * pain_drain_base * (org.otrub and pain_drain_otrub_mul or 1) + timeValue * (org.painkiller * 2) + timeValue * (org.analgesia * 4)) or (0)
 
 	if adrenaline > 0.5 then
 		sub = sub * math.max(1 - adrenaline, 0.05) / 1.5// / (adrenaline >= 2 and 16 or 8)
@@ -86,28 +90,27 @@ module[2] = function(owner, org, timeValue)
 	org.disorientation = math.min(org.disorientation, 10)
 
 	if org.pain > pain_shock_threshold then
-		org.shock = math.Approach(org.shock, pain_shock_target, timeValue * pain_shock_gain)
+		local painShockTarget = Clamp(math.Remap(org.pain, pain_shock_threshold, pain_shock_ramp_end, pain_shock_target, pain_shock_max_target), pain_shock_target, pain_shock_max_target)
+		local painShockGain = Clamp(math.Remap(org.pain, pain_shock_threshold, pain_shock_ramp_end, pain_shock_gain, pain_shock_max_gain), pain_shock_gain, pain_shock_max_gain)
+		org.shock = math.Approach(org.shock, painShockTarget, timeValue * painShockGain)
 	end
 
-	if org.otrub then
-		org.consciousness = Approach(org.consciousness, otrub_consciousness_target, timeValue / otrub_consciousness_drain)
-	else
-		local shockThreshold = shock_consciousness_threshold * analgesiaMul * painkillerMul
-		if org.shock > shockThreshold then
-			local shockMax = shock_consciousness_max * analgesiaMul * painkillerMul
-			local shockTarget = Clamp(math.Remap(org.shock, shockThreshold, shockMax, shock_consciousness_soft_target, shock_consciousness_hard_target), shock_consciousness_hard_target, shock_consciousness_soft_target)
-			org.consciousness = Approach(org.consciousness, shockTarget, timeValue / shock_consciousness_drain)
-		end
+	local shockThreshold = shock_consciousness_threshold * analgesiaMul * painkillerMul
+	local shockActive = org.shock > shockThreshold
+	if shockActive then
+		local shockTarget = Clamp(math.Remap(org.shock, shockThreshold, shock_consciousness_max, shock_consciousness_soft_target, shock_consciousness_hard_target), shock_consciousness_hard_target, shock_consciousness_soft_target)
+		local shockDrain = Clamp(math.Remap(org.shock, shockThreshold, shock_consciousness_max, shock_consciousness_drain_start, shock_consciousness_drain_end), shock_consciousness_drain_end, shock_consciousness_drain_start)
+		org.consciousness = Approach(org.consciousness, shockTarget, timeValue / shockDrain)
 	end
-
 	if org.tranquilizer > 0 then
 		org.tranquilizer = math.Approach(org.tranquilizer, 0, org.tranquilizer > 1 and timeValue / 5 or timeValue / 30)
 		--org.shock = math.Approach(org.shock, 50, timeValue * org.tranquilizer * 5)
+		--org.shock = math.Approach(org.shock, 50, timeValue * org.tranquilizer * 5)
 		org.consciousness = math.Approach(org.consciousness, 0, timeValue / 30 * org.tranquilizer)
-	else
+	elseif not shockActive then
 		local target = org.blood < 3000 and (org.blood - 2500) / 500 or 1
 		local recovery_speed = consciousness_recovery_speed
-		if org.otrub then
+		if org.otrub or org.consciousness < consciousness_otrub_threshold then
 			recovery_speed = otrub_consciousness_recovery_speed
 		elseif org.consciousness < consciousness_fake_threshold then
 			recovery_speed = low_consciousness_recovery_speed

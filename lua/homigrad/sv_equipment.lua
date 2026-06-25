@@ -1,6 +1,157 @@
 util.AddNetworkString("hg_add_equipment")
 util.AddNetworkString("hg_drop_equipment")
 
+local armorBreakShotRanges = {
+	head = {1, 5},
+	face = {1, 5},
+	default = {10, 35}
+}
+
+local armorBrokenProtectionRange = {0.1, 0.2}
+local armorBreakSound = "rem_armorbreak.mp3"
+local armorBreakSoundLevel = 140
+local armorBreakSoundVolume = 2
+
+local function getArmorShotRange(equipment)
+	local placement = hg.GetArmorPlacement(equipment)
+	local range = armorBreakShotRanges[placement] or armorBreakShotRanges.default
+
+	return range[1], range[2]
+end
+
+function hg.GetArmorBreakShotCount(equipment)
+	local minShots, maxShots = getArmorShotRange(equipment)
+
+	return math.random(minShots, maxShots)
+end
+
+local function getBrokenArmorProtectionMul()
+	return math.Rand(armorBrokenProtectionRange[1], armorBrokenProtectionRange[2])
+end
+
+local function markArmorBroken(owner, equipment, mul)
+	if not IsValid(owner) then return end
+
+	owner.armors_broken = owner.armors_broken or {}
+	owner.armors_broken_mul = owner.armors_broken_mul or {}
+	owner.armors_broken[equipment] = true
+	owner.armors_broken_mul[equipment] = mul or owner.armors_broken_mul[equipment] or getBrokenArmorProtectionMul()
+end
+
+function hg.SetArmorBrokenEntity(ent)
+	if not IsValid(ent) then return end
+
+	ent.broken = true
+	ent:SetNWBool("ArmorBroken", true)
+end
+
+function hg.PlayArmorBreakSound(ent)
+	if not IsValid(ent) then return end
+
+	sound.Play(armorBreakSound, ent:GetPos(), armorBreakSoundLevel, 100, armorBreakSoundVolume)
+end
+
+local function getArmorDropTransform(ent, equipment, pos)
+	if not IsValid(ent) then return pos or vector_origin, angle_zero end
+
+	local placement = hg.GetArmorPlacement(equipment)
+	local armorData = placement and hg.armor[placement] and hg.armor[placement][equipment]
+	if not armorData then return pos or ent:GetPos(), ent:GetAngles() end
+
+	local bone = ent:LookupBone(armorData.bone or "")
+	local matrix = bone and ent:GetBoneMatrix(bone)
+	if not matrix then return pos or ent:GetPos(), ent:GetAngles() end
+
+	local bonePos = matrix:GetTranslation()
+	local boneAng = matrix:GetAngles()
+	local dropPos, dropAng = LocalToWorld(armorData[3] or vector_origin, armorData[4] or angle_zero, bonePos, boneAng)
+
+	return pos or dropPos, dropAng
+end
+
+local function getArmorDropVelocity(dmgInfo)
+	if not dmgInfo then return end
+
+	local force = dmgInfo:GetDamageForce()
+	if not force or force:LengthSqr() <= 0 then return end
+
+	force = force:GetNormalized() * math.Clamp(force:Length() * 0.02, 100, 250)
+	force.z = force.z + 35
+
+	return force
+end
+
+function hg.BreakArmor(ent, equipment, pos, dmgInfo)
+	if not IsValid(ent) then return false end
+	if not ent.armors or not table.HasValue(ent.armors, equipment) then return false end
+
+	local placement = hg.GetArmorPlacement(equipment)
+	local brokenMul = ent.armors_broken_mul and ent.armors_broken_mul[equipment] or getBrokenArmorProtectionMul()
+	ent.armors_shots = ent.armors_shots or {}
+	ent.armors_health = ent.armors_health or {}
+	markArmorBroken(ent, equipment, brokenMul)
+
+	if placement ~= "head" and placement ~= "face" then
+		ent.armors_shots[equipment] = nil
+		hg.PlayArmorBreakSound(ent)
+		syncLinkedArmor(ent)
+		return true
+	end
+
+	local equipmentEnt = hg.DropArmorForce(ent, equipment, pos, nil, getArmorDropVelocity(dmgInfo), brokenMul)
+
+	ent.armors_shots[equipment] = nil
+	ent.armors_health[equipment] = nil
+	if ent.armors_broken then
+		ent.armors_broken[equipment] = nil
+	end
+	if ent.armors_broken_mul then
+		ent.armors_broken_mul[equipment] = nil
+	end
+
+	if not IsValid(equipmentEnt) then return false end
+
+	hg.SetArmorBrokenEntity(equipmentEnt)
+	hg.PlayArmorBreakSound(equipmentEnt)
+
+	return true
+end
+
+local function syncLinkedArmor(ent)
+	if not IsValid(ent) then return end
+
+	ent:SyncArmor()
+
+	if not ent:IsRagdoll() then return end
+
+	local owner = hg.RagdollOwner(ent)
+	if not IsValid(owner) then return end
+
+	owner.armors = table.Copy(ent.armors or owner.armors or {})
+	owner.armors_shots = table.Copy(ent.armors_shots or owner.armors_shots or {})
+	owner.armors_health = table.Copy(ent.armors_health or owner.armors_health or {})
+	owner.armors_broken = table.Copy(ent.armors_broken or owner.armors_broken or {})
+	owner.armors_broken_mul = table.Copy(ent.armors_broken_mul or owner.armors_broken_mul or {})
+	owner:SyncArmor()
+end
+
+function hg.HandleArmorShot(org, placement, armor, dmgInfo, hit)
+	local owner = org and org.owner
+
+	if not IsValid(owner) then return end
+	if not owner.armors or owner.armors[placement] ~= armor then return end
+	if not dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then return end
+	if owner.armors_broken and owner.armors_broken[armor] then return end
+
+	owner.armors_shots = owner.armors_shots or {}
+	owner.armors_shots[armor] = owner.armors_shots[armor] or hg.GetArmorBreakShotCount(armor)
+	owner.armors_shots[armor] = owner.armors_shots[armor] - 1
+
+	if owner.armors_shots[armor] <= 0 then
+		hg.BreakArmor(owner, armor, hit, dmgInfo)
+	end
+end
+
 function hg.SetArmorRestrictions(ply, restrictions)
 	if not IsValid(ply) then return end
 	ply.ArmorRestrictions = restrictions
@@ -121,13 +272,20 @@ function hg.AddArmor(ply, equipment, ent)
 		end
 	end
 
+	ply.armors_shots = ply.armors_shots or {}
+	if not (ply.armors_broken and ply.armors_broken[equipment]) then
+		ply.armors_shots[equipment] = ply.armors_shots[equipment] or hg.GetArmorBreakShotCount(equipment)
+	else
+		ply.armors_shots[equipment] = nil
+	end
+
     ply.armors[placement] = equipment
     
     ply:SyncArmor()
     return true
 end
 
-function hg.DropArmorForce(ent, equipment)
+function hg.DropArmorForce(ent, equipment, pos, ang, vel, brokenMul)
     if not table.HasValue(ent.armors, equipment) then return false end
     local placement
     for plc, tbl in pairs(hg.armor) do
@@ -141,10 +299,16 @@ function hg.DropArmorForce(ent, equipment)
     
     if hg.armor[placement][equipment] then
         local equipmentEnt = ents.Create("ent_armor_" .. equipment)
+        local dropPos, dropAng = getArmorDropTransform(ent, equipment, pos)
         equipmentEnt:Spawn()
-        equipmentEnt:SetPos(ent:GetPos())
-        equipmentEnt:SetAngles(ent:GetAngles())
+        equipmentEnt:SetPos(dropPos)
+        equipmentEnt:SetAngles(ang or dropAng)
 		equipmentEnt:ReciveData(ent,equipment)
+		equipmentEnt.shotsLeft = ent.armors_shots and ent.armors_shots[equipment] or nil
+		if brokenMul or ent.armors_broken and ent.armors_broken[equipment] then
+			equipmentEnt.brokenProtectionMul = brokenMul or ent.armors_broken_mul and ent.armors_broken_mul[equipment]
+			hg.SetArmorBrokenEntity(equipmentEnt)
+		end
 
         if ent:GetNetVar("zableval_masku", false) then
             equipmentEnt.zablevano = true
@@ -152,8 +316,20 @@ function hg.DropArmorForce(ent, equipment)
         end
 
         local phys = equipmentEnt:GetPhysicsObject()
+		if IsValid(phys) and vel then
+			phys:SetVelocity(vel)
+		end
 
         if IsValid(equipmentEnt) then table.RemoveByValue(ent.armors, equipment) end
+		if ent.armors_shots then
+			ent.armors_shots[equipment] = nil
+		end
+		if ent.armors_broken then
+			ent.armors_broken[equipment] = nil
+		end
+		if ent.armors_broken_mul then
+			ent.armors_broken_mul[equipment] = nil
+		end
         
         if hg.armor[placement][equipment].voice_change then
             if eightbit and eightbit.EnableEffect and ent.UserID then
@@ -161,7 +337,7 @@ function hg.DropArmorForce(ent, equipment)
             end
         end
 
-        ent:SyncArmor()
+        syncLinkedArmor(ent)
         
         return equipmentEnt
     end
@@ -195,6 +371,7 @@ function hg.DropArmor(ply, equipment)
         equipmentEnt:SetPos(ply:EyePos())
         equipmentEnt:SetAngles(ply:EyeAngles())
 		equipmentEnt:ReciveData(ply,equipment)
+		equipmentEnt.shotsLeft = ply.armors_shots and ply.armors_shots[equipment] or nil
         
         if placement == "face" and ply:GetNetVar("zableval_masku", false) then
             equipmentEnt.zablevano = true
@@ -204,6 +381,9 @@ function hg.DropArmor(ply, equipment)
         local phys = equipmentEnt:GetPhysicsObject()
         if IsValid(phys) then phys:SetVelocity(ply:EyeAngles():Forward() * 150) end
         if IsValid(equipmentEnt) then table.RemoveByValue(ply.armors, equipment) end
+		if ply.armors_shots then
+			ply.armors_shots[equipment] = nil
+		end
         
         if hg.armor[placement][equipment].voice_change then
             if eightbit and eightbit.EnableEffect and ply.UserID then
@@ -229,8 +409,10 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 	local prot = placement and hg.armor[placement] and armor and hg.armor[placement][armor] and (hg.armor[placement][armor].protection - (dmgInfo:GetInflictor().bullet and dmgInfo:GetInflictor().bullet.Penetration or 1)) or (10 - ( dmgInfo:GetInflictor().bullet and dmgInfo:GetInflictor().bullet.Penetration or 1))
 	
 	org.owner.armors_health = org.owner.armors_health or {}
+	org.owner.armors_broken_mul = org.owner.armors_broken_mul or {}
 
 	prot = prot * (org.owner.armors_health[armor] or 1)
+	prot = prot * (org.owner.armors_broken_mul[armor] or 1)
 	
 	if punch then
 		if org.owner:IsPlayer() and org.alive and dmgInfo:IsDamageType(DMG_BUCKSHOT + DMG_BULLET) then
@@ -255,6 +437,7 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 	scale = scale * (dmgInfo:IsDamageType(DMG_SLASH) and 0.1 or 1)
 	
 	ArmorEffect(placement, armor, dmgInfo, org, hit, prot)
+	hg.HandleArmorShot(org, placement, armor, dmgInfo, hit)
 
 	if prot < 0 then
 		//dmgInfo:ScaleDamage(scale)

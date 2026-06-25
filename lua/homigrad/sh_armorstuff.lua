@@ -812,6 +812,11 @@ function entityMeta:SyncArmor()
 		self:SetNetVar("Armor", self.armors)
 		local rag = hg.GetCurrentCharacter(self)
 		if IsValid(rag) and rag:IsRagdoll() then
+			rag.armors = table.Copy(self.armors)
+			rag.armors_shots = table.Copy(self.armors_shots or {})
+			rag.armors_health = table.Copy(self.armors_health or {})
+			rag.armors_broken = table.Copy(self.armors_broken or {})
+			rag.armors_broken_mul = table.Copy(self.armors_broken_mul or {})
 			rag:SetNetVar("Armor", self.armors)
 			rag:SetNetVar("HideArmorRender", self:GetNetVar("HideArmorRender", false))
 		end

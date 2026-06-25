@@ -133,7 +133,10 @@ if CLIENT then
 		
 		for placement, armor in pairs(armors) do
 			if placement == "torso" and blVestmodels[ply:GetModel()] then continue end
-			local armorData = hg.armor[placement][armor]
+			local armorGroup = hg.armor[placement]
+			if not armorGroup or not armor then continue end
+			local armorData = armorGroup[armor]
+			if not armorData then continue end
 
 			if armorData["model"] == "" then continue end
 
