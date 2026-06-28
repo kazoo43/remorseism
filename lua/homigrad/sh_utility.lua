@@ -1070,26 +1070,39 @@ local IsValid = IsValid
 	-- end
 --//
 --\\ AddForceRag
-	function hg.AddForceRag(ply, physbone, force, time)
-		if !IsValid(ply) or !ply:IsPlayer() then return end
-		if ply:IsRagdoll() then
-			local phys = ply:GetPhysicsObjectNum(physbone)
+	function hg.AddForceRag(ent, physbone, force, time)
+		if !IsValid(ent) then return end
 
-			if IsValid(phys) then
-				phys:ApplyForceCenter(force)
+		local ragdoll = nil
+
+		if ent:IsPlayer() then
+			local fakeRagdoll = ent.FakeRagdoll
+			local deathRagdoll = ent:GetNWEntity("RagdollDeath")
+			ragdoll = IsValid(fakeRagdoll) and fakeRagdoll or IsValid(deathRagdoll) and deathRagdoll or nil
+
+			if not IsValid(ragdoll) then
+				ent.AddForceRag = ent.AddForceRag or {}
+				ent.AddForceRag[physbone] = ent.AddForceRag[physbone] or {}
+
+				local restforce = math.max(((ent.AddForceRag[physbone][1] or CurTime()) - CurTime()), 0) / 0.25 * (ent.AddForceRag[physbone][2] or vector_origin)
+				local resttime = (ent.AddForceRag[physbone][1] or CurTime())
+
+				ent.AddForceRag[physbone][2] = restforce + force
+				ent.AddForceRag[physbone][1] = CurTime() + 0.25
+
+				return
 			end
-
+		elseif ent:IsRagdoll() then
+			ragdoll = ent
+		else
 			return
 		end
 
-		ply.AddForceRag = ply.AddForceRag or {}
-		ply.AddForceRag[physbone] = ply.AddForceRag[physbone] or {}
+		local phys = ragdoll:GetPhysicsObjectNum(physbone)
 
-		local restforce = math.max(((ply.AddForceRag[physbone][1] or CurTime()) - CurTime()), 0) / 0.25 * (ply.AddForceRag[physbone][2] or vector_origin)
-		local resttime = (ply.AddForceRag[physbone][1] or CurTime())
-
-		ply.AddForceRag[physbone][2] = restforce + force
-		ply.AddForceRag[physbone][1] = CurTime() + 0.25
+		if IsValid(phys) then
+			phys:ApplyForceCenter(force)
+		end
 	end
 --//
 --\\ Precache Sounds 

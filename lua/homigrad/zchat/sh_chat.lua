@@ -1,10 +1,35 @@
+hg = hg or {}
+hg.zchatConVars = hg.zchatConVars or {}
+
+local function RegisterZChatConVar(name, default, description, min, max, valueType, decimals)
+	hg.zchatConVars[name] = {
+		name = name,
+		default = tostring(default),
+		description = description or "",
+		min = min,
+		max = max,
+		type = valueType or "string",
+		decimals = decimals or 0
+	}
+end
+
+RegisterZChatConVar("zchat_maxmessagelength", 256, "Maximum message length allowed", 32, 512, "number", 0)
 local maxLength = CreateConVar("zchat_maxmessagelength", "256", {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Maximum message length allowed")
 
 if CLIENT then
-	local fontSize = CreateClientConVar("zchat_fontsize", 7, true, false, "Self explanatory", 3, 10)
-	local fontName = CreateClientConVar("zchat_font", "Courier Prime", true, false, "Self explanatory, should be available to GMod")
+	RegisterZChatConVar("zchat_fontsize", 9, "Font scale", 3, 60, "number", 0)
+	RegisterZChatConVar("zchat_font", "Lora", "Font name", nil, nil, "string", 0)
+	RegisterZChatConVar("zchat_fontaa", 1, "Font anti-aliasing", 0, 1, "bool", 0)
+	RegisterZChatConVar("zchat_fontweight", 1000, "Font weight", 0, 1000, "number", 0)
+
+	local fontSize = CreateClientConVar("zchat_fontsize", 9, true, false, "Self explanatory", 3, 60)
+	local fontName = CreateClientConVar("zchat_font", "Lora", true, false, "Self explanatory, should be available to GMod")
 	local fontAA = CreateClientConVar("zchat_fontaa", 1, true, false, "Font anti-aliasing", 0, 1)
 	local fontWeight = CreateClientConVar("zchat_fontweight", 1000, true, false, "Font weight", 0, 1000)
+
+	if fontName:GetString() == "Courier Prime" then
+		RunConsoleCommand("zchat_font", "Lora")
+	end
 
 	local function CreateChat()
 		if (IsValid(hg.chat)) then
@@ -12,6 +37,12 @@ if CLIENT then
 		end
 
 		hg.chat = vgui.Create("zChatbox")
+	end
+
+	local function RefreshChatFonts()
+		if IsValid(hg.chat) and hg.chat.RefreshFonts then
+			hg.chat:RefreshFonts()
+		end
 	end
 
 	hook.Add("InitPostEntity", "ZChat", function()
@@ -125,6 +156,14 @@ if CLIENT then
 			antialias = fontAntiAliasing
 		})
 
+		surface.CreateFont("zChatFontHat", {
+			font = font,
+			size = ScreenScale(5),
+			extended = true,
+			weight = fontW,
+			antialias = fontAntiAliasing
+		})
+
 		surface.CreateFont("ZB_ProotOSChat", {
 			font = "Ari-W9500",
 			size = ScreenScale(size),
@@ -144,27 +183,27 @@ if CLIENT then
 
 	cvars.AddChangeCallback("zchat_fontsize", function()
 		LoadFonts()
-		CreateChat()
+		RefreshChatFonts()
 	end)
 
 	cvars.AddChangeCallback("zchat_font", function()
 		LoadFonts()
-		CreateChat()
+		RefreshChatFonts()
 	end)
 
 	cvars.AddChangeCallback("zchat_fontaa", function()
 		LoadFonts()
-		CreateChat()
+		RefreshChatFonts()
 	end)
 
 	cvars.AddChangeCallback("zchat_fontweight", function()
 		LoadFonts()
-		CreateChat()
+		RefreshChatFonts()
 	end)
 
 	concommand.Add("zchat_reload", function()
 		LoadFonts()
-		CreateChat()
+		RefreshChatFonts()
 	end)
 
 	LoadFonts()

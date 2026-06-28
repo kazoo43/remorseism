@@ -122,6 +122,13 @@ surface.CreateFont("HomigradFontRadialOld", {
 	outline = false,
 })
 
+surface.CreateFont("HomigradFontRadialCenter", {
+	font = font(),
+	size = ScreenScale(14),
+	weight = 1100,
+	outline = false,
+})
+
 surface.CreateFont("HomigradFontLarge", {
 	font = font(),
 	size = ScreenScale(15),
@@ -231,6 +238,13 @@ local oldRadialTextColor = Color(245, 245, 245, 255)
 local oldRadialIconSizeMul = 0.05
 local oldRadialTextRadiusMul = 0.76
 local oldRadialLabelGap = 0.008
+local radialModernRadiusMul = 0.215
+local radialModernInnerRadiusMul = 0.84
+local radialModernIconSizeMul = 0.09
+local radialModernHudScaleStrength = 0.3
+local radialCenterTextWidthMul = 1.62
+local radialCenterTextScaleMin = 0.5
+local radialCenterTextScaleMax = 1.05
 local radialIconMaterials = {
 	["weapon menu"] = Material("radialmenu/weaponmenu.png", "smooth mips"),
 	["attachments menu"] = Material("radialmenu/attachments.png", "smooth mips"),
@@ -379,6 +393,29 @@ local function DrawOldRadialLabel(centerX, centerY, angleRad, radius, text, icon
 	end
 
 	draw.DrawText(text, "HomigradFontRadialOld", baseX, textY, oldRadialTextColor, TEXT_ALIGN_CENTER)
+end
+
+local function GetModernRadialHudScale()
+	return 1 + math.max(ScreenScale(10) / 22.5 - 1, 0) * radialModernHudScaleStrength
+end
+
+local function DrawModernRadialCenterText(text, x, y, maxWidth, color)
+	text = string.Trim((text or ""):gsub("\n", " "))
+	if text == "" then return end
+
+	surface.SetFont("HomigradFontRadialCenter")
+	local textW, textH = surface.GetTextSize(text)
+	if textW <= 0 or textH <= 0 then return end
+
+	local scale = math.Clamp(maxWidth / textW, radialCenterTextScaleMin, radialCenterTextScaleMax)
+	local matrix = Matrix()
+	matrix:Translate(Vector(x, y, 0))
+	matrix:Scale(Vector(scale, scale, 1))
+	matrix:Translate(Vector(-textW * 0.5, -textH * 0.5, 0))
+
+	cam.PushModelMatrix(matrix, true)
+	draw.SimpleText(text, "HomigradFontRadialCenter", 0, 0, color, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP)
+	cam.PopModelMatrix()
 end
 
 local function CreateRadialMenu(options_arg, bAutoClose)
@@ -576,10 +613,11 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 			angle = angle + 360
 		end
 
-		local outerRadius = scrH * 0.185 * viewLerp
-		local innerRadius = outerRadius * 0.9
+		local modernHudScale = GetModernRadialHudScale()
+		local outerRadius = scrH * radialModernRadiusMul * modernHudScale * viewLerp
+		local innerRadius = outerRadius * radialModernInnerRadiusMul
 		local slotOrbit = (outerRadius + innerRadius) * 0.5
-		local iconSizeBase = scrH * 0.078 * viewLerp
+		local iconSizeBase = scrH * radialModernIconSizeMul * modernHudScale * viewLerp
 		local hoverBand = iconSizeBase * 0.85
 
 		isMouseOnRadial = optionCount > 0 and distance >= (slotOrbit - hoverBand) and distance <= (slotOrbit + hoverBand)
@@ -644,7 +682,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 
 		radialCenterTextAlpha = LerpFT(0.12, radialCenterTextAlpha, hoveredText and 1 or 0)
 		if hoveredText then
-			draw.SimpleText(hoveredText:gsub("\n", " "), "HomigradFontGigantoNormous", centerX, centerY, Color(radialTextColor.r, radialTextColor.g, radialTextColor.b, 255 * radialCenterTextAlpha * viewLerp), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			DrawModernRadialCenterText(hoveredText, centerX, centerY, innerRadius * radialCenterTextWidthMul, Color(radialTextColor.r, radialTextColor.g, radialTextColor.b, 255 * radialCenterTextAlpha * viewLerp))
 		end
 		if !paining then
 			draw.SimpleText(lply:GetPlayerName(),"HomigradFontGigantoNormous",scrW * 0.0215* viewLerp,scrH * 0.042, colBack, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)

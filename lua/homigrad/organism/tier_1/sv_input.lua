@@ -1086,27 +1086,14 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		end
 	end
 
-	-- EFFECT
-	if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then
-		if dmgBlood > 1 and #inputHole > 0 then
-			net.Start("hg_bloodimpact")
-			net.WriteVector(dmgPos)
-			net.WriteVector(dirCool / 15)
-			net.WriteFloat(dmg / 10)
-			net.WriteInt(1, 8)
-			net.Broadcast()
-
-			--[[if (hitgroup ~= HITGROUP_HEAD) then
-				if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then
-					local effdata = EffectData()
-					effdata:SetOrigin( dmgPos )
-					effdata:SetRadius(0)
-					effdata:SetMagnitude(0)
-					effdata:SetScale(0)
-					util.Effect("BloodImpact",effdata)
-				end
-			end	]]
-		end
+	local brokenSkullHeadImpact = hitgroup == HITGROUP_HEAD and org.skull == 1
+	if brokenSkullHeadImpact or (dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) and dmgBlood > 1 and #inputHole > 0) then
+		net.Start("hg_bloodimpact")
+		net.WriteVector(dmgPos)
+		net.WriteVector(dirCool / 15)
+		net.WriteFloat(brokenSkullHeadImpact and math.max(dmg / 8, 1) or dmg / 10)
+		net.WriteInt(1, 8)
+		net.Broadcast()
 	end
 	
 	if ply and !ply:GetNetVar("headcrab") and (ply.PlayerClassName != "Gordon" or ply.armors.head != "gordon_helmet") and ply.PlayerClassName ~= "headcrabzombie" then
