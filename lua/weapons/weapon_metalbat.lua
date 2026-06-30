@@ -1,35 +1,35 @@
 ﻿if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
-SWEP.PrintName = "Bat"
-SWEP.Instructions = "A bat. The design features of the bat allow it to deliver powerful and heavy blows.\n\nLMB to attack.\nRMB to block."
+SWEP.PrintName = "Aluminium Bat"
+SWEP.Instructions = "An Aluminium bat. The design features of the bat allow it to deliver powerful and heavy blows.\n\nLMB to attack.\nRMB to block."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
 SWEP.HoldType = "slam"
 
-SWEP.WorldModel = "models/weapons/tfa_nmrih/w_me_bat_wood.mdl"
+SWEP.WorldModel = "models/weapons/baseball_bat/w.mdl"
 SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_bat_metal.mdl"
-SWEP.WorldModelExchange = "models/tfa_nmrih/w_bat.mdl"
 SWEP.DontChangeDropped = false
 SWEP.ViewModel = ""
 SWEP.modelscale = 1.45
 
 SWEP.basebone = 94
+SWEP.bloodID = 3
 
 SWEP.Weight = 0
-SWEP.weight = 1.5
+SWEP.weight = 2
 
 if CLIENT then
-	SWEP.WepSelectIcon = Material("vgui/wep_jack_hmcd_baseballbat")
-	SWEP.IconOverride = "vgui/wep_jack_hmcd_baseballbat"
+	SWEP.WepSelectIcon = Material("vgui/hud/wm_baseball_bat_i.png")
+	SWEP.IconOverride = "vgui/hud/wm_baseball_bat_i.png"
 	SWEP.BounceWeaponIcon = false
 end
 
 SWEP.DamageType = DMG_CLUB
-SWEP.DamagePrimary = 28
-SWEP.DamageSecondary = 10
+SWEP.DamagePrimary = 34
+SWEP.DamageSecondary = 13
 
-SWEP.PenetrationPrimary = 4
+SWEP.PenetrationPrimary = 5
 SWEP.PenetrationSecondary = 6
 
 SWEP.MaxPenLen = 2
@@ -37,21 +37,21 @@ SWEP.MaxPenLen = 2
 SWEP.PenetrationSizePrimary = 3
 SWEP.PenetrationSizeSecondary = 1.5
 
-SWEP.StaminaPrimary = 20
+SWEP.StaminaPrimary = 26
 SWEP.StaminaSecondary = 10
 
 SWEP.HoldPos = Vector(-8,0,0)
 SWEP.HoldAng = Angle(0,0,-10)
 
-SWEP.AttackTime = 0.275
-SWEP.AnimTime1 = 1.25
-SWEP.WaitTime1 = 0.89
-SWEP.AttackLen1 = 60
+SWEP.AttackTime = 0.29
+SWEP.AnimTime1 = 1.45
+SWEP.WaitTime1 = 0.95
+SWEP.AttackLen1 = 55
 SWEP.ViewPunch1 = Angle(2,4,0)
 SWEP.HitCooldownEnabled = true
-SWEP.HitCooldown = 1.35
+SWEP.HitCooldown = 1.4
 SWEP.ComboEnabled = true
-SWEP.ComboResetTime = 1.4
+SWEP.ComboResetTime = 1.7
 SWEP.ComboDamageMul1 = 1
 SWEP.ComboDamageMul2 = 1.25
 SWEP.ComboDamageMul3 = 1.65
@@ -63,7 +63,7 @@ SWEP.ChargeAnimTimeEnd = 1.35
 SWEP.ChargeFullTime = 0.65
 SWEP.ChargeAttackTime = 0.36
 SWEP.ChargeWaitTime = 1.95
-SWEP.ChargeAttackLen = 70
+SWEP.ChargeAttackLen = 57
 SWEP.ChargeAttackTimeLength = 0.26
 SWEP.ChargeAttackRads = 85
 SWEP.ChargeSwingAng = -94
@@ -87,6 +87,10 @@ SWEP.hitsoundextra = {
     {"bat/sfx_bat_impact_10.wav", 55, {105, 115}},
 }
 
+SWEP.hitsoundplus = {
+    {"bat/hitplus.ogg", 55, {105, 115}},
+}
+
 SWEP.hitsoundbrutalize = {
     {"bat/sfx_bat_impact_gore_05.wav", 70, {95, 105}},
     {"bat/sfx_bat_impact_gore_07.wav", 75, {98, 102}},
@@ -95,10 +99,9 @@ SWEP.hitsoundbrutalize = {
 }
 
 SWEP.swingsoundextra = {
-    {"bat/baseball_swing_1st_layer_01.wav", 60, {95, 105}},
-    {"bat/baseball_swing_1st_layer_02.wav", 60, {95, 105}},
-    {"bat/baseball_swing_1st_layer_03.wav", 60, {95, 105}},
-    {"bat/baseball_swing_1st_layer_04.wav", 60, {95, 105}},
+    {"bat/bat_heavy1.wav", 60, {95, 105}},
+    {"bat/bat_heavy2.wav", 60, {95, 105}},
+    {"bat/bat_heavy3.wav", 60, {95, 105}},
 }
 
 SWEP.Attack2Time = 0.3
@@ -133,13 +136,16 @@ SWEP.Attack2HitFlesh = "Flesh.ImpactHard"
 SWEP.DeploySnd = "physics/wood/wood_plank_impact_soft2.wav"
 
 SWEP.AttackPos = Vector(0,0,0)
+SWEP.BlockTier = 3
+SWEP.BlockMaterial = "metal"
+SWEP.BlockSound = {"physics/metal/metal_sheet_impact_hard2.wav", 85, {125, 145}}
 
 SWEP.NoHolster = true
 
-SWEP.BreakBoneMul = 0.75
-SWEP.PainMultiplier = 0.85
+SWEP.BreakBoneMul = 0.95
+SWEP.PainMultiplier = 0.9
 
-SWEP.AttackTimeLength = 0.2
+SWEP.AttackTimeLength = 0.255
 SWEP.Attack2TimeLength = 0.001
 
 SWEP.AttackRads = 120

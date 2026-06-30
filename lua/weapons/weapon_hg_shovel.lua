@@ -98,8 +98,8 @@ SWEP.AnimList = {
 }
 
 if CLIENT then
-	SWEP.WepSelectIcon = Material("vgui/icons/ico_shovel.png")
-	SWEP.IconOverride = "vgui/icons/ico_shovel.png"
+	SWEP.WepSelectIcon = Material("vgui/hud/wm_shovel_i.png")
+	SWEP.IconOverride = "vgui/hud/wm_shovel_i.png"
 	SWEP.BounceWeaponIcon = false
 end
 
@@ -116,6 +116,9 @@ SWEP.Attack2HitFlesh = "Flesh.ImpactHard"
 SWEP.DeploySnd = "SolidMetal.ImpactSoft"
 
 SWEP.AttackPos = Vector(0,0,0)
+SWEP.BlockTier = 2
+SWEP.BlockMaterial = "metal"
+SWEP.BlockSound = {"physics/metal/metal_solid_impact_hard2.wav", 68, {95, 102}}
 
 function SWEP:CanSecondaryAttack()
     self.DamageType = DMG_CLUB

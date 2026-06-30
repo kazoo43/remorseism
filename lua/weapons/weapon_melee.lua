@@ -494,6 +494,68 @@ function SWEP:CustomBlockAnim(addPosLerp, addAngLerp)
     return false
 end
 
+SWEP.BlockPushPos = Vector(0,0,0)
+SWEP.BlockPushVel = Vector(0,0,0)
+SWEP.BlockPushAng = Angle(0,0,0)
+SWEP.BlockPushAngVel = Angle(0,0,0)
+
+function SWEP:UpdateBlockHitShake()
+    if not CLIENT then return end
+
+    self.BlockPushPos = self.BlockPushPos or Vector(0,0,0)
+    self.BlockPushVel = self.BlockPushVel or Vector(0,0,0)
+    self.BlockPushAng = self.BlockPushAng or Angle(0,0,0)
+    self.BlockPushAngVel = self.BlockPushAngVel or Angle(0,0,0)
+
+    local dt = FrameTime()
+    local stiffness = self.BlockHitShakeStiffness or 110
+    local damping = self.BlockHitShakeDamping or 12
+    local angStiffness = self.BlockHitShakeAngStiffness or stiffness
+    local angDamping = self.BlockHitShakeAngDamping or damping
+
+    self.BlockPushVel = self.BlockPushVel + self.BlockPushPos * (-stiffness * dt)
+    self.BlockPushVel = self.BlockPushVel * math.max(0, 1 - damping * dt)
+    self.BlockPushPos = self.BlockPushPos + self.BlockPushVel * dt
+
+    self.BlockPushAngVel.p = self.BlockPushAngVel.p + self.BlockPushAng.p * (-angStiffness * dt)
+    self.BlockPushAngVel.y = self.BlockPushAngVel.y + self.BlockPushAng.y * (-angStiffness * dt)
+    self.BlockPushAngVel.r = self.BlockPushAngVel.r + self.BlockPushAng.r * (-angStiffness * dt)
+    self.BlockPushAngVel.p = self.BlockPushAngVel.p * math.max(0, 1 - angDamping * dt)
+    self.BlockPushAngVel.y = self.BlockPushAngVel.y * math.max(0, 1 - angDamping * dt)
+    self.BlockPushAngVel.r = self.BlockPushAngVel.r * math.max(0, 1 - angDamping * dt)
+    self.BlockPushAng.p = self.BlockPushAng.p + self.BlockPushAngVel.p * dt
+    self.BlockPushAng.y = self.BlockPushAng.y + self.BlockPushAngVel.y * dt
+    self.BlockPushAng.r = self.BlockPushAng.r + self.BlockPushAngVel.r * dt
+end
+
+function SWEP:AddBlockHitShake(state, normal)
+    if not CLIENT then return end
+
+    local owner = self:GetOwner()
+    if not IsValid(owner) or owner ~= LocalPlayer() then return end
+
+    local strength = state == "break" and (self.BlockHitShakeBreakMul or 2.1) or state == "parry" and (self.BlockHitShakeParryMul or 1.35) or (self.BlockHitShakeMul or 1)
+    local posMul = self.BlockHitShakePosMul or 1
+    local angMul = self.BlockHitShakeAngMul or 1
+    self.BlockPushPos = self.BlockPushPos or Vector(0,0,0)
+    self.BlockPushVel = self.BlockPushVel or Vector(0,0,0)
+    self.BlockPushAng = self.BlockPushAng or Angle(0,0,0)
+    self.BlockPushAngVel = self.BlockPushAngVel or Angle(0,0,0)
+    local hitNormal = normal and normal:LengthSqr() > 0.001 and normal:GetNormalized() or owner:GetAimVector() * -1
+    local eyeAng = owner:EyeAngles()
+    local forward = eyeAng:Forward()
+    local right = eyeAng:Right()
+    local up = eyeAng:Up()
+    local localX = hitNormal:Dot(forward)
+    local localY = hitNormal:Dot(right)
+    local localZ = hitNormal:Dot(up)
+
+    self.BlockPushVel = self.BlockPushVel + Vector(-localX * 34 * posMul, -localY * 52 * posMul, math.abs(localZ) * 16 * posMul) * strength
+    self.BlockPushAngVel.p = self.BlockPushAngVel.p + localY * 18 * angMul * strength
+    self.BlockPushAngVel.y = self.BlockPushAngVel.y + -localX * 10 * angMul * strength
+    self.BlockPushAngVel.r = self.BlockPushAngVel.r + -localY * 26 * angMul * strength
+end
+
 SWEP.SuicidePos = Vector(5, -24, 5)
 SWEP.SuicideAng = Angle(0, 90, 20)
 SWEP.SuicideCutVec = Vector(2, -5, 6)
@@ -552,6 +614,14 @@ function SWEP:ModelAnim(model, pos, ang)
         addPosLerp.x = addPosLerp.x + (self:GetBlocking() and -4 or 0)
         addPosLerp.y = addPosLerp.y + (self:GetBlocking() and 8 or 0)
         addAngLerp.r = addAngLerp.r + (self:GetBlocking() and -30 or 0)
+    end
+
+    if CLIENT then
+        self:UpdateBlockHitShake()
+        addPos:Add(self.BlockPushPos or vector_origin)
+        addAng.p = addAng.p + (self.BlockPushAng and self.BlockPushAng.p or 0)
+        addAng.y = addAng.y + (self.BlockPushAng and self.BlockPushAng.y or 0)
+        addAng.r = addAng.r + (self.BlockPushAng and self.BlockPushAng.r or 0)
     end
 
     if owner:GetNWFloat("InLegKick",0) > CurTime() + 0.1 then
@@ -814,6 +884,7 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Bool", 6, "InAttack")
     self:NetworkVar("Float", 7, "AttackLength")
     self:NetworkVar("Float", 8, "AttackTime")
+    self:NetworkVar("Float", 9, "BlockDisabledUntil")
 end
 
 function SWEP:OwnerChanged()
@@ -824,7 +895,11 @@ function SWEP:OwnerChanged()
         self:ResetCombo()
         timer.Simple(0,function() self.picked = true end)
     else
-        self:SetInAttack(false)
+        if self.SetInAttack then
+            self:SetInAttack(false)
+        else
+            self.inattack = false
+        end
         self:ResetCombo()
         timer.Simple(0,function() self.picked = nil end)
     end
@@ -1205,6 +1280,7 @@ function SWEP:ShouldHeadRagdoll(ent, trace)
     local weaponDamage = math.max(self.DamagePrimary or 0, self.DamageSecondary or 0)
     if not IsValid(victim) or not victim:IsPlayer() then return false end
     if not victim:Alive() or IsValid(victim.FakeRagdoll) then return false end
+    if trace and trace.HGPreventHeadRagdoll then return false end
     if weaponDamage <= damageThreshold then return false end
     if not self:IsHeadHit(ent, trace) then return false end
     return math.Rand(0, 1) <= (self.HeadRagdollChance or 0.85)
@@ -1453,6 +1529,137 @@ function SWEP:AlreadyHit(ent, trace, dmg)
     end
 end
 
+function SWEP:GetBlockTier()
+    return math.max(self.BlockTier or 1, 1)
+end
+
+function SWEP:GetBlockMaterial()
+    return self.BlockMaterial or "metal"
+end
+
+function SWEP:GetBlockParryWindow()
+    return math.max(self.BlockParryWindow or 0.35, 0)
+end
+
+function SWEP:GetBlockSound()
+    return self.BlockSound
+end
+
+function SWEP:GetDefaultBlockSound(material, state)
+    if material == "wood" then
+        if state == "break" then return {"physics/wood/wood_box_impact_hard3.wav", 76, {92, 98}} end
+        if state == "parry" then return {"physics/wood/wood_plank_impact_hard3.wav", 73, {98, 106}} end
+        if state == "weaken" then return {"physics/wood/wood_plank_impact_hard4.wav", 71, {94, 101}} end
+        return {"physics/wood/wood_plank_impact_hard2.wav", 70, {96, 104}}
+    end
+
+    if state == "break" then return {"physics/metal/metal_solid_impact_hard3.wav", 78, {92, 98}} end
+    if state == "parry" then return {"physics/metal/metal_sheet_impact_hard2.wav", 74, {98, 105}} end
+    if state == "weaken" then return {"physics/metal/metal_solid_impact_hard2.wav", 72, {94, 101}} end
+    return {"physics/metal/metal_sheet_impact_hard2.wav", 70, {95, 103}}
+end
+
+function SWEP:PlayConfiguredWorldSound(layer, pos, volumeMul)
+    local data = self:GetRandomConfiguredHitSound(layer)
+
+    if isstring(data) then
+        sound.Play(data, pos, math.Clamp(60 * (volumeMul or 1), 0, 255), 100)
+        return
+    end
+
+    if not istable(data) then return end
+
+    local snd = data.sound or data.path or data[1]
+    if not isstring(snd) then return end
+
+    local volume = math.Clamp((data.volume or data.vol or data[2] or 60) * (volumeMul or 1), 0, 255)
+    local pitch = self:GetConfiguredHitSoundPitch(data.pitch or data[3])
+
+    sound.Play(snd, pos, volume, pitch)
+end
+
+function SWEP:PlayBlockImpactEffect(trace, blockWep, state)
+    if not trace or not trace.HitPos then return end
+
+    local material = IsValid(blockWep) and blockWep.GetBlockMaterial and blockWep:GetBlockMaterial() or blockWep and blockWep.BlockMaterial or self:GetBlockMaterial()
+    local soundData = IsValid(blockWep) and blockWep.GetBlockSound and blockWep:GetBlockSound() or blockWep and blockWep.BlockSound or self:GetDefaultBlockSound(material, state)
+
+    if soundData then
+        self:PlayConfiguredWorldSound(soundData, trace.HitPos, state == "break" and 1.18 or state == "parry" and 1.06 or state == "weaken" and 1.02 or 1)
+    end
+
+    if SERVER then
+        local normal = trace.HitNormal and trace.HitNormal ~= vector_origin and trace.HitNormal or -self:GetOwner():GetAimVector()
+
+        net.Start("hg_melee_block_fx")
+        net.WriteVector(trace.HitPos)
+        net.WriteVector(normal)
+        net.WriteString(tostring(material or "metal"))
+        net.WriteString(state or "block")
+        net.Broadcast()
+
+        local blockOwner = IsValid(blockWep) and blockWep.GetOwner and blockWep:GetOwner()
+
+        if IsValid(blockOwner) and blockOwner:IsPlayer() then
+            net.Start("hg_melee_block_shake")
+            net.WriteEntity(blockWep)
+            net.WriteVector(normal)
+            net.WriteString(state or "block")
+            net.Send(blockOwner)
+        end
+    end
+end
+
+function SWEP:AbortBlockedAttack()
+    self:SetInAttack(false)
+    self.HitEnts = nil
+    self.FirstAttackTick = false
+    self.AttackHitPlayed = false
+    self.ComboAppliedThisAttack = nil
+end
+
+function SWEP:GetAttackSwingAngle(attacktype)
+    return self:GetAttackConfigValue(self.SwingAng, self.SwingAng2, self.ChargeSwingAng, attacktype) or -90
+end
+
+function SWEP:CanDirectionalBlock(blockWep, defender, attacker, attacktype, hierarchyAdvantage)
+    if not IsValid(blockWep) or not IsValid(defender) or not IsValid(attacker) then return true end
+    if attacker:IsNPC() or not defender:IsPlayer() then return true end
+
+    local _, defenderAim = hg.eye(defender)
+    local attackerPos = attacker:EyePos()
+    local defenderPos = defender:EyePos()
+
+    if not defenderAim then return true end
+
+    local toAttacker = attackerPos - defenderPos
+    toAttacker.z = 0
+
+    if toAttacker:LengthSqr() <= 0.001 then return true end
+
+    toAttacker:Normalize()
+    defenderAim = defenderAim:GetNormalized()
+
+    local frontDot = defenderAim:Dot(toAttacker)
+    if frontDot < (blockWep.BlockDirectionalFrontDot or self.BlockDirectionalFrontDot or 0.05) then
+        return false
+    end
+
+    if hierarchyAdvantage and (blockWep.BlockHierarchyIgnoreSide or self.BlockHierarchyIgnoreSide) then
+        return true
+    end
+
+    local swingAng = self:GetAttackSwingAngle(attacktype)
+    if math.abs(swingAng) < (blockWep.BlockDirectionalMinSwingAng or self.BlockDirectionalMinSwingAng or 3) then
+        return true
+    end
+
+    local sideDot = defender:EyeAngles():Right():Dot(toAttacker)
+    local neededSign = swingAng < 0 and 1 or -1
+
+    return sideDot * neededSign >= (blockWep.BlockDirectionalSideDot or self.BlockDirectionalSideDot or 0.1)
+end
+
 function SWEP:BlockingLogic(ent, mul, attacktype, trace)
     local ent = hg.RagdollOwner(ent) or ent
 	local owner = self:GetOwner()
@@ -1467,45 +1674,130 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 			pos, aimvec, aimvec2 = owner:EyePos(), owner:GetAimVector(), owner:GetAimVector()
 		end
 
-        if not aimvec or not aimvec2 then return 1 end
+        if not aimvec or not aimvec2 or not trace or not trace.HitPos then return 1, "none" end
 
         local dist, posHit, distLine = util.DistanceToLine(pos + aimvec * 100, pos, trace.HitPos)
-
-        //print(dist, distLine)
-
-        local dmg = wep.GetAttackDamageBase and wep:GetAttackDamageBase(wep.GetAttackType and wep:GetAttackType() or 1) or wep.DamagePrimary
-        local selfdmg = self:GetAttackDamageBase(attacktype) * 0.2
+        local selfdmg = math.max(self:GetAttackDamageBase(attacktype), 1)
+        local swingStamina = self:GetAttackConfigValue(self.StaminaPrimary, self.StaminaSecondary, self.ChargeStamina, attacktype) or 0
 
         if wep.GetBlocking and wep:GetBlocking() and wep.SetStartedBlocking and dist < 10 then
-            local perfectblock = CurTime() - wep:GetStartedBlocking() < 0.5
-            
-            ent.organism.stamina.subadd = ent.organism.stamina.subadd + mul * math.Clamp(selfdmg / dmg, 0.1, 1) * selfdmg * (perfectblock and 0 or 1)
+            local attackerTier = self:GetBlockTier()
+            local defenderTier = wep.GetBlockTier and wep:GetBlockTier() or math.max(wep.BlockTier or 1, 1)
+            local hierarchyAdvantage = defenderTier > attackerTier
+            if not self:CanDirectionalBlock(wep, ent, owner, attacktype, hierarchyAdvantage) then
+                return 1, "none"
+            end
 
-            //viewpunch the attacker maybe?
-			if not owner:IsNPC() then
-            	self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg / 2)
-			end
-            self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg / 2)
-            
+            local perfectblock = CurTime() - wep:GetStartedBlocking() < (wep.GetBlockParryWindow and wep:GetBlockParryWindow() or self:GetBlockParryWindow())
+            local tierDiff = attackerTier - defenderTier
+            local blockStaminaCost = math.max(swingStamina * (wep.BlockHitStaminaMul or self.BlockHitStaminaMul or 0.5), 0)
+
             if perfectblock then
-                ent:EmitSound("tasty/empty.wav")
-            end
-            
-            //ent:EmitSound("physics/metal/metal_computer_impact_bullet3.wav") -- parry sound
+                trace.HGPreventHeadRagdoll = true
 
-            if wep.SetLastBlocked then
-                wep:SetLastBlocked(CurTime())
+                if owner.organism and owner.organism.stamina then
+                    owner.organism.stamina.subadd = owner.organism.stamina.subadd + swingStamina * (wep.BlockParryStaminaMul or self.BlockParryStaminaMul or 0.5)
+                end
+
+				if not owner:IsNPC() then
+            	    self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg * 0.15)
+				end
+                self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg * 0.1)
+                self:PlayBlockImpactEffect(trace, wep, "parry")
+
+                return 0, "parry"
             end
 
-            return math.Clamp(selfdmg / dmg / math.Clamp(ent.organism.stamina[1] / (ent.organism.stamina.max * 0.66), 0.1, 1), 0.1, 1) * (perfectblock and 0 or 1)
+            if ent.organism and ent.organism.stamina then
+                ent.organism.stamina.subadd = ent.organism.stamina.subadd + blockStaminaCost
+            end
+
+            if tierDiff >= (self.BlockBreakTierDiff or 2) then
+                if ent.organism and ent.organism.stamina then
+                    ent.organism.stamina.subadd = ent.organism.stamina.subadd + selfdmg * (wep.BlockBreakStaminaMul or self.BlockBreakStaminaMul or 0.75)
+                end
+
+                if wep.SetBlocking then
+                    wep:SetBlocking(false)
+                end
+
+                if wep.SetBlockDisabledUntil then
+                    wep:SetBlockDisabledUntil(CurTime() + (wep.BlockBreakCooldown or self.BlockBreakCooldown or 1.1))
+                end
+
+                if wep.SetLastBlocked then
+                    wep:SetLastBlocked(CurTime())
+                end
+
+				if not owner:IsNPC() then
+            	    self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg * 0.25)
+				end
+                self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg * 0.35)
+                self:PlayBlockImpactEffect(trace, wep, "break")
+
+                return 1, "break"
+            end
+
+            if tierDiff > 0 then
+                trace.HGPreventHeadRagdoll = true
+
+				if not owner:IsNPC() then
+            	    self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg * 0.18)
+				end
+                self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg * 0.2)
+                self:PlayBlockImpactEffect(trace, wep, "weaken")
+
+                return math.Clamp(wep.BlockWeakenDamageMul or self.BlockWeakenDamageMul or 0.35, 0.05, 0.95), "weaken"
+            end
+
+            trace.HGPreventHeadRagdoll = true
+
+			if not owner:IsNPC() then
+            	self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg * 0.16)
+			end
+            self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg * 0.18)
+            self:PlayBlockImpactEffect(trace, wep, "block")
+
+            return 0, "block"
         end
     end
 
-    return 1
+    return 1, "none"
 end
 
 local matBlood = Material("zbattle/blood")
-SWEP.blockSound = nil
+SWEP.BlockTier = 1
+SWEP.BlockMaterial = "metal"
+SWEP.BlockSound = nil
+SWEP.BlockParryWindow = 0.35
+SWEP.BlockWeakenDamageMul = 0.35
+SWEP.BlockBreakTierDiff = 2
+SWEP.BlockBreakCooldown = 0.65
+SWEP.BlockBreakStaminaMul = 0.75
+SWEP.BlockStaminaTierMul = 0.35
+SWEP.BlockHitStaminaMul = 0.5
+SWEP.BlockParryStaminaMul = 0.5
+SWEP.BlockRecoverDelay = 0.35
+SWEP.BlockDirectionalFrontDot = 0.05
+SWEP.BlockDirectionalSideDot = 0.12
+SWEP.BlockDirectionalMinSwingAng = 3
+SWEP.BlockHierarchyIgnoreSide = false
+SWEP.BlockHitShakeMul = 1.7
+SWEP.BlockHitShakeParryMul = 2.15
+SWEP.BlockHitShakeBreakMul = 3.25
+SWEP.BlockHitShakePosMul = 1.95
+SWEP.BlockHitShakeAngMul = 1.9
+SWEP.BlockHitShakeStiffness = 86
+SWEP.BlockHitShakeDamping = 8.25
+SWEP.BlockHitShakeAngStiffness = 92
+SWEP.BlockHitShakeAngDamping = 8.75
+SWEP.BlockFxCountMul = 1.2
+SWEP.BlockFxVelocityMul = 1.2
+SWEP.BlockFxSizeMul = 1.25
+SWEP.BlockFxFlareMul = 1.25
+SWEP.BlockFxSmokeMul = 1.2
+SWEP.BlockFxLifeMul = 1.25
+SWEP.blockPoseSoundState = nil
 SWEP.ShouldAttackOnce = true
 
 function SWEP:IsClient()
@@ -1673,7 +1965,7 @@ function SWEP:CustomThink()
 
     //if SERVER then
         local oldblocking = self:GetBlocking()
-        local blocking = ((CurTime() - self:GetStartedBlocking()) > 1 or oldblocking) and owner.organism and owner.organism.stamina[1] > 90 and !self:GetInAttack() and (self:GetAttackTime() - CurTime() - 0) < 0 and ((self:GetLastBlocked() + 3) < CurTime()) and self:CanBlock() and hg.KeyDown(owner, IN_ATTACK2)
+        local blocking = self:GetBlockDisabledUntil() < CurTime() and owner.organism and owner.organism.stamina[1] > 90 and !self:GetInAttack() and (self:GetAttackTime() - CurTime() - 0) < 0 and self:CanBlock() and hg.KeyDown(owner, IN_ATTACK2)
         --if self:CutDuct() then return end
         self:SetBlocking(blocking)
         
@@ -1683,15 +1975,15 @@ function SWEP:CustomThink()
     //end
 
 	if self:GetBlocking() then
-		if not self.blockSound then
+		if not self.blockPoseSoundState then
 			sound.Play("pwb2/weapons/matebahomeprotection/mateba_cloth.wav", self:GetPos(), 65)
-			self.blockSound = true
+			self.blockPoseSoundState = true
 		end
 	else
-		if self.blockSound then
+		if self.blockPoseSoundState then
 			sound.Play("pwb2/weapons/mac11/draw.wav", self:GetPos(), 55)
 		end
-		self.blockSound = nil
+		self.blockPoseSoundState = nil
 	end
 
     if self.Charging then
@@ -1755,10 +2047,11 @@ function SWEP:CustomThink()
             local ent = trace.Entity
 
             local shouldhit = (IsValid(ent) or ent:IsWorld())
-
             local dmg = math.random(self.DamagePrimary - 3, self.DamagePrimary + 3)
-
             local soft = self:IsEntSoft(ent)
+            local blockState = "none"
+            local blockMul = 1
+
             if !shouldhit then
                 goto meleeskip1
             end
@@ -1789,7 +2082,8 @@ function SWEP:CustomThink()
             ent:PrecacheGibs()
 
             mul = mul * (self:BehindAttack(ent) and 2 or 1)
-            mul = mul * self:BlockingLogic(ent, mul, false, trace)
+            blockMul, blockState = self:BlockingLogic(ent, mul, false, trace)
+            mul = mul * blockMul
 
             dmg = dmg * mul
             dmg = self:ApplyComboDamage(dmg)
@@ -1798,7 +2092,7 @@ function SWEP:CustomThink()
                 goto meleeskip1
             end
             
-            if self.HitEnts[#self.HitEnts] ~= ent then
+            if self.HitEnts[#self.HitEnts] ~= ent and (blockState == "none" or blockState == "break") then
                 self:PlayEffects(trace, false)
             end
             
@@ -1826,7 +2120,9 @@ function SWEP:CustomThink()
                 ent:TakeDamageInfo(dmginfo)
                 self.attackedOnce = true
                 self.slash = nil
-                self:PlaySoftHitSounds(owner, ent, trace, false)
+                if blockState == "none" or blockState == "break" then
+                    self:PlaySoftHitSounds(owner, ent, trace, false)
+                end
                 
                 local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
                 if self:IsHeadHit(ent, trace) then
@@ -1883,8 +2179,9 @@ function SWEP:CustomThink()
             local ent = trace.Entity
 
             local shouldhit = (IsValid(ent) or ent:IsWorld())
-
             local dmg = math.random(self.DamageSecondary - 3, self.DamageSecondary + 3)
+            local blockState = "none"
+            local blockMul = 1
 
             if !shouldhit then
                 goto meleeskip2
@@ -1910,7 +2207,8 @@ function SWEP:CustomThink()
             end
 
             mul = mul * (self:BehindAttack(ent) and 2 or 1)
-            mul = mul * self:BlockingLogic(ent, mul, true, trace)
+            blockMul, blockState = self:BlockingLogic(ent, mul, true, trace)
+            mul = mul * blockMul
 
             dmg = dmg * mul
             dmg = self:ApplyComboDamage(dmg)
@@ -1919,7 +2217,7 @@ function SWEP:CustomThink()
                 goto meleeskip2
             end
 
-            if self.HitEnts[#self.HitEnts] ~= ent then
+            if self.HitEnts[#self.HitEnts] ~= ent and (blockState == "none" or blockState == "break") then
                 self:PlayEffects(trace, true)
             end
 
@@ -1946,7 +2244,9 @@ function SWEP:CustomThink()
                 ent:TakeDamageInfo(dmginfo)
                 self.attackedOnce = true
                 self.slash = nil
-                self:PlaySoftHitSounds(owner, ent, trace, true)
+                if blockState == "none" or blockState == "break" then
+                    self:PlaySoftHitSounds(owner, ent, trace, true)
+                end
 
                 local phys = ent:GetPhysicsObjectNum(trace.PhysicsBone or 0)
                 local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
@@ -2013,8 +2313,10 @@ function SWEP:CustomThink()
 
             local damageBase = self.DamagePrimary or 0
             local dmg = math.random(damageBase - 3, damageBase + 3) * (self.ReleasedChargeDamageMul or 1)
-
             local soft = self:IsEntSoft(ent)
+            local blockState = "none"
+            local blockMul = 1
+
             if !shouldhit then
                 goto meleeskip3
             end
@@ -2043,7 +2345,8 @@ function SWEP:CustomThink()
             ent:PrecacheGibs()
 
             mul = mul * (self:BehindAttack(ent) and 2 or 1)
-            mul = mul * self:BlockingLogic(ent, mul, 3, trace)
+            blockMul, blockState = self:BlockingLogic(ent, mul, 3, trace)
+            mul = mul * blockMul
 
             dmg = dmg * mul
             dmg = self:ApplyComboDamage(dmg)
@@ -2052,7 +2355,7 @@ function SWEP:CustomThink()
                 goto meleeskip3
             end
             
-            if self.HitEnts[#self.HitEnts] ~= ent then
+            if self.HitEnts[#self.HitEnts] ~= ent and (blockState == "none" or blockState == "break") then
                 self:PlayEffects(trace, 3)
             end
             
@@ -2079,7 +2382,9 @@ function SWEP:CustomThink()
                 self.attackedOnce = true
                 self.slash = nil
                 self.BreakBoneMul = oldBreakBoneMul
-                self:PlaySoftHitSounds(owner, ent, trace, 3)
+                if blockState == "none" or blockState == "break" then
+                    self:PlaySoftHitSounds(owner, ent, trace, 3)
+                end
                 
                 local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
                 if self:IsHeadHit(ent, trace) then
@@ -2178,7 +2483,7 @@ function SWEP:PrimaryAttack()
 
     if ply.organism and ply.organism.larmamputated and self.TwoHanded then return end
     
-    if self:GetLastBlocked() + 1 > CurTime() then
+    if self:GetLastBlocked() + (self.BlockRecoverDelay or 0.35) > CurTime() then
         //return
     end
 
@@ -2294,7 +2599,7 @@ function SWEP:SecondaryAttack(override)
         return 
     end
 
-    if self:GetLastBlocked() + 1 > CurTime() then
+    if self:GetLastBlocked() + (self.BlockRecoverDelay or 0.35) > CurTime() then
         return
     end
 
@@ -2422,6 +2727,15 @@ function SWEP:Initialize()
     self:PrecacheConfiguredHitSoundLayer(self.hitsoundextra)
     self:PrecacheConfiguredHitSoundLayer(self.hitsoundplus)
     self:PrecacheConfiguredHitSoundLayer(self.hitsoundbrutalize)
+    self:PrecacheConfiguredHitSoundLayer(self.BlockSound)
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("metal", "block"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("metal", "weaken"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("metal", "parry"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("metal", "break"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("wood", "block"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("wood", "weaken"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("wood", "parry"))
+    self:PrecacheConfiguredHitSoundLayer(self:GetDefaultBlockSound("wood", "break"))
 
     self:InitAdd()
 end
@@ -2435,7 +2749,149 @@ SWEP.tries = 10
 
 if SERVER then
     util.AddNetworkString("melee_attack")
+    util.AddNetworkString("hg_melee_block_fx")
+    util.AddNetworkString("hg_melee_block_shake")
 elseif CLIENT then
+    net.Receive("hg_melee_block_shake", function()
+        local wep = net.ReadEntity()
+        local normal = net.ReadVector()
+        local state = net.ReadString()
+
+        local target = wep
+
+        if not IsValid(target) or not target.AddBlockHitShake or target.GetOwner and target:GetOwner() ~= LocalPlayer() then
+            local owner = LocalPlayer()
+
+            if IsValid(owner) then
+                local active = owner:GetActiveWeapon()
+
+                if IsValid(active) and active.AddBlockHitShake then
+                    target = active
+                end
+            end
+        end
+
+        if IsValid(target) and target.AddBlockHitShake then
+            target:AddBlockHitShake(state, normal)
+        end
+    end)
+
+    net.Receive("hg_melee_block_fx", function()
+        local pos = net.ReadVector()
+        local normal = net.ReadVector()
+        local material = net.ReadString()
+        local state = net.ReadString()
+        local emitter = ParticleEmitter(pos)
+
+        if not emitter then return end
+
+        local dir = normal:LengthSqr() > 0.001 and normal:GetNormalized() or vector_up
+        local metal = material == "metal"
+        local broken = state == "break"
+        local parry = state == "parry"
+        local owner = LocalPlayer()
+        local active = IsValid(owner) and owner:GetActiveWeapon() or nil
+        local base = weapons.GetStored and weapons.GetStored("weapon_melee") or nil
+        local fxSource = IsValid(active) and active or base
+        local countMul = fxSource and fxSource.BlockFxCountMul or 1
+        local velocityMul = fxSource and fxSource.BlockFxVelocityMul or 1
+        local sizeMul = fxSource and fxSource.BlockFxSizeMul or 1
+        local flareMul = fxSource and fxSource.BlockFxFlareMul or 1
+        local smokeMul = fxSource and fxSource.BlockFxSmokeMul or 1
+        local lifeMul = fxSource and fxSource.BlockFxLifeMul or 1
+
+        if metal then
+            local count = math.max(1, math.Round((broken and 35 or parry and 18 or 10) * countMul))
+
+            for i = 1, count do
+                local part = emitter:Add("effects/spark", pos + dir * 2)
+
+                if part then
+                    local vel = dir * math.Rand(broken and 90 or parry and 75 or 48, broken and 180 or parry and 130 or 90) * velocityMul + VectorRand() * math.Rand(broken and 260 or parry and 170 or 100, broken and 320 or parry and 220 or 140) * velocityMul
+                    part:SetVelocity(vel)
+                    part:SetDieTime(math.Rand(broken and 0.95 or parry and 0.62 or 0.42, broken and 1.35 or parry and 0.82 or 0.56) * lifeMul)
+                    part:SetStartAlpha(255)
+                    part:SetEndAlpha(0)
+                    part:SetStartSize(math.Rand((broken and 1.5 or parry and 1.8 or 2) * sizeMul, (broken and 2.2 or parry and 2.6 or 2.8) * sizeMul))
+                    part:SetEndSize(0)
+                    part:SetRoll(math.Rand(0, 360))
+                    part:SetGravity(Vector(0, 0, broken and -350 or -220))
+                    part:SetCollide(true)
+                    part:SetBounce(broken and 0.45 or 0.5)
+                end
+            end
+
+            for i = 1, broken and 2 or parry and 2 or 1 do
+                local flare = emitter:Add("effects/yellowflare", pos + dir * 1.5)
+
+                if flare then
+                    flare:SetVelocity(dir * math.Rand(0, 12) * velocityMul + VectorRand() * 8)
+                    flare:SetDieTime((broken and 0.16 or parry and 0.125 or 0.1) * lifeMul)
+                    flare:SetStartAlpha(255)
+                    flare:SetEndAlpha(0)
+                    flare:SetStartSize((broken and 45 or parry and 30 or 20) * flareMul)
+                    flare:SetEndSize(0)
+                end
+            end
+
+            if broken or parry then
+                for i = 1, broken and 3 or 1 do
+                    local smoke = emitter:Add("particle/smokesprites_000" .. math.random(1, 9), pos)
+
+                    if smoke then
+                        smoke:SetVelocity(dir * math.Rand(4, 20) * velocityMul + VectorRand() * math.Rand(18, 26) * smokeMul)
+                        smoke:SetDieTime((broken and 1.7 or 0.85) * lifeMul)
+                        smoke:SetStartAlpha(broken and 120 or 75)
+                        smoke:SetEndAlpha(0)
+                        smoke:SetStartSize((broken and 10 or 6) * smokeMul)
+                        smoke:SetEndSize((broken and 22 or 14) * smokeMul)
+                        smoke:SetRoll(math.Rand(0, 360))
+                        smoke:SetColor(100,100,100)
+                    end
+                end
+            end
+        else
+            local count = math.max(1, math.Round((broken and 30 or parry and 12 or 5) * countMul))
+
+            for i = 1, count do
+                local part = emitter:Add("effects/fleck_wood" .. math.random(1, 2), pos + dir * 1.5)
+
+                if part then
+                    local vel = dir * math.Rand(broken and 65 or parry and 42 or 24, broken and 130 or parry and 85 or 50) * velocityMul + VectorRand() * math.Rand(broken and 240 or parry and 120 or 50, broken and 300 or parry and 170 or 80) * velocityMul + Vector(0, 0, broken and 120 or parry and 75 or 50)
+                    part:SetVelocity(vel)
+                    part:SetDieTime(math.Rand(broken and 3.1 or parry and 2.4 or 2.2, broken and 3.8 or parry and 3.1 or 2.9) * lifeMul)
+                    part:SetStartAlpha(255)
+                    part:SetEndAlpha(0)
+                    part:SetStartSize(math.Rand((broken and 1.8 or parry and 1.6 or 1.5) * sizeMul, (broken and 2.6 or parry and 2 or 1.8) * sizeMul))
+                    part:SetEndSize(0)
+                    part:SetRoll(math.Rand(0, 360))
+                    part:SetGravity(Vector(0, 0, broken and -350 or -200))
+                    part:SetCollide(true)
+                    part:SetBounce(broken and 0.4 or 0.18)
+                end
+            end
+
+            if broken or parry or state == "block" or state == "weaken" then
+                for i = 1, broken and 5 or parry and 2 or 1 do
+                    local smoke = emitter:Add("particle/smokesprites_000" .. math.random(1, 9), pos)
+
+                    if smoke then
+                        smoke:SetVelocity(dir * math.Rand(4, 18) * velocityMul + VectorRand() * math.Rand(8, 28) * smokeMul)
+                        smoke:SetDieTime((broken and 3 or parry and 1.6 or 1.1) * lifeMul)
+                        smoke:SetStartAlpha(broken and 110 or parry and 65 or 50)
+                        smoke:SetEndAlpha(0)
+                        smoke:SetStartSize((broken and 10 or parry and 6 or 5) * smokeMul)
+                        smoke:SetEndSize((broken and 20 or parry and 12 or 10) * smokeMul)
+                        smoke:SetRoll(math.Rand(0, 360))
+                        smoke:SetColor(95, 85, 70)
+                    end
+                end
+            end
+        end
+
+        emitter:Finish()
+    end)
+
     net.Receive("melee_attack",function()
         local tbl = net.ReadTable()
         local ent = net.ReadEntity()
@@ -2590,7 +3046,9 @@ function SWEP:NPCThink()
 				if IsValid(self) and IsValid(npc) and npc:Alive() and IsValid(trEnt) then
 					local mul = 1
 					mul = mul * (self:BehindAttack(trEnt) and 2 or 1)
-					mul = mul * self:BlockingLogic(trEnt, mul, false, trace)
+					local blockMul, blockState = self:BlockingLogic(trEnt, mul, false, trace)
+					mul = mul * blockMul
+					if blockState == "block" or blockState == "parry" then return end
 					trEnt:PrecacheGibs()
 
 					dmg = dmg * mul
@@ -2602,7 +3060,9 @@ function SWEP:NPCThink()
 					dmginfo:SetDamageType(self.DamageType)
 					dmginfo:SetDamagePosition(trace.HitPos)
 					trEnt:TakeDamageInfo(dmginfo)
-                    self:PlaySoftHitSounds(npc, trEnt, trace, false)
+                    if blockState == "none" or blockState == "break" then
+                        self:PlaySoftHitSounds(npc, trEnt, trace, false)
+                    end
 
 					if trEnt:IsPlayer() then
 						local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)

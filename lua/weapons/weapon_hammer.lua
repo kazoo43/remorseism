@@ -7,10 +7,12 @@ SWEP.Spawnable = true
 SWEP.AdminOnly = false
 SWEP.Ammo = "Nails"
 if CLIENT then
-	SWEP.WepSelectIcon = Material("vgui/wep_jack_hmcd_hammer")
-	SWEP.IconOverride = "vgui/wep_jack_hmcd_hammer"
+	SWEP.WepSelectIcon = Material("vgui/hud/wm_hammer_i.png")
+	SWEP.IconOverride = "vgui/hud/wm_hammer_i.png"
 	SWEP.BounceWeaponIcon = false
 end
+
+SWEP.bloodID = 1
 
 SWEP.SuicidePos = Vector(-12, -4, -8)
 SWEP.SuicideAng = Angle(-0, 30, -50)
@@ -21,17 +23,17 @@ SWEP.SuicideSound = "player/flesh/flesh_bullet_impact_03.wav"
 SWEP.CanSuicide = true
 SWEP.SuicideNoLH = true
 SWEP.SuicidePunchAng = Angle(5, -15, 0)
-SWEP.WorldModel = "models/weapons/w_jjife_t.mdl"
+SWEP.WorldModel = "models/weapons/hammer/w.mdl"
 SWEP.WorldModelReal = "models/weapons/tfa_nmrih/v_me_hatchet.mdl"
-SWEP.WorldModelExchange = "models/weapons/w_jjife_t.mdl"
+SWEP.WorldModelExchange = "models/weapons/hammer/w.mdl"
 SWEP.DontChangeDropped = false
 SWEP.ViewModel = ""
 SWEP.HoldType = "melee"
 SWEP.HoldPos = Vector(-15, 2, -4)
 SWEP.HoldAng = Angle(-15, 0, 0)
-SWEP.AttackTime = 0.3
-SWEP.AnimTime1 = 1.2
-SWEP.WaitTime1 = 0.9
+SWEP.AttackTime = 0.34
+SWEP.AnimTime1 = 1.3
+SWEP.WaitTime1 = 1
 SWEP.AttackLen1 = 45
 SWEP.ViewPunch1 = Angle(1, 1, 0)
 SWEP.Attack2Time = 0.1
@@ -51,6 +53,27 @@ SWEP.AnimList = {
 	["attack2"] = "Shove",
 }
 
+SWEP.hitsoundextra = {
+    {"hardimpact/body_medium_break2.wav", 70, {110, 115}},
+    {"hardimpact/body_medium_break3.wav", 70, {110, 115}},
+    {"hardimpact/body_medium_break4.wav", 70, {110, 115}},
+}
+
+SWEP.hitsoundbrutalize = {
+    {"bat/hitplus.ogg", 55, {105, 115}},
+}
+
+SWEP.hitsoundplus = {
+    {"snd_jack_hmcd_hammerhit.wav", 55, {105, 115}},
+}
+
+SWEP.swingsoundextra = {
+    {"bat/baseball_swing_1st_layer_01.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_02.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_03.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_04.wav", 60, {110, 115}},
+}
+
 SWEP.setlh = false
 SWEP.setrh = true
 SWEP.TwoHanded = false
@@ -59,13 +82,16 @@ SWEP.Attack2Hit = "Concrete.ImpactHard"
 SWEP.AttackHitFlesh = "Flesh.ImpactHard"
 SWEP.Attack2HitFlesh = "Flesh.ImpactHard"
 SWEP.DeploySnd = "physics/metal/metal_solid_impact_soft1.wav"
-SWEP.AttackTimeLength = 0.15
+SWEP.AttackTimeLength = 0.155
 SWEP.Attack2TimeLength = 0.1
 SWEP.AttackRads = 55
 SWEP.AttackRads2 = 65
 SWEP.SwingAng = -90
 SWEP.SwingAng2 = 0
 SWEP.AttackPos = Vector(0, 0, 0)
+SWEP.BlockTier = 1
+SWEP.BlockMaterial = "metal"
+SWEP.BlockSound = {"physics/wood/wood_plank_impact_hard1.wav", 68, {95, 102}}
 SWEP.UnNailables = {MAT_METAL, MAT_SAND, MAT_SLOSH, MAT_GLASS}
 game.AddDecal("hmcd_jackanail", "decals/mat_jack_hmcd_nailhead")
 function hgCheckBindObjects(ent1)
@@ -83,33 +109,56 @@ SWEP.MaxPenLen = 1
 SWEP.PainMultiplier = 1.65
 SWEP.PenetrationSizePrimary = 1
 SWEP.StaminaPrimary = 25
+SWEP.HammerModeLerpSpeed = 10
 function SWEP:ThinkAdd()
 	local ply = self:GetOwner()
 	if SERVER and ply.suiciding then
 		self:SetNetVar("AttackMode", 1)
 	end
-	
-	if self:GetNetVar("AttackMode", 1) == 1 then
-		self.DamagePrimary = 15
+
+	if not self._hammerCurPos then
+		self._hammerCurPos = Vector(0, 0, -6)
+		self._hammerCurAng = Angle(-5, -90, 0)
+		self._hammerPrevMode = self:GetNetVar("AttackMode", 1)
+	end
+
+	local mode = self:GetNetVar("AttackMode", 1)
+	local targetPos, targetAng
+
+	if mode == 1 then
+		self.DamagePrimary = 19
 		self.DamageType = DMG_CLUB
-		self.weaponPos = Vector(0, 4, -3)
-		self.weaponAng = Angle(-5, -90, 0)
 		self.PenetrationPrimary = 2
 		self.MaxPenLen = 1
-		self.PainMultiplier = 1.65
+		self.PainMultiplier = 1.15
 		self.PenetrationSizePrimary = 1
-		self.StaminaPrimary = 25
+		self.StaminaPrimary = 26
+		targetPos = Vector(0, 0, -6)
+		targetAng = Angle(-5, -90, 0)
 	else
 		self.DamagePrimary = 15
 		self.DamageType = DMG_SLASH
-		self.weaponPos = Vector(-0.5, -3, -6.5)
-		self.weaponAng = Angle(-55, 90, 0)
-		self.PenetrationPrimary = 4
-		self.PainMultiplier = 1
+		self.PenetrationPrimary = 3
+		self.PainMultiplier = 1.1
 		self.MaxPenLen = 4
 		self.PenetrationSizePrimary = 0.5
-		self.StaminaPrimary = 25
+		self.StaminaPrimary = 26
+		targetPos = Vector(0, 0, -6)
+		targetAng = Angle(0, 90, 0)
 	end
+
+	if mode ~= self._hammerPrevMode then
+		self._hammerCurPos = Vector(self.weaponPos.x, self.weaponPos.y, self.weaponPos.z)
+		self._hammerCurAng = Angle(self.weaponAng.p, self.weaponAng.y, self.weaponAng.r)
+		self._hammerPrevMode = mode
+	end
+
+	local ft = math.Clamp(FrameTime() * (self.HammerModeLerpSpeed or 8), 0, 1)
+	self._hammerCurPos = LerpVector(ft, self._hammerCurPos, targetPos)
+	self._hammerCurAng = LerpAngle(ft, self._hammerCurAng, targetAng)
+
+	self.weaponPos = self._hammerCurPos
+	self.weaponAng = self._hammerCurAng
 
 	if CLIENT then return end
 	if IsValid(ply) then

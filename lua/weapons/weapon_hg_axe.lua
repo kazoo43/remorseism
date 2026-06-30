@@ -143,6 +143,9 @@ SWEP.swingsoundextra = {
 }
 
 SWEP.AttackPos = Vector(0,0,0)
+SWEP.BlockTier = 4
+SWEP.BlockMaterial = "wood"
+SWEP.BlockSound = {"physics/wood/wood_plank_impact_hard1.wav", 70, {96, 104}}
 
 SWEP.NoHolster = true
 
