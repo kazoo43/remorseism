@@ -617,34 +617,12 @@ hook.Add("OnNetVarSet","wounds_netvar",function(index, key, var)
 	end
 end)
 
-local getArterialWoundKey
-local getArterialWoundFxData
-local getArterialSoundPos
-local playArterialWoundSound
-local emitArterialSpray
-
 hook.Add("OnNetVarSet","wounds_netvar2",function(index, key, var)
 	if key == "arterialwounds" then
 		local ent = Entity(index)
 		--local ent = hg.RagdollOwner(ent) or ent
 		
 		if IsValid(ent) then
-			var = var or {}
-			local oldArterialWounds = ent.arterialwounds
-			local oldWoundKeys = {}
-			local newWoundKeys = {}
-
-			ent.arterialwoundfx = ent.arterialwoundfx or {}
-
-			if oldArterialWounds then
-				for i = 1, #oldArterialWounds do
-					local woundKey = getArterialWoundKey(oldArterialWounds[i])
-					if woundKey then
-						oldWoundKeys[woundKey] = true
-					end
-				end
-			end
-
 			if ent.arterialwounds then
 				for i = 1, #ent.arterialwounds do
 					if not var[i] then continue end
@@ -652,32 +630,16 @@ hook.Add("OnNetVarSet","wounds_netvar2",function(index, key, var)
 				end
 			end
 
-			ent.arterialwounds = var
 			for i = 1, #var do
-				local wound = var[i]
-				local woundKey = getArterialWoundKey(wound)
-
-				if woundKey then
-					newWoundKeys[woundKey] = true
-					ent.arterialwoundfx[woundKey] = ent.arterialwoundfx[woundKey] or {created = CurTime(), nextMist = 0}
-
-					if not oldWoundKeys[woundKey] then
-						playArterialWoundSound(ent, wound)
-					end
-				end
+				if ent.arterialwounds and ent.arterialwounds[i] then continue end
+				hg.queueArterialWoundSound(ent, var[i])
 			end
 
-			for woundKey in pairs(ent.arterialwoundfx) do
-				if not newWoundKeys[woundKey] then
-					ent.arterialwoundfx[woundKey] = nil
-				end
-			end
-
+			ent.arterialwounds = var
 			local rag = IsValid(ent:GetNWEntity("FakeRagdoll")) and ent:GetNWEntity("FakeRagdoll")-- or IsValid(ent:GetNWEntity("RagdollDeath")) and ent:GetNWEntity("RagdollDeath")
 			
 			if IsValid(rag) then
 				rag.arterialwounds = rag:GetNetVar("arterialwounds") or var
-				rag.arterialwoundfx = ent.arterialwoundfx
 			end
 		end
 	end
@@ -718,28 +680,15 @@ local checkpulsebones = {
 	["ValveBiped.Bip01_L_Hand"] = true,
 }
 local hg_blood_fps = ConVarExists("hg_blood_fps") and GetConVar("hg_blood_fps") or CreateClientConVar("hg_blood_fps", 24, true, nil, "fps to draw blood", 12, 165)
-local arteryDripSounds = {}
-for i = 1, 10 do
-	arteryDripSounds[i] = "arteryblooddrip/splat-blood" .. i .. ".wav"
-end
-local neckSlitSound = "rem_neckslit.ogg"
+local arteryDelayedDripSound = "arteryblooddrip/splat-blood"
+local arteryDelayedDripCount = 10
+local arteryNeckSlitSound = "rem_neckslit.ogg"
 local arterySoundDelayMin = 1
-local arterySoundDelayMax = 1.5
+local arterySoundDelayMax = 1.25
 local arterySoundPitchMin = 95
 local arterySoundPitchMax = 110
-local arterialParticleSizeMul = 0.85
-local arterialJetCount = 2
-local arterialJetOffset = 1.6
-local arterialDirectionRandomness = 11
-local arterialVerticalRandomness = 11
-local arterialVelocityMul = 8
-local arterialCloudChance = 1
-local arterialCloudLifetime = 0.22
-local arterialCloudInterval = 0.5
-local arterialCloudRampStart = 0.45
-local arterialPumpIntervalMul = 0.16
-local arterialRampTime = 1.1
-local arterialMinIntensity = 0.08
+local arteryBurstCount = 2
+local arterySizeMul = 1.35
 
 local pitchAddClasses = {
 	["furry"] = 20,
@@ -749,70 +698,64 @@ local muffedClasses = {
 	["headcrabzombie"] = true
 }
 
-local hg_heartbeat_volume = ConVarExists("hg_heartbeat_volume") and GetConVar("hg_heartbeat_volume") or CreateClientConVar("hg_heartbeat_volume", 1, true, nil, "heartbeat loudness", 0, 4)
+local function getArterySoundEnt(ent)
+	if not IsValid(ent) then return end
 
-getArterialWoundKey = function(wound)
-	if not wound then return end
-	local localPos = wound[2]
+	local rag = ent.GetNWEntity and ent:GetNWEntity("FakeRagdoll")
+	if IsValid(rag) then return rag end
 
-	if isvector(localPos) then
-		return tostring(wound[4]) .. ":" .. tostring(wound[7]) .. ":" .. math.Round(localPos[1], 1) .. ":" .. math.Round(localPos[2], 1) .. ":" .. math.Round(localPos[3], 1)
-	end
+	rag = ent.GetNWEntity and ent:GetNWEntity("RagdollDeath")
+	if IsValid(rag) then return rag end
 
-	return tostring(wound[4]) .. ":" .. tostring(wound[7])
+	return ent
 end
 
-getArterialWoundFxData = function(ent, wound)
-	if not IsValid(ent) or not wound then return end
+local function getArterialWoundPos(ent, wound)
+	local target = getArterySoundEnt(ent)
+	if not IsValid(target) then return end
 
-	local woundKey = getArterialWoundKey(wound)
-	if not woundKey then return end
-
-	ent.arterialwoundfx = ent.arterialwoundfx or {}
-	ent.arterialwoundfx[woundKey] = ent.arterialwoundfx[woundKey] or {created = CurTime(), nextMist = 0}
-
-	return ent.arterialwoundfx[woundKey], woundKey
-end
-
-getArterialSoundPos = function(ent, wound)
-	local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(ent) or ent
-	character = IsValid(character) and character or ent
-	if not IsValid(character) then return end
-
-	local boneName = wound and wound[4]
-	local localPos = wound and wound[2]
-	local localAng = wound and wound[3]
-	local bone = boneName and character:LookupBone(boneName)
-
-	if bone and localPos and localAng then
-		local mat = character:GetBoneMatrix(bone)
-		if mat then
-			return LocalToWorld(localPos, localAng, mat:GetTranslation(), mat:GetAngles())
+	local bone = target:LookupBone(wound[4] or "")
+	if bone then
+		local mat = target:GetBoneMatrix(bone)
+		if mat and wound[2] and wound[3] then
+			local bonePos, boneAng = mat:GetTranslation(), mat:GetAngles()
+			if bonePos and boneAng then
+				return LocalToWorld(wound[2], wound[3], bonePos, boneAng), target
+			end
 		end
 	end
 
-	return character:WorldSpaceCenter()
+	return target:GetPos(), target
 end
 
-playArterialWoundSound = function(ent, wound)
+local function randomArteryPitch()
+	return math.random(arterySoundPitchMin, arterySoundPitchMax)
+end
+
+local function playRandomArteryDrip(ent, wound, vol)
+	local pos = getArterialWoundPos(ent, wound)
+	if not pos then return end
+
+	sound.Play(arteryDelayedDripSound .. math.random(1, arteryDelayedDripCount) .. ".wav", pos, 70, randomArteryPitch(), vol or 1)
+end
+
+function hg.queueArterialWoundSound(ent, wound)
 	if not IsValid(ent) or not wound then return end
 
 	local delay = math.Rand(arterySoundDelayMin, arterySoundDelayMax)
-	local arteryType = wound[7]
+	local artery = wound[7]
+	local org = ent.organism or {}
 
-	if arteryType == "arteria" then
-		local character = hg.GetCurrentCharacter and hg.GetCurrentCharacter(ent) or ent
-		character = IsValid(character) and character or ent
-
-		if IsValid(character) then
-			local patch = CreateSound(character, neckSlitSound)
-			if patch then
-				patch:SetSoundLevel(75)
-				patch:PlayEx(1, math.random(arterySoundPitchMin, arterySoundPitchMax))
-				patch:ChangeVolume(0, delay)
-
+	if artery == "arteria" and (not ent:IsPlayer() or ent:Alive() and not org.otrub) then
+		local _, target = getArterialWoundPos(ent, wound)
+		if IsValid(target) then
+			local snd = CreateSound(target, arteryNeckSlitSound)
+			if snd then
+				snd:SetSoundLevel(75)
+				snd:PlayEx(1, randomArteryPitch())
+				snd:ChangeVolume(0, delay)
 				timer.Simple(delay + 0.05, function()
-					patch:Stop()
+					if snd then snd:Stop() end
 				end)
 			end
 		end
@@ -820,38 +763,11 @@ playArterialWoundSound = function(ent, wound)
 
 	timer.Simple(delay, function()
 		if not IsValid(ent) then return end
-
-		local pos = getArterialSoundPos(ent, wound)
-		if not pos then return end
-
-		sound.Play(arteryDripSounds[math.random(#arteryDripSounds)], pos, 60, math.random(arterySoundPitchMin, arterySoundPitchMax), 1)
+		playRandomArteryDrip(ent, wound, artery == "arteria" and 0.85 or 1)
 	end)
 end
 
-emitArterialSpray = function(ent, pos, dir, ang, pulse, size, arteryType, fxData)
-	local pulseMul = math.max(pulse or 70, 35) / 70
-	local buildup = fxData and math.Clamp((CurTime() - (fxData.created or CurTime())) / arterialRampTime, arterialMinIntensity, 1) or 1
-	local wave = (math.abs(math.sin(CurTime() * 2) + math.cos(CurTime() * 5) + math.sin(CurTime() * 3)) + 4) * 0.1
-	local dirAng = dir:Angle()
-	local right = dirAng:Right()
-	local up = ang:Up()
-	local scaledSize = size * arterialParticleSizeMul * buildup
-	local jetCount = math.max(1, math.ceil(arterialJetCount * buildup))
-
-	for jet = 1, jetCount do
-		local jetPos = pos + VectorRand(-arterialJetOffset, arterialJetOffset)
-		local sprayVel = VectorRand(-1, 1) * pulseMul * buildup
-		sprayVel:Add(dir * arterialVelocityMul * wave * buildup)
-		sprayVel:Add(right * math.Rand(-arterialDirectionRandomness, arterialDirectionRandomness) * buildup)
-		sprayVel:Add(up * math.Rand(-arterialVerticalRandomness, arterialVerticalRandomness) * buildup)
-		hg.addBloodPart(jetPos, sprayVel, nil, scaledSize, scaledSize, arteryType or true, nil, ent)
-	end
-
-	if fxData and buildup >= arterialCloudRampStart and math.random(arterialCloudChance) == 1 and (fxData.nextMist or 0) <= CurTime() then
-		fxData.nextMist = CurTime() + arterialCloudInterval
-		hg.addBloodPart2(pos + VectorRand(-4, 4), dir * pulseMul * buildup + VectorRand(-20, 20) * pulseMul * buildup, nil, 24 * buildup, 24 * buildup, arterialCloudLifetime, nil, ent)
-	end
-end
+local hg_heartbeat_volume = ConVarExists("hg_heartbeat_volume") and GetConVar("hg_heartbeat_volume") or CreateClientConVar("hg_heartbeat_volume", 1, true, nil, "heartbeat loudness", 0, 4)
 
 hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, ent, time)
 	--local ent = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
@@ -1076,13 +992,11 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 	
 	if org and org.blood and org.blood > 10 and arterialwounds and #arterialwounds > 0 then
 		for i, wound in pairs(arterialwounds) do
-			local fxData = getArterialWoundFxData(ent, wound)
-			local buildup = fxData and math.Clamp((time - (fxData.created or time)) / arterialRampTime, arterialMinIntensity, 1) or 1
-			local addtime = seen and 1 / math.Clamp(org.pulse or 70, 1,15) * arterialPumpIntervalMul / buildup or 0.035 / buildup
+			local addtime = seen and 1 / math.Clamp(org.pulse or 70, 1,15) * 0.25 or 0.06
 			if wound[5] + addtime < time and ent:LookupBone(wound[4]) then
 				local pos, ang = ent:GetBonePosition(ent:LookupBone(wound[4]))
 				if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
-					local size = math.random(2, 4) * math.max(math.min(wound[1], 1.35), 0.75) * buildup
+					local size = math.random(1, 2) * math.max(math.min(wound[1], 1), 0.5) * arterySizeMul
 					if seen and ent:LookupBone(wound[4]) then
 						local bone = wound[4]
 
@@ -1104,10 +1018,15 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 
 						local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
 						if water then
-							hg.addBloodPart2(pos + VectorRand(-2, 2), VectorRand(-8, 8), nil, nil, nil, nil, true, nil, ent)
-							hg.addBloodPart2(pos + VectorRand(-2, 2), VectorRand(-8, 8), nil, nil, nil, nil, true, nil, ent)
+							for _ = 1, arteryBurstCount do
+								hg.addBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
+							end
 						else
-							emitArterialSpray(ent, pos, dir, ang, org.pulse, size, wound[7], fxData)
+							local vel = VectorRand(-1, 1) * (org.pulse or 70) / 70 + dir * 5 * (math.abs(math.sin(CurTime() * 2) + math.cos(CurTime() * (5 + i * 2)) + math.sin(CurTime() * (1 + i))) * 0.6 + math.sin(CurTime() * 2) + 4) * 0.1 + dir:Angle():Right() * 25 * math.sin(CurTime() * 2) * math.cos(CurTime() * 4) + ang:Up() * 25 * math.sin(CurTime() * 3) * math.cos(CurTime() * 1) + VectorRand(-1, 1) * (org.pulse or 70) / 70
+							hg.addBloodPart(pos, vel, nil, size, size, true, nil, ent)
+							for _ = 2, arteryBurstCount do
+								hg.addBloodPart(pos, vel * math.Rand(0.65, 1.05) + VectorRand(-3, 3) * (org.pulse or 70) / 70, nil, size * math.Rand(0.85, 1.15), size * math.Rand(0.85, 1.15), true, nil, ent)
+							end
 						end
 
 						wound[5] = time + (water and 2 or (0.5 * 1 / hg_blood_fps:GetInt()))
@@ -1116,10 +1035,14 @@ hook.Add("Player-Ragdoll think", "organism-think-client-blood", function(ply, en
 						
 						local water = bit.band(util.PointContents(pos), CONTENTS_WATER) == CONTENTS_WATER
 						if water then
-							hg.addBloodPart2(pos + VectorRand(-2, 2), VectorRand(-8, 8), nil, nil, nil, nil, true, nil, ent)
-							hg.addBloodPart2(pos + VectorRand(-2, 2), VectorRand(-8, 8), nil, nil, nil, nil, true, nil, ent)
+							for _ = 1, arteryBurstCount do
+								hg.addBloodPart2(pos, VectorRand(-5, 5), nil, nil, nil, nil, true, nil, ent)
+							end
 						else
-							emitArterialSpray(ent, pos, VectorRand(-15, 15), angle_zero, org.pulse, size, wound[7], fxData)
+							hg.addBloodPart(pos, VectorRand(-15, 15), nil, size, size, true, nil, ent)
+							for _ = 2, arteryBurstCount do
+								hg.addBloodPart(pos, VectorRand(-15, 15), nil, size * math.Rand(0.85, 1.15), size * math.Rand(0.85, 1.15), true, nil, ent)
+							end
 						end
 
 						wound[5] = time + (water and 2 or 0)
