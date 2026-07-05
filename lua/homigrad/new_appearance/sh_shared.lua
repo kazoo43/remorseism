@@ -530,7 +530,7 @@ end
 hg.Appearance.AppearanceValidater = AppearanceValidater
 function ThatPlyIsFemale(ply)
 	ply.CahceModel = ply.CahceModel or ""
-	if ply.CahceModel == ply:GetModel() then return ply.bSex end
+	if ply.CahceModel == ply:GetModel() then return ply.bSex or false end
 	local tSubModels = ply:GetSubModels()
 	if not tSubModels then return false end
 	ply.CahceModel = ply:GetModel()

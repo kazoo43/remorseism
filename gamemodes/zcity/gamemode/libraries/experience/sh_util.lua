@@ -206,7 +206,7 @@ else
         local dataType = net.ReadFloat()
         ent.SvDB = ent.SvDB or {}
         ent.SvDB[dataName] = dataType
-        if zb.Experience.OpenedAccount then
+        if IsValid(zb.Experience.OpenedAccount) then
             zb.Experience.OpenedAccount:Udpate(ent)
         end
     end)

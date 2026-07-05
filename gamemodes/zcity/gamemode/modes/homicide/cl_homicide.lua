@@ -11,6 +11,7 @@ MODE.TypeSounds = {
 	["standard"] = {"snd_jack_hmcd_psycho.mp3","snd_jack_hmcd_shining.mp3"},
 }
 local fade = 0
+local HMCD_ScreenDuration = 10
 net.Receive("HMCD_RoundStart",function()
 	for i, ply in player.Iterator() do
 		ply.isTraitor = false
@@ -66,18 +67,28 @@ net.Receive("HMCD_RoundStart",function()
 	if(MODE.RoleChooseRoundTypes[MODE.Type] and !screen_time_is_default)then
 		MODE.DynamicFadeScreenEndTime = CurTime() + MODE.RoleChooseRoundStartTime
 	else
-		MODE.DynamicFadeScreenEndTime = CurTime() + MODE.DefaultRoundStartTime
+		MODE.DynamicFadeScreenEndTime = CurTime() + HMCD_ScreenDuration
 	end
 
 	MODE.RoleEndedChosingState = screen_time_is_default
 
 	if(screen_time_is_default)then
-		if istable(MODE.TypeSounds[MODE.Type]) then
-			surface.PlaySound(table.Random(MODE.TypeSounds[MODE.Type]))
-		else
-			surface.PlaySound(MODE.TypeSounds[MODE.Type])
+		if MODE.RoundBeginSound then
+			MODE.RoundBeginSound:Stop()
+			MODE.RoundBeginSound = nil
 		end
+
+		MODE.RoundBeginSound = CreateSound(LocalPlayer(), "rem_newroundcommence.mp3")
+		MODE.RoundBeginSound:PlayEx(1, 100)
 	end
+
+	MODE.RoundTextTilts = {}
+	for i = 1, 64 do
+		MODE.RoundTextTilts[i] = (math.random() < 0.5) and 3 or -3
+	end
+
+	MODE.CursorLerpX = 0
+	MODE.CursorLerpY = 0
 
 	fade = 0
 end)
@@ -135,6 +146,13 @@ surface.CreateFont("ZB_HomicideLarge", {
 	antialias = true
 })
 
+surface.CreateFont("ZB_HomicideHeader", {
+	font = font(),
+	size = ScreenScale(45),
+	weight = 400,
+	antialias = true
+})
+
 surface.CreateFont("ZB_HomicideHumongous", {
 	font = font(),
 	size = 255,
@@ -173,7 +191,7 @@ function MODE:RenderScreenspaceEffects()
 	if(time_diff > 0)then
 		zb.RemoveFade()
 
-		local fade = math.min(time_diff / MODE.FadeScreenTime, 1)
+		local fade = math.min(time_diff / 2.5, 1)
 
 		surface.SetDrawColor(0, 0, 0, 255 * fade)
 		surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1 )
@@ -187,45 +205,83 @@ local handicap = {
 	[4] = "You are handicapped: you are physically incapacitated."
 }
 
+local function hmcd_ease_out(x)
+	return 1 - (1 - x) ^ 3
+end
+
+local function hmcd_draw_text(text, fontname, x, y, r, g, b, a, ang, xalign, yalign)
+	local m = Matrix()
+	m:Translate(Vector(x, y, 0))
+	m:Rotate(Angle(0, ang, 0))
+	m:Translate(Vector(-x, -y, 0))
+
+	cam.PushModelMatrix(m)
+		draw.SimpleText(text, fontname, x, y, Color(r, g, b, a), xalign, yalign)
+	cam.PopModelMatrix()
+end
+
 function MODE:HUDPaint()
 	if not MODE.Type or not MODE.TypeObjectives[MODE.Type] then return end
 	if lply:Team() == TEAM_SPECTATOR then return end
-	if StartTime + 12 < CurTime() then return end
-	
-	fade = Lerp(FrameTime()*1, fade, math.Clamp(StartTime + 5 - CurTime(),-2,2))
 
-	draw.SimpleText("Homicide | " .. (MODE.TypeNames[MODE.Type] or "Unknown"), "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	local t = CurTime() - StartTime
+	if t > HMCD_ScreenDuration then
+		if MODE.RoundBeginSound then
+			MODE.RoundBeginSound:Stop()
+			MODE.RoundBeginSound = nil
+		end
+
+		return
+	end
+
+	local out_fade = math.Clamp((HMCD_ScreenDuration - t) / 1.5, 0, 1)
+
+	if MODE.RoundBeginSound then
+		MODE.RoundBeginSound:ChangeVolume(out_fade, 0)
+	end
+
+	MODE.CursorLerpX = Lerp(FrameTime() * 6, MODE.CursorLerpX or 0, (gui.MouseX() - sw * 0.5) / (sw * 0.5))
+	MODE.CursorLerpY = Lerp(FrameTime() * 6, MODE.CursorLerpY or 0, (gui.MouseY() - sh * 0.5) / (sh * 0.5))
+
+	local cursor_reach = ScreenScale(7)
+	local cox = math.Clamp(MODE.CursorLerpX, -1, 1) * cursor_reach
+	local coy = math.Clamp(MODE.CursorLerpY, -1, 1) * cursor_reach
+
+	local ColorRole = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.color1 ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.color1 ) or MODE.TypeObjectives[MODE.Type].innocent.color1
+	local color_role_innocent = MODE.TypeObjectives[MODE.Type].innocent.color1
 
 	local Rolename = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.name ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.name ) or MODE.TypeObjectives[MODE.Type].innocent.name
-	local ColorRole = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.color1 ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.color1 ) or MODE.TypeObjectives[MODE.Type].innocent.color1
-	ColorRole.a = 255 * fade
 
-	local color_role_innocent = MODE.TypeObjectives[MODE.Type].innocent.color1
-	color_role_innocent.a = 255 * fade
+	local elements = {}
 
-	local color_white_faded = Color(255, 255, 255, 255 * fade)
-	color_white_faded.a = 255 * fade
+	local function add(text, fontname, col, x, y, dir, delay, plx, notilt)
+		elements[#elements + 1] = {
+			text = text,
+			font = fontname,
+			r = col.r, g = col.g, b = col.b,
+			x = x, y = y,
+			dir = dir, delay = delay, plx = plx or 1,
+			notilt = notilt,
+		}
+	end
 
-	draw.SimpleText("You are "..Rolename , "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-
+	add("Homicide", "ZB_HomicideHeader", Color(255, 255, 255), sw * 0.5, sh * 0.1, "left", 0, 0.9)
+	add("You are " .. Rolename, "ZB_HomicideMediumLarge", ColorRole, sw * 0.5, sh * 0.5, "right", 0.7, 1.1)
 
 	local cur_y = sh * 0.5
+	local stack_delay = 1.1
 
-	-- local ColorRole = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.color1 ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.color1 ) or MODE.TypeObjectives[MODE.Type].innocent.color1
-	-- ColorRole.a = 255 * fade
 	if(lply.SubRole and lply.SubRole != "")then
 		cur_y = cur_y + ScreenScale(20)
-
-		draw.SimpleText("" .. ((MODE.SubRoles[lply.SubRole] and MODE.SubRoles[lply.SubRole].Name or lply.SubRole) or lply.SubRole), "ZB_HomicideMediumLarge", sw * 0.5, cur_y, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		add(((MODE.SubRoles[lply.SubRole] and MODE.SubRoles[lply.SubRole].Name or lply.SubRole) or lply.SubRole), "ZB_HomicideMediumLarge", ColorRole, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+		stack_delay = stack_delay + 0.15
 	end
 
 	if(!lply.MainTraitor and lply.isTraitor)then
 		cur_y = cur_y + ScreenScale(20)
-
-		draw.SimpleText("Assistant", "ZB_HomicideMedium", sw * 0.5, cur_y, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		add("Assistant", "ZB_HomicideMedium", ColorRole, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+		stack_delay = stack_delay + 0.15
 	end
-
 
 	if(lply.isTraitor)then
 		cur_y = cur_y + ScreenScale(20)
@@ -234,38 +290,39 @@ function MODE:HUDPaint()
 			MODE.TraitorsLocal = MODE.TraitorsLocal or {}
 
 			if(#MODE.TraitorsLocal > 1)then
-				draw.SimpleText("Traitors list:", "ZB_HomicideMedium", sw * 0.5, cur_y, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+				add("Traitors list:", "ZB_HomicideMedium", ColorRole, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+				stack_delay = stack_delay + 0.15
 
 				for _, traitor_info in ipairs(MODE.TraitorsLocal) do
-					local traitor_color = Color(traitor_info[1].r, traitor_info[1].g, traitor_info[1].b, 255 * fade)
 					cur_y = cur_y + ScreenScale(15)
-
-					draw.SimpleText(traitor_info[2], "ZB_HomicideMedium", sw * 0.5, cur_y, traitor_color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+					add(traitor_info[2], "ZB_HomicideMedium", Color(traitor_info[1].r, traitor_info[1].g, traitor_info[1].b), sw * 0.5, cur_y, "right", stack_delay, 1.05)
+					stack_delay = stack_delay + 0.15
 				end
 			end
 		else
-			draw.SimpleText("Traitor secret words:", "ZB_HomicideMedium", sw * 0.5, cur_y, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			add("Traitor secret words:", "ZB_HomicideMedium", ColorRole, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+			stack_delay = stack_delay + 0.15
 
 			cur_y = cur_y + ScreenScale(15)
-
-			draw.SimpleText("\"" .. MODE.TraitorWord .. "\"", "ZB_HomicideMedium", sw * 0.5, cur_y, color_white_faded, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			add("\"" .. MODE.TraitorWord .. "\"", "ZB_HomicideMedium", Color(255, 255, 255), sw * 0.5, cur_y, "right", stack_delay, 1.05)
+			stack_delay = stack_delay + 0.15
 
 			cur_y = cur_y + ScreenScale(15)
-
-			draw.SimpleText("\"" .. MODE.TraitorWordSecond .. "\"", "ZB_HomicideMedium", sw * 0.5, cur_y, color_white_faded, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+			add("\"" .. MODE.TraitorWordSecond .. "\"", "ZB_HomicideMedium", Color(255, 255, 255), sw * 0.5, cur_y, "right", stack_delay, 1.05)
+			stack_delay = stack_delay + 0.15
 		end
 	end
 
 	if(lply.Profession and lply.Profession != "")then
 		cur_y = cur_y + ScreenScale(20)
-
-		draw.SimpleText("Occupation: " .. ((MODE.Professions[lply.Profession] and MODE.Professions[lply.Profession].Name or lply.Profession) or lply.Profession), "ZB_HomicideMedium", sw * 0.5, cur_y, color_role_innocent, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		add("Occupation: " .. ((MODE.Professions[lply.Profession] and MODE.Professions[lply.Profession].Name or lply.Profession) or lply.Profession), "ZB_HomicideMedium", color_role_innocent, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+		stack_delay = stack_delay + 0.15
 	end
-	
+
 	if(handicap[lply:GetLocalVar("karma_sickness", 0)])then
 		cur_y = cur_y + ScreenScale(20)
-
-		draw.SimpleText(handicap[lply:GetLocalVar("karma_sickness", 0)], "ZB_HomicideMedium", sw * 0.5, cur_y, color_role_innocent, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		add(handicap[lply:GetLocalVar("karma_sickness", 0)], "ZB_HomicideMedium", color_role_innocent, sw * 0.5, cur_y, "right", stack_delay, 1.05)
+		stack_delay = stack_delay + 0.15
 	end
 
 	local Objective = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.objective ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.objective ) or MODE.TypeObjectives[MODE.Type].innocent.objective
@@ -285,16 +342,46 @@ function MODE:HUDPaint()
 		Objective = "Round is starting..."
 	end
 
-	local ColorObj = ( lply.isTraitor and MODE.TypeObjectives[MODE.Type].traitor.color2 ) or ( lply.isGunner and MODE.TypeObjectives[MODE.Type].gunner.color2 ) or MODE.TypeObjectives[MODE.Type].innocent.color2 or Color(255,255,255)
-	ColorObj.a = 255 * fade
-	draw.SimpleText( Objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	add(Objective, "ZB_HomicideMedium", Color(255, 255, 255), sw * 0.5, sh * 0.9, "bottom", 1.4, 1.3, true)
+
+	local tilts = MODE.RoundTextTilts or {}
+
+	for i, el in ipairs(elements) do
+		local appear = hmcd_ease_out(math.Clamp((t - el.delay) / 2.0, 0, 1))
+		local a = 255 * appear * out_fade
+
+		if a > 1 then
+			local slide = 1 - appear
+			local x, y = el.x, el.y
+
+			if el.dir == "left" then
+				x = x - slide * ScreenScale(220)
+			elseif el.dir == "right" then
+				x = x + slide * ScreenScale(220)
+			elseif el.dir == "bottom" then
+				y = y + slide * ScreenScale(120)
+			elseif el.dir == "top" then
+				y = y - slide * ScreenScale(120)
+			end
+
+			x = x + cox * el.plx
+			y = y + coy * el.plx
+
+			local tilt = el.notilt and 0 or (tilts[i] or 3) * appear
+
+			hmcd_draw_text(el.text, el.font, x, y, el.r, el.g, el.b, a, tilt, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		end
+	end
 
 	if hg.PluvTown.Active then
-		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
-		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
+		local pluv_appear = hmcd_ease_out(math.Clamp(t / 1.0, 0, 1))
+		local pluv_a = pluv_appear * out_fade
 
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		surface.SetMaterial(hg.PluvTown.PluvMadness)
+		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * pluv_a / 2)
+		surface.DrawTexturedRect(sw * 0.25 + cox, sh * 0.44 - ScreenScale(15) + coy, sw / 2, ScreenScale(30))
+
+		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2 + cox, sh * 0.44 - ScreenScale(2) + coy, Color(0, 0, 0, 255 * pluv_a), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 end
 
