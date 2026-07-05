@@ -9,11 +9,6 @@ end
 
 MODE.TypeSounds = {
 	["standard"] = {"snd_jack_hmcd_psycho.mp3","snd_jack_hmcd_shining.mp3"},
-	["soe"] = "snd_jack_hmcd_disaster.mp3",
-	["gunfreezone"] = "snd_jack_hmcd_panic.mp3" ,
-	["suicidelunatic"] = "zbattle/jihadmode.mp3",
-	["wildwest"] = "snd_jack_hmcd_wildwest.mp3",
-	["supermario"] = "snd_jack_hmcd_psycho.mp3"
 }
 local fade = 0
 net.Receive("HMCD_RoundStart",function()
@@ -88,12 +83,7 @@ net.Receive("HMCD_RoundStart",function()
 end)
 
 MODE.TypeNames = {
-	["standard"] = "Standard",
-	["soe"] = "State of Emergency",
-	["gunfreezone"] = "Gun Free Zone",
-	["suicidelunatic"] = "Suicide Lunatic",
-	["wildwest"] = "Wild west",
-	["supermario"] = "Super Mario"
+	["standard"] = "Homicide",
 }
 
 --local hg_coolvetica = ConVarExists("hg_coolvetica") and GetConVar("hg_coolvetica") or CreateClientConVar("hg_coolvetica", "0", true, false, "changes every text to coolvetica because its good", 0, 1)
@@ -153,28 +143,6 @@ surface.CreateFont("ZB_HomicideHumongous", {
 })
 
 MODE.TypeObjectives = {}
-MODE.TypeObjectives.soe = {
-	traitor = {
-		objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
-		name = "a Traitor",
-		color1 = Color(190,0,0),
-		color2 = Color(190,0,0)
-	},
-
-	gunner = {
-		objective = "You are an innocent with a hunting weapon. Find and neutralize the traitor before it's too late.",
-		name = "an Innocent",
-		color1 = Color(0,120,190),
-		color2 = Color(158,0,190)
-	},
-
-	innocent = {
-		objective = "You are an innocent, rely only on yourself, but stick around with crowds to make traitor's job harder.",
-		name = "an Innocent",
-		color1 = Color(0,120,190)
-	},
-}
-
 MODE.TypeObjectives.standard = {
 	traitor = {
 		objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
@@ -193,94 +161,6 @@ MODE.TypeObjectives.standard = {
 	innocent = {
 		objective = "You are a bystander of a murder scene, although it didn't happen to you, you better be cautious.",
 		name = "a Bystander",
-		color1 = Color(0,120,190)
-	},
-}
-
-MODE.TypeObjectives.wildwest = {
-	traitor = {
-		objective = "This town ain't that big for all of us.",
-		name = "The Killer",
-		color1 = Color(190,0,0),
-		color2 = Color(190,0,0)
-	},
-
-	gunner = {
-		objective = "You're the sheriff of this town. You gotta find and kill the lawless bastard.",
-		name = "The Sheriff",
-		color1 = Color(0,120,190),
-		color2 = Color(158,0,190)
-	},
-
-	innocent = {
-		objective = "We gotta get justice served over here, there's a lawless prick murdering men.",
-		name = "a Fellow Cowboy",
-		color1 = Color(0,120,190),
-		color2 = Color(158,0,190)
-	},
-}
-
-MODE.TypeObjectives.gunfreezone = {
-	traitor = {
-		objective = "You're geared up with items, poisons, explosives and weapons hidden in your pockets. Murder everyone here.",
-		name = "a Murderer",
-		color1 = Color(190,0,0),
-		color2 = Color(190,0,0)
-	},
-
-	gunner = {
-		objective = "You are a bystander of a murder scene, although it didn't happen to you, you better be cautious.",
-		name = "a Bystander",
-		color1 = Color(0,120,190)
-	},
-
-	innocent = {
-		objective = "You are a bystander of a murder scene, although it didn't happen to you, you better be cautious.",
-		name = "a Bystander",
-		color1 = Color(0,120,190)
-	},
-}
-
-MODE.TypeObjectives.suicidelunatic = {
-	traitor = {
-		objective = "My brother insha'Allah, don't let him down.",
-		name = "a Shahid",
-		color1 = Color(190,0,0),
-		color2 = Color(190,0,0)
-	},
-
-	gunner = {
-		objective = "Sheep fucker's gone crazy, now you need to survive.",
-		name = "an Innocent",
-		color1 = Color(0,120,190)
-	},
-
-	innocent = {
-		objective = "Sheep fucker's gone crazy, now you need to survive.",
-		name = "an Innocent",
-		color1 = Color(0,120,190)
-	},
-}
-
-
-MODE.TypeObjectives.supermario = {
-	traitor = {
-		objective = "You're the evil Mario! Jump around and take down everyone.",
-		name = "Traitor Mario",
-		color1 = Color(190,0,0),
-		color2 = Color(190,0,0)
-	},
-
-	gunner = {
-		objective = "You're the hero Mario! Use your jumping ability to stop the traitor.",
-		name = "Hero Mario",
-		color1 = Color(158,0,190),
-		color2 = Color(158,0,190)
-	},
-
-	innocent = {
-		objective = "You're a bystander Mario, survive and avoid the traitor's traps!",
-		name = "Innocent Mario",
 		color1 = Color(0,120,190)
 	},
 }
@@ -634,7 +514,7 @@ end)
 
 function hg.SelectPlayerRole(role, mode)
 	role = role or "Traitor"
-	mode = mode or "soe"
+	mode = mode or "standard"
 
 	if(IsValid(VGUI_HMCD_RolePanelList))then
 		VGUI_HMCD_RolePanelList:Remove()

@@ -1,3 +1,4 @@
+
 if SERVER then
 	AddCSLuaFile()
 elseif CLIENT then
@@ -26,7 +27,7 @@ SWEP.WorldModel = "models/weapons/c_models/c_grappling_hook/c_grappling_hook.mdl
 SWEP.AutoSwitchTo = true
 SWEP.AutoSwitchFrom = false
 SWEP.Category = "ZCity Other"
-SWEP.Spawnable = true
+SWEP.Spawnable = false
 SWEP.Primary.ClipSize = -1
 SWEP.Primary.DefaultClip = -1
 SWEP.Primary.Automatic = true

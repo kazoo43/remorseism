@@ -8,6 +8,17 @@ function zb.AddFade()
 	net.Broadcast()
 end
 
+local ZB_FORCE_ONLY_HOMICIDE = true
+local ZB_FORCED_TEMP_MODE = "hmcd"
+
+local function ZB_ResolveNextRound(round)
+	if ZB_FORCE_ONLY_HOMICIDE then
+		return ZB_FORCED_TEMP_MODE
+	end
+
+	return round
+end
+
 local forcemodeconvar = CreateConVar("zb_forcemode", "random", nil, "Set force mode (set to 'random' to disable)")
 forcemodeconvar:SetString("random")
 function zb:GetMode(round)
@@ -42,7 +53,7 @@ function NextRound(round)
 	if IsValid(ents.FindByClass( "trigger_changelevel" )[1]) then
 		zb.nextround = "coop"
 	else
-		zb.nextround = round
+		zb.nextround = ZB_ResolveNextRound(round)
 	end
 end
 
@@ -456,7 +467,7 @@ function zb.RerollChances()
 		zb.RoundList[i] = round
 	end
 
-	zb.nextround = table.remove(zb.RoundList, 1)
+	zb.nextround = ZB_ResolveNextRound(table.remove(zb.RoundList, 1))
 end
 
 function zb.GetModesInfo()
@@ -491,12 +502,12 @@ end
 function zb.SetRoundList(newList)
 	local newLista = table.Copy(newList)
 	if #newLista > 0 then
-		zb.nextround = table.remove(newLista, 1)
+		zb.nextround = ZB_ResolveNextRound(table.remove(newLista, 1))
 		zb.RoundList = newLista
 	else
 		zb.RerollChances()
 
-		zb.nextround = table.remove(zb.RoundList, 1)
+		zb.nextround = ZB_ResolveNextRound(table.remove(zb.RoundList, 1))
 	end
 end
 

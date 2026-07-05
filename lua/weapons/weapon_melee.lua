@@ -114,6 +114,59 @@ end
 SWEP.supportTPIK = true
 SWEP.ismelee = true
 SWEP.ismelee2 = true
+SWEP.MaxOneHandedWeapons = 2
+
+local function IsOneHandedMeleeWeapon(wep)
+    if not IsValid(wep) then return false end
+    if not wep.ismelee2 and wep.Base ~= "weapon_melee" then return false end
+    return not wep.TwoHanded
+end
+
+local function GetOneHandedMeleeWeaponCount(owner, exclude)
+    if not IsValid(owner) or not owner.GetWeapons then return 0 end
+
+    local count = 0
+
+    for _, wep in ipairs(owner:GetWeapons()) do
+        if wep ~= exclude and IsOneHandedMeleeWeapon(wep) then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
+local function CanPickupOneHandedMeleeWeapon(owner, wep)
+    if not IsOneHandedMeleeWeapon(wep) then return true end
+    return GetOneHandedMeleeWeaponCount(owner, wep) < (wep.MaxOneHandedWeapons or 2)
+end
+
+local function EnforceOneHandedWeaponLimit(wep)
+    if CLIENT then return end
+    if not IsOneHandedMeleeWeapon(wep) then return end
+
+    local owner = wep:GetOwner()
+
+    if not IsValid(owner) or not owner:IsPlayer() then return end
+
+    if CanPickupOneHandedMeleeWeapon(owner, wep) then return end
+
+    timer.Simple(0, function()
+        if not IsValid(wep) then return end
+
+        local owner = wep:GetOwner()
+
+        if not IsValid(owner) or not owner:IsPlayer() then return end
+        if CanPickupOneHandedMeleeWeapon(owner, wep) then return end
+
+        hg.drop(owner, wep)
+    end)
+end
+
+function SWEP:PickupFunc(ply)
+    if CanPickupOneHandedMeleeWeapon(ply, self) then return false end
+    return true
+end
 
 SWEP.AttackTime = 0.2
 SWEP.AnimTime1 = 0.7
@@ -895,6 +948,7 @@ function SWEP:OwnerChanged()
         self:PlayAnim("deploy",0.5,false,nil,false)
         self:SetHold(self.HoldType)
         self:ResetCombo()
+        EnforceOneHandedWeaponLimit(self)
         timer.Simple(0,function() self.picked = true end)
     else
         if self.SetInAttack then
@@ -1810,12 +1864,14 @@ function SWEP:DispatchBlockImpactFx(trace, blockWep, state)
         local normal = trace.HitNormal and trace.HitNormal ~= vector_origin and trace.HitNormal or -self:GetOwner():GetAimVector()
         local material = IsValid(blockWep) and blockWep.GetBlockMaterial and blockWep:GetBlockMaterial() or blockWep and blockWep.BlockMaterial or self:GetBlockMaterial()
 
-        net.Start("hg_melee_block_fx")
-        net.WriteVector(trace.HitPos)
-        net.WriteVector(normal)
-        net.WriteString(tostring(material or "metal"))
-        net.WriteString(state or "block")
-        net.Broadcast()
+        if material ~= "none" then
+            net.Start("hg_melee_block_fx")
+            net.WriteVector(trace.HitPos)
+            net.WriteVector(normal)
+            net.WriteString(tostring(material or "metal"))
+            net.WriteString(state or "block")
+            net.Broadcast()
+        end
 
         local blockOwner = IsValid(blockWep) and blockWep.GetOwner and blockWep:GetOwner()
 
@@ -3314,6 +3370,9 @@ elseif CLIENT then
         local normal = net.ReadVector()
         local material = net.ReadString()
         local state = net.ReadString()
+        
+        if material == "none" then return end
+
         local emitter = ParticleEmitter(pos)
 
         if not emitter then return end

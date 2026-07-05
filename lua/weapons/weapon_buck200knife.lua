@@ -38,7 +38,7 @@ SWEP.BlockTier = 2
 SWEP.BlockMaterial = "metal"
 SWEP.BlockSound = {"physics/metal/metal_sheet_impact_hard2.wav", 85, {145, 155}}
 
-SWEP.setlh = false
+SWEP.setlh = true
 SWEP.setrh = true
 SWEP.TwoHanded = false
 
@@ -53,7 +53,7 @@ SWEP.AttackingPos = Vector(0,0,0)
 SWEP.weaponPos = Vector(-1,0,0)
 SWEP.weaponAng = Angle(90,-90,0)
 
-SWEP.HoldType = "knife"
+SWEP.HoldType = "revolver"
 
 --SWEP.InstantPainMul = 0.25
 
@@ -165,3 +165,62 @@ SWEP.SwingAng2 = 0
 
 SWEP.MultiDmg1 = false
 SWEP.MultiDmg2 = true
+
+SWEP.LHIKLerpSpeed = 0.1
+SWEP.LHIKBlockPos = Vector(-10, 1 , 10)
+SWEP.LHIKBlockAng = Angle(65,155,-245)
+SWEP.LHIKSuicidePos = Vector(-4, 1 , 14)
+SWEP.LHIKSuicideAng = Angle(75,155,-245)
+
+function SWEP:GetLHIKStateOffset()
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return vector_origin, angle_zero end
+    if self.CanSuicide and owner.suiciding then
+        return self.LHIKSuicidePos or vector_origin, self.LHIKSuicideAng or angle_zero
+    end
+    if self.GetBlocking and self:GetBlocking() then
+        return self.LHIKBlockPos or vector_origin, self.LHIKBlockAng or angle_zero
+    end
+    return vector_origin, angle_zero
+end
+
+function SWEP:DrawPostWorldModel()
+    if not self.setlh then return end
+
+    local wm = self:GetWM()
+    if not IsValid(wm) then return end
+
+    local offsetPos, offsetAng = self:GetLHIKStateOffset()
+    local lerpSpeed = self.LHIKLerpSpeed or 0.15
+    self.LHIKLerpedPos = LerpFT(lerpSpeed, self.LHIKLerpedPos or Vector(), offsetPos)
+    self.LHIKLerpedAng = LerpFT(lerpSpeed, self.LHIKLerpedAng or Angle(), offsetAng)
+    offsetPos = self.LHIKLerpedPos or vector_origin
+    offsetAng = self.LHIKLerpedAng or angle_zero
+
+    if offsetPos:LengthSqr() <= 0.0001 and math.abs(offsetAng.p) <= 0.001 and math.abs(offsetAng.y) <= 0.001 and math.abs(offsetAng.r) <= 0.001 then return end
+
+    local handBone = wm:LookupBone("ValveBiped.Bip01_L_Hand")
+    if not handBone then return end
+
+    local handMatrix = wm:GetBoneMatrix(handBone)
+    if not handMatrix then return end
+
+    local basePos = handMatrix:GetTranslation()
+    local baseAng = handMatrix:GetAngles()
+    local movedPos, movedAng = LocalToWorld(offsetPos, offsetAng, basePos, baseAng)
+
+    for _, boneName in ipairs(hg.TPIKBonesLH or {}) do
+        local boneIndex = wm:LookupBone(boneName)
+        if not boneIndex then continue end
+
+        local boneMatrix = wm:GetBoneMatrix(boneIndex)
+        if not boneMatrix then continue end
+
+        local relPos, relAng = WorldToLocal(boneMatrix:GetTranslation(), boneMatrix:GetAngles(), basePos, baseAng)
+        local newPos, newAng = LocalToWorld(relPos, relAng, movedPos, movedAng)
+
+        boneMatrix:SetTranslation(newPos)
+        boneMatrix:SetAngles(newAng)
+        wm:SetBoneMatrix(boneIndex, boneMatrix)
+    end
+end

@@ -1,18 +1,14 @@
 local MODE = MODE
 
 local function set_role(role, mode)
-	if mode == "soe" then
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor_SOE, role)
-	else
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
-	end
+	RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
 end
 
 local glow = Material("zbattle/borderglow2.png")
 local red = Color(255, 0, 0)
 
 local rolesmaterials = {
-	["traitor_default_soe"] = Material("vgui/traitor_icons/traitor_icon.png", "smooth"),
+	["traitor_custom"] = Material("vgui/traitor_icons/traitor_icon.png", "smooth"),
 }
 
 local gradient_d = Material("vgui/gradient-d")
@@ -182,7 +178,7 @@ function PANEL:Paint(w, h)
 	render.SetStencilCompareFunction( STENCIL_EQUAL )
 	render.SetStencilPassOperation( STENCIL_KEEP )
 
-	surface.SetMaterial(rolesmaterials["traitor_default_soe"])
+	surface.SetMaterial(rolesmaterials["traitor_custom"])
 	surface.SetDrawColor(61, 4, 13)
 	local w1, h1 = ScreenScale(200), ScreenScale(200)
 	surface.DrawTexturedRect(self.HoveredLerp * ScreenScale(100) * 0.5 - w1 * 0.5, 0, w1, h1)

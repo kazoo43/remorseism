@@ -22,11 +22,7 @@ local vgui_color_notready = Color(0, 50, 0, 255)
 	-- outline = false,
 -- })
 local function set_role(role, mode)
-	if mode == "soe" then
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor_SOE, role)
-	else
-		RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
-	end
+	RunConsoleCommand(MODE.ConVarName_SubRole_Traitor, role)
 end
 
 local function screen_scale_2(num)
@@ -54,7 +50,7 @@ function PANEL:Construct()
 	label_name:SetHeight(label_name_height)
 	label_name:SetMouseInputEnabled(true)
 	label_name.Paint = function(sel, w, h)
-		if((self.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
+		if(MODE.ConVar_SubRole_Traitor:GetString() == self.Role)then
 			surface.SetDrawColor(vgui_color_main)
 			surface.DrawOutlinedRect(1, 1, w - 2, h - 2, 3)
 		end
@@ -69,7 +65,7 @@ function PANEL:Construct()
 	end
 	
 	label_name.DoClick = function(sel)
-		set_role(self.Role, self.Mode or "soe")
+		set_role(self.Role, self.Mode or "standard")
 	end
 	
 	local text_description = vgui.Create("RichText", self)
@@ -97,20 +93,12 @@ local tex_gradient = surface.GetTextureID("vgui/gradient-d")
 local mata = Material("vgui/traitor_icons/traitor_icon.png")
 
 local rolesmaterials = {
-	["traitor_default_soe"] = Material("vgui/traitor_icons/traitor_icon.png"),
+	["traitor_custom"] = Material("vgui/traitor_icons/traitor_icon.png"),
 }
 
 local glow = Material("homigrad/vgui/models/circle.png")
 
 function PANEL:PostPaintPanel(w, h)
-	/*if((self.Mode == "soe" and MODE.ConVar_SubRole_Traitor_SOE:GetString() == self.Role) or (self.Mode != "soe" and MODE.ConVar_SubRole_Traitor:GetString() == self.Role))then
-		local y_start = 0
-		
-		surface.SetDrawColor(vgui_color_main)
-		//surface.SetTexture(tex_gradient)
-		surface.SetMaterial(mata)
-		surface.DrawTexturedRect(0, -100, w, h + 200)
-	end*/
 	if rolesmaterials[self.Role] then
 		//surface.SetDrawColor(vgui_color_main)
 		//surface.SetMaterial(rolesmaterials[self.Role])
@@ -176,7 +164,7 @@ function PANEL:Construct()
 		role_panel.Title = role_name
 		role_panel.Description = role_description
 		role_panel.Role = role_id
-		role_panel.Mode = self.Mode or "soe"
+		role_panel.Mode = self.Mode or "standard"
 		role_panel:SetWidth(ScreenScale(170))
 		-- role_panel:SetHeight(hscroll_height)
 		-- role_panel:InvalidateParent(false)

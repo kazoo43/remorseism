@@ -17,9 +17,9 @@ SWEP.weight = 0.6
 SWEP.HoldPos = Vector(-12,0,0)
 SWEP.HoldAng = Angle(0,0,0)
 
-SWEP.AttackTime = 0.275
+SWEP.AttackTime = 0.3
 SWEP.AnimTime1 = 1.2
-SWEP.WaitTime1 = 0.9
+SWEP.WaitTime1 = 1.15
 SWEP.ViewPunch1 = Angle(1,1,0)
 
 SWEP.Attack2Time = 0.3
@@ -34,11 +34,38 @@ SWEP.sprint_ang = Angle(15,0,0)
 
 SWEP.basebone = 94
 
-SWEP.weaponPos = Vector(-0.3,0.5,-8)
-SWEP.weaponAng = Angle(0,-90,0)
+SWEP.weaponPos = Vector(0,7,-8)
+SWEP.weaponAng = Angle(0,180,-90)
+SWEP.modelscale = 1.15
+
+SWEP.hitsoundextra = {
+    {"hammer/BodyHit-1.wav", 70, {115, 125}},
+    {"hammer/BodyHit-2.wav", 70, {115, 125}},
+    {"hammer/BodyHit-3.wav", 70, {115, 125}},
+    {"hammer/BodyHit-4.wav", 70, {115, 125}},
+    {"hammer/BodyHit-5.wav", 70, {115, 125}},
+    {"hammer/BodyHit-6.wav", 70, {115, 125}},
+}
+
+SWEP.hitsoundbrutalize = {
+    {"hammerbrutalize/rem_hammerbrutalize1.wav", 70, {110, 115}},
+    {"hammerbrutalize/rem_hammerbrutalize2.wav", 70, {110, 115}},
+    {"hammerbrutalize/rem_hammerbrutalize3.wav", 70, {110, 115}},
+    {"hammerbrutalize/rem_hammerbrutalize4.wav", 70, {110, 115}},
+}
+
+
+SWEP.swingsoundextra = {
+    {"bat/baseball_swing_1st_layer_01.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_02.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_03.wav", 60, {110, 115}},
+    {"bat/baseball_swing_1st_layer_04.wav", 60, {110, 115}},
+}
+
+
 
 SWEP.DamageType = DMG_CLUB
-SWEP.DamagePrimary = 16
+SWEP.DamagePrimary = 18
 SWEP.DamageSecondary = 13
 
 SWEP.PenetrationPrimary = 3
@@ -52,8 +79,12 @@ SWEP.PenetrationSizeSecondary = 2
 SWEP.StaminaPrimary = 12
 SWEP.StaminaSecondary = 8
 
-SWEP.AttackLen1 = 55
+SWEP.AttackLen1 = 43
 SWEP.AttackLen2 = 30
+
+SWEP.BlockTier = 2
+SWEP.BlockMaterial = "none"
+SWEP.BlockSound = {"Plastic_Box.ImpactHard", 68, {95, 102}}
 
 SWEP.AnimList = {
     ["idle"] = "Idle",
@@ -98,6 +129,17 @@ end
 
 function SWEP:CanSecondaryAttack()
     return false
+end
+
+function SWEP:CustomBlockAnim(addPosLerp, addAngLerp)
+    addPosLerp.z = addPosLerp.z + (self:GetBlocking() and -14 or 0)
+    addPosLerp.x = addPosLerp.x + (self:GetBlocking() and 13.4 or 0)
+    addPosLerp.y = addPosLerp.y + (self:GetBlocking() and -28 or 0)
+    addAngLerp.r = addAngLerp.r + (self:GetBlocking() and -85 or 0)
+    addAngLerp.y = addAngLerp.y + (self:GetBlocking() and 105 or 0)
+    addAngLerp.x = addAngLerp.x + (self:GetBlocking() and -15 or 0)
+    
+    return true
 end
 
 SWEP.AttackTimeLength = 0.155

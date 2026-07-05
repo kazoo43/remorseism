@@ -16,6 +16,44 @@ MODE.LootOnTime = true
 
 MODE.Chance = 0.2 -- this is mostly unused
 MODE.LootDivTime = 500
+MODE.SingleModeStrongLootCategoryMul = 0.35
+MODE.SingleModeStrongLootItemMul = 0.45
+
+local function ScaleLootTable(lootTable, categoryMul, itemMul)
+	local scaled = {}
+
+	for _, category in ipairs(lootTable or {}) do
+		local items = {}
+
+		for _, item in ipairs(category[2] or {}) do
+			items[#items + 1] = {item[1] * itemMul, item[2]}
+		end
+
+		scaled[#scaled + 1] = {category[1] * categoryMul, items}
+	end
+
+	return scaled
+end
+
+local function MergeLootTables(...)
+	local merged = {}
+
+	for i = 1, select("#", ...) do
+		local lootTable = select(i, ...)
+
+		for _, category in ipairs(lootTable or {}) do
+			local items = {}
+
+			for _, item in ipairs(category[2] or {}) do
+				items[#items + 1] = {item[1], item[2]}
+			end
+
+			merged[#merged + 1] = {category[1], items}
+		end
+	end
+
+	return merged
+end
 
 function MODE:SetupChances()
 	for name, tbl in pairs(MODE.Types) do
@@ -162,6 +200,11 @@ MODE.LootTableStandard = {
 	}},
 }
 
+MODE.LootTableSingle = MergeLootTables(
+	MODE.LootTableStandard,
+	ScaleLootTable(MODE.LootTable, MODE.SingleModeStrongLootCategoryMul, MODE.SingleModeStrongLootItemMul)
+)
+
 -- MODE.TraitorWords = {
 	-- "пистолет",
 	-- "трейтор",
@@ -255,8 +298,8 @@ MODE.Type = MODE.Type or "standard"
 MODE.Types = MODE.Types or {}
 MODE.Types.standard = {
 	Chance = 0.2,
-	ChanceFunction = function() return (zb.GetWorldSize() < ZBATTLE_BIGMAP) and (zb.ModesChances["standard"] or zb.modes["hmcd"].Types.standard.Chance) or 0 end,
-	LootTable = MODE.LootTableStandard,
+	ChanceFunction = function() return zb.ModesChances["standard"] or zb.modes["hmcd"].Types.standard.Chance end,
+	LootTable = MODE.LootTableSingle,
 	Messages = {
 		[3] = "Everyone died.",
 		[1] = "The murderer has killed everyone.",
@@ -285,6 +328,10 @@ MODE.Types.standard = {
 		ply:SetNetVar("Inventory",inv)
 	end,
 	GunManLoot = function(ply)
+		if MODE.ApplyHeroLoadout then
+			MODE.ApplyHeroLoadout(ply)
+			return
+		end
 		ply:Give("weapon_px4beretta")
 		ply.organism.recoilmul = 1
 	end,
@@ -629,11 +676,12 @@ MODE.Types.soe = {
 	PoliceSound = "snd_jack_hmcd_heli2.mp3"
 }
 
+MODE.Types = {
+	standard = MODE.Types.standard,
+}
+
 local modes = {
-	"soe",
 	"standard",
-	"wildwest",
-	"gunfreezone",
 }
 
 util.AddNetworkString("HMCD_RoundStart")
@@ -652,8 +700,8 @@ function MODE:Intermission()
 
 	local _, CROUND = CurrentRound()
 
-	if not CROUND or CROUND == "hmcd" then
-		CROUND = table.Random(self:SubModes())
+	if CROUND ~= "standard" then
+		CROUND = "standard"
 	end
 
 	self.Type = CROUND
@@ -1615,12 +1663,16 @@ function MODE.SpawnPlayers(spawn_with_subroles)
             local sub_role = nil
             if(spawn_with_subroles and MODE.RoleChooseRoundTypes[MODE.Type])then
                 if(current_ply.isTraitor)then
-                    local sub_role_id = MODE.Type == "soe" and (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor_SOE) or "traitor_default_soe") or (current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor) or "traitor_default")
+                    local sub_role_id = current_ply:GetInfo(MODE.ConVarName_SubRole_Traitor) or "traitor_custom"
 					sub_role = sub_role_id
                 end
 
                 if(current_ply.isGunner)then
-                    MODE.Types[MODE.Type].GunManLoot(current_ply)
+                    if MODE.ApplyHeroLoadout then
+                        MODE.ApplyHeroLoadout(current_ply)
+                    else
+                        MODE.Types[MODE.Type].GunManLoot(current_ply)
+                    end
                 end
 
                 if(sub_role)then
@@ -1629,7 +1681,7 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                     elseif(current_ply.isTraitor)then
                         local role_info = MODE.SubRoles[sub_role]
                         if(!role_info or !MODE.RoleChooseRoundTypes[MODE.Type].Traitor[sub_role])then
-                            sub_role = MODE.RoleChooseRoundTypes[MODE.Type].TraitorDefaultRole or "traitor_default"
+                            sub_role = MODE.RoleChooseRoundTypes[MODE.Type].TraitorDefaultRole or "traitor_custom"
                             role_info = MODE.SubRoles[sub_role]
                         end
 

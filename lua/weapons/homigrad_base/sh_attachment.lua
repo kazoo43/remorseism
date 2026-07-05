@@ -733,60 +733,139 @@ if CLIENT then
 	local mat = Material("homigrad/vgui/gradient_left.png")
 	local clr_blackalpha = Color(0, 0, 0, 100)
 
+	-- Styling shared with the ammo drop / armor menus (see sh_ammostuff.lua / sh_inventory.lua)
+	local attMenuOutline     = Color(255, 255, 255, 255)
+	local attMenuFill        = Color(0, 0, 0, 245)
+	local attMenuGradient    = Color(40, 40, 40, 55)
+	local attMenuButtonIdle  = Color(20, 20, 20, 235)
+	local attMenuButtonHover = Color(34, 34, 34, 235)
+	local attMenuEquipIdle   = Color(20, 20, 20, 235)
+	local attMenuEquipHover  = Color(34, 34, 34, 235)
+	local attMenuDropIdle    = Color(50, 20, 20, 235)
+	local attMenuDropHover   = Color(75, 28, 28, 235)
+
+	local gradient_u = Material("vgui/gradient-u")
+	local gradient_d = Material("vgui/gradient-d")
+
+	local function PaintInnerFrame(self, w, h)
+		hg.DrawBlur(self)
+		surface.SetDrawColor(attMenuFill)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuGradient)
+		surface.SetMaterial(gradient_d)
+		surface.DrawTexturedRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintButton(self, w, h)
+		local hovered = self:IsHovered()
+		surface.SetDrawColor(hovered and (self.equipped and attMenuEquipHover or attMenuButtonHover) or (self.equipped and attMenuEquipIdle or attMenuButtonIdle))
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuGradient)
+		surface.SetMaterial(gradient_u)
+		surface.DrawTexturedRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintDropButton(self, w, h)
+		surface.SetDrawColor(self:IsHovered() and attMenuDropHover or attMenuDropIdle)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintCloseButton(self, w, h)
+		surface.SetDrawColor(self:IsHovered() and attMenuButtonHover or attMenuButtonIdle)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText(self:GetText(), "ZCity_Menu_Settings_Small", w * 0.5, h * 0.5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+
+	local function PaintScrollBar(self, w, h)
+		surface.SetDrawColor(16, 16, 16, 220)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(attMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintScrollGrip(self, w, h)
+		self.lerpcolor = Lerp(FrameTime() * 10, self.lerpcolor or 0.3, self:IsHovered() and 0.5 or 0.3)
+		local col = 255 * self.lerpcolor
+		surface.SetDrawColor(col, col, col, 255)
+		surface.DrawRect(0, 0, w, h)
+	end
+
+	-- Builds and styles a scroll panel that matches the ammo/armor menus
+	local function makeScroll(frame)
+		local scroll = vgui.Create("DScrollPanel", frame)
+		scroll:Dock(FILL)
+		scroll:DockMargin(8, 40, 8, 6)
+		scroll.Paint = PaintInnerFrame
+		frame.scroll = scroll
+
+		local sbar = scroll:GetVBar()
+		sbar:SetHideButtons(true)
+		sbar.Paint = PaintScrollBar
+		sbar.btnGrip.Paint = PaintScrollGrip
+
+		return scroll
+	end
+
 	CreateMenu = function()
 		if IsValid(hg.attachmentsMenuPanel) then
 			hg.attachmentsMenuPanel:Remove()
 			hg.attachmentsMenuPanel = nil
 		end
-	
+
 		local tblcpy = refreshtbl()
 
 		local frame = vgui.Create( "ZFrame" )
 		hg.attachmentsMenuPanel = frame
 		frame:SetTitle("")
 		frame:SetSize( ScrW() / 3, ScrH() / 2 )
-		frame:SetPos( ScrW() * 0.5 - frame:GetWide() * 0.5,ScrH() + 500 )
+		frame:Center()
 		frame:MakePopup()
 		frame:SetKeyboardInputEnabled(false)
+		frame:SetVisible(false)
+		frame:SetColorBG(attMenuFill)
+		frame:SetColorBR(attMenuOutline)
 
-		frame:SetAlpha(0)
-	
-		frame:MoveTo(frame:GetX(), ScrH() / 2 - frame:GetTall() / 2, 0.5, 0, 0.3, function() end)
-		frame:AlphaTo( 255, 0.2, 0.1, nil )
+		if IsValid(frame.btnClose) then
+			frame.btnClose:SetVisible(false)
+			frame.btnClose:SetMouseInputEnabled(false)
+		end
 
-		function frame:First()
-		end 
+		local title = vgui.Create("DLabel", frame)
+		title:SetPos(14, 12)
+		title:SetTextColor(color_white)
+		title:SetText("attachments")
+		title:SetFont("ZCity_Menu_Settings_Small")
+		title:SizeToContents()
+
+		local closeButton = vgui.Create("DButton", frame)
+		closeButton:SetSize(28, 28)
+		closeButton:SetPos(frame:GetWide() - 38, 10)
+		closeButton:SetText("X")
+		closeButton.Paint = PaintCloseButton
+		closeButton.DoClick = function()
+			frame:Close()
+		end
 
 		local lbl = vgui.Create("DLabel", frame)
 		lbl:SetText( "" )
 		lbl:SetFont("ZCity_Tiny")
 		lbl:SetSize(0, ScreenScaleH(15))
 		lbl:Dock(BOTTOM)
-		lbl:DockMargin(10,0,0,10)
+		lbl:DockMargin(10,0,10,10)
 
 		lbl.Paint = function(self, w, h)
 			draw.SimpleText("LMB - Add attachment | RMB - remove attachment", "ZCity_Tiny", w * 0.5, h * 0.5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 		end
 
-		local scroll = vgui.Create("DScrollPanel",frame)
-		scroll:Dock(FILL)
-		frame.scroll = scroll
-	
-		local sbar = scroll:GetVBar()
-		sbar:SetHideButtons(true)
-
-		function sbar:Paint(w, h)
-			draw.RoundedBox(0, 0, 0, w, h, clr_blackalpha)
-		end
-
-		function sbar.btnGrip:Paint(w, h)
-			self.lerpcolor = Lerp(FrameTime() * 10, self.lerpcolor or 0.2,(self:IsHovered() and 1 or 0.2))
-			draw.RoundedBox(0, 0, 0, w, h, Color(100 * self.lerpcolor, 10, 10))
-		end
-
-		scroll.Think = function()
-			//tblcpy = refreshtbl()
-		end
+		local scroll = makeScroll(frame)
 
 		function frame:RefreshTbl()
 			tblcpy = refreshtbl()
@@ -795,41 +874,34 @@ if CLIENT then
 				scroll:Remove()
 			end
 
-			scroll = vgui.Create("DScrollPanel", frame)
-			scroll:Dock(FILL)
-			frame.scroll = scroll
-			
+			scroll = makeScroll(frame)
+
 			table.sort(tblcpy, function(a, b) return ((string.byte(a[1][1], 1, 1) + (a[2] and 9999 or 0)) > (string.byte(b[1][1], 1, 1) + (b[2] and 9999 or 0))) end)
 			for k, v in pairs(tblcpy) do
 				if !hg.attachmentslaunguage[v[1]] then continue end
 				local but = vgui.Create("DButton")
+				but.equipped = v[2]
 				but:SetText( hg.attachmentslaunguage[v[1]]..(v[2] and " - on the weapon" or "") )
 				but:SetFont("ZCity_Tiny")
+				but:SetTextColor(color_white)
 				but:Dock( TOP )
-				but:DockMargin( 0, 0, 0, 5 )
+				but:DockMargin( 6, 0, 6, 5 )
 				but:SetSize(0, ScreenScaleH(20))
+				but.Paint = PaintButton
 
 				local but2 = vgui.Create("DButton", but)
 				but2:SetText( "Drop" )
 				but2:SetFont("ZCity_SuperTiny")
+				but2:SetTextColor(color_white)
 				but2:Dock( RIGHT )
-
-				but2.Paint = function(self, w, h)
-					surface.SetDrawColor(50, 0, 0, 125)
-					surface.DrawRect(0, 0, w, h)
-				end
+				but2:DockMargin( 0, 3, 3, 3 )
+				but2:SetWide( ScreenScaleH(28) )
+				but2.Paint = PaintDropButton
 
 				but2.DoClick = function()
 					dropAttachment(v[1])
 				end
 
-				but.Paint = function(self, w, h)
-					surface.SetMaterial(mat)
-					local typea = string.byte(v[1], 1, 1) - 100
-					surface.SetDrawColor(v[2] and 50 or 100, v[2] and 0 or typea * 9, 0, 255)
-					surface.DrawTexturedRect(0, 0, w, h)
-				end
-	
 				local img = vgui.Create("DImage", but)
 				img:SetSize(ScreenScaleH(20), ScreenScaleH(20))
 				img:Dock(LEFT)
@@ -840,29 +912,31 @@ if CLIENT then
 
 				/*but.Think = function()
 					if !hg.attachmentslaunguage[tblcpy[k][1]] then return end
-	
+
 					img:SetImage( hg.attachmentsIcons[tblcpy[k][1]] )
-	
+
 					but:SetText( hg.attachmentslaunguage[tblcpy[k][1]]..(tblcpy[k][2] and " - on the weapon" or "") )
 				end*/
-	
+
 				but.DoClick = function()
 					if v[2] then return end
-	
+
 					addAttachment(v[1])
 				end
-	
+
 				but.DoRightClick = function()
 					if !v[2] then return end
-	
+
 					removeAttachment(v[1])
 				end
-	
+
 				scroll:AddItem(but)
 			end
 		end
 
 		frame:RefreshTbl()
+
+		frame:SlideDown(0.5)
 	end
 
 	concommand.Add("hg_get_attachments", function(ply, cmd, args)

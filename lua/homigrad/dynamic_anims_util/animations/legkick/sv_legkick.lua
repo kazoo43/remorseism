@@ -2,6 +2,191 @@
 local PLAYER = FindMetaTable("Player")
 
 local vpang = Angle(2, -1, 1)
+local LEG_KICK_DAMAGE_MUL = 0.85
+local LEG_KICK_RAG_FORCE_MUL = 650
+local LEG_KICK_PROP_FORCE_MUL = 90
+local LEG_KICK_PLAYER_PUSH = 85
+local LEG_KICK_FAKE_CHANCE = 0.65
+local LEG_KICK_TRACE_RANGE = 28
+local LEG_KICK_TRACE_SIZE = Vector(5, 5, 5)
+local LEG_KICK_SEGMENT_SIZE = Vector(6, 6, 6)
+local CURBSTOMP_DAMAGE_MUL = 1
+local CURBSTOMP_RAG_FORCE_MUL = 120
+local CURBSTOMP_PROP_FORCE_MUL = 20
+local CURBSTOMP_PLAYER_PUSH = 12
+local CURBSTOMP_FAKE_CHANCE = 0.15
+local CURBSTOMP_TRACE_RANGE = 24
+local CURBSTOMP_TRACE_SIZE = Vector(6, 6, 6)
+local CURBSTOMP_SEGMENT_SIZE = Vector(7, 7, 7)
+local CURBSTOMP_HEAD_RADIUS = 16
+local CURBSTOMP_HEAD_STOMPS_TO_POP = 7
+local CURBSTOMP_HEAD_RESET = 8
+
+local function getBoneWorld(ent, boneName)
+    if not IsValid(ent) then return end
+    local bone = ent:LookupBone(boneName)
+    if not bone then return end
+
+    local matrix = ent:GetBoneMatrix(bone)
+    if matrix then
+        return matrix:GetTranslation(), matrix:GetAngles(), bone
+    end
+
+    local pos, ang = ent:GetBonePosition(bone)
+    if pos and not pos:IsEqualTol(ent:GetPos(), 0.01) then
+        return pos, ang, bone
+    end
+
+    return nil, nil, bone
+end
+
+local function getHeadPos(ent)
+    local pos = getBoneWorld(ent, "ValveBiped.Bip01_Head1")
+    if pos then return pos end
+    return ent:LocalToWorld(ent:OBBCenter() + Vector(0, 0, ent:OBBMaxs().z * 0.75))
+end
+
+local function getHeadBone(ent)
+    if not IsValid(ent) then return end
+    return ent:LookupBone("ValveBiped.Bip01_Head1")
+end
+
+local function getHeadPhysBone(ent)
+    local bone = getHeadBone(ent)
+    if not bone then return end
+    local physBone = ent:TranslateBoneToPhysBone(bone)
+    if isnumber(physBone) and physBone >= 0 then
+        return physBone
+    end
+end
+
+local function traceLegSegment(self, startPos, endPos, size)
+    local tr = util.TraceHull({
+        start = startPos,
+        endpos = endPos,
+        filter = {hg.GetCurrentCharacter(self), self},
+        maxs = size,
+        mins = -size
+    })
+
+    return tr
+end
+
+local function getStompHeadCandidate(self, footPos)
+    local bestEnt
+    local bestHeadPos
+    local bestDist = math.huge
+
+    for _, ent in ipairs(ents.FindInSphere(footPos, CURBSTOMP_HEAD_RADIUS * 1.5)) do
+        if not IsValid(ent) or ent == self or ent == hg.GetCurrentCharacter(self) then continue end
+        if not (ent:IsPlayer() or ent:IsNPC() or ent:GetClass() == "prop_ragdoll") then continue end
+
+        local headPos = getHeadPos(ent)
+        if not headPos then continue end
+
+        local dist = footPos:DistToSqr(headPos)
+        if dist > CURBSTOMP_HEAD_RADIUS * CURBSTOMP_HEAD_RADIUS then continue end
+
+        if dist < bestDist then
+            bestDist = dist
+            bestEnt = ent
+            bestHeadPos = headPos
+        end
+    end
+
+    if not IsValid(bestEnt) then return end
+
+    return {
+        Hit = true,
+        Entity = bestEnt,
+        HitPos = bestHeadPos,
+        PhysicsBone = getHeadPhysBone(bestEnt) or 0
+    }
+end
+
+local function getKickTrace(self, inDuck, isCurbstomp)
+    local eyeAng = self:EyeAngles()
+    local forward = eyeAng:Forward()
+    local up = self:GetUp()
+    local thighPos = getBoneWorld(self, "ValveBiped.Bip01_R_Thigh")
+    local footPos = getBoneWorld(self, "ValveBiped.Bip01_R_Foot")
+    local calfPos = getBoneWorld(self, "ValveBiped.Bip01_R_Calf")
+    local size = isCurbstomp and CURBSTOMP_TRACE_SIZE or LEG_KICK_TRACE_SIZE
+    local segmentSize = isCurbstomp and CURBSTOMP_SEGMENT_SIZE or LEG_KICK_SEGMENT_SIZE
+    local fallbackPos = self:GetPos() + self:OBBCenter() + up * -5
+
+    thighPos = thighPos or fallbackPos + up * 14
+    calfPos = calfPos or fallbackPos + up * 3
+    footPos = footPos or ((inDuck and fallbackPos) or self:EyePos())
+
+    local kickDir
+    if isCurbstomp then
+        kickDir = (forward * 0.2 - up):GetNormalized()
+    else
+        kickDir = (forward + up * 0.12):GetNormalized()
+    end
+
+    local traces = {
+        traceLegSegment(self, thighPos, calfPos, segmentSize),
+        traceLegSegment(self, calfPos, footPos, segmentSize),
+        traceLegSegment(self, footPos, footPos + kickDir * (isCurbstomp and CURBSTOMP_TRACE_RANGE or LEG_KICK_TRACE_RANGE), size)
+    }
+
+    for _, tr in ipairs(traces) do
+        if tr.Hit and IsValid(tr.Entity) then
+            return tr, kickDir, footPos
+        end
+    end
+
+    if isCurbstomp then
+        local headTr = getStompHeadCandidate(self, footPos)
+        if headTr then
+            return headTr, kickDir, footPos
+        end
+    end
+
+    return traces[#traces], kickDir, footPos
+end
+
+local function getHeadCounterTarget(ent)
+    if not IsValid(ent) then return end
+    if ent:IsPlayer() then return ent end
+    if ent.IsRagdoll and ent:IsRagdoll() then
+        local owner = hg.RagdollOwner(ent)
+        if IsValid(owner) then return owner end
+    end
+    return ent
+end
+
+local function canExplodeHead(ent)
+    if not IsValid(ent) then return false end
+    if ent.headexploded or ent.noHead then return false end
+    if ent.organism and (ent.organism.noHead or ent.organism.headamputated) then return false end
+    return ent:LookupBone("ValveBiped.Bip01_Head1") ~= nil
+end
+
+local function handleCurbstompHead(ent, hitPos)
+    if not canExplodeHead(ent) then return end
+
+    local headPos = getHeadPos(ent)
+    if not headPos or headPos:DistToSqr(hitPos) > CURBSTOMP_HEAD_RADIUS * CURBSTOMP_HEAD_RADIUS then return end
+
+    local counterEnt = getHeadCounterTarget(ent)
+    if not IsValid(counterEnt) then return end
+
+    local hits = ((counterEnt.CurbstompHeadExpire or 0) > CurTime()) and (counterEnt.CurbstompHeadHits or 0) or 0
+    hits = hits + 1
+
+    counterEnt.CurbstompHeadHits = hits
+    counterEnt.CurbstompHeadExpire = CurTime() + CURBSTOMP_HEAD_RESET
+
+    if hits >= CURBSTOMP_HEAD_STOMPS_TO_POP then
+        counterEnt.CurbstompHeadHits = 0
+        counterEnt.CurbstompHeadExpire = 0
+        hg.ExplodeHead(ent)
+    end
+end
+
 function PLAYER:LegAttack()
     if not self:Alive() or hg.GetCurrentCharacter(self):IsRagdoll() or self:GetNWFloat("InLegKick",0) > CurTime() or not self:IsOnGround() or self:IsSprinting() then return end
     if self.InLegKick and self.InLegKick > CurTime() then return end
@@ -30,9 +215,11 @@ function PLAYER:LegAttack()
     local speedmul = (2 - (org.stamina[1] / org.stamina.max))
     local speed = 1.5 * speedmul
     local animstopAdjust = 0.3 * speedmul
-    local dmg = anim == "curbstomp_base" and 22 or 10 * (2 - speedmul)
+    local isCurbstomp = anim == "curbstomp_base"
+    local dmg = isCurbstomp and 22 or 10 * (2 - speedmul)
     dmg = dmg * (self:IsBerserk() and org.berserk * 5 or 1)
     dmg = dmg * (org.legstrength or 1)
+    dmg = dmg * (isCurbstomp and CURBSTOMP_DAMAGE_MUL or LEG_KICK_DAMAGE_MUL)
     --print(dmg)
     --print(speedmul)
     self:PlayCustomAnims(anim, true, speed, true, animstopAdjust, {
@@ -84,18 +271,7 @@ function PLAYER:LegAttack()
             self:EmitSound("player/shove_0" .. math.random(1,5) .. ".wav",65)
 
             local inDuck = (self:KeyDown(IN_DUCK) or self:Crouching())
-            ang = self:EyeAngles()
-            ang[1] = inDuck and 0 or math.max(ang[1],10)
-
-            local reportPos = self:GetPos() + self:OBBCenter() + self:GetUp() * ( -5 )
-            local rad = Vector(5,5,5)
-            local tr = util.TraceHull({
-                start = (inDuck and reportPos) or self:EyePos(),
-                endpos = ((inDuck and reportPos) or self:EyePos()) + ang:Forward() * 82 ,
-                filter = {hg.GetCurrentCharacter(self),self},
-                maxs = rad,
-                mins = -rad
-            })
+            local tr, normal, footPos = getKickTrace(self, inDuck, isCurbstomp)
 
             local org = self.organism
             if org.rleg == 1 or org.rlegdislocation then
@@ -116,7 +292,7 @@ function PLAYER:LegAttack()
                 self:EmitSound("weapons/melee/blunt_light" .. math.random(1,8) .. ".wav")
             end
 
-            if tr.Entity.fires then
+            if IsValid(tr.Entity) and tr.Entity.fires then
             local key, fire = next(tr.Entity.fires)
 
                 if key then 
@@ -130,7 +306,6 @@ function PLAYER:LegAttack()
 
             for k,ent in ipairs(entss) do
                 if IsValid(ent) and not blacklist[ent] then
-                    local normal = ang:Forward()
                     local phys = ent:GetPhysicsObjectNum(tr.PhysicsBone or 0)
                     if !ent:IsPlayer() and not IsValid(phys) then continue end
                     if not soundplayed then
@@ -149,17 +324,22 @@ function PLAYER:LegAttack()
                     local inflictor = self:GetWeapon(handClass)
                     dmginfo:SetInflictor(inflictor)
                     dmginfo:SetDamage(dmg)
-                    dmginfo:SetDamageForce(normal * dmg)
+                    local ragForceMul = isCurbstomp and CURBSTOMP_RAG_FORCE_MUL or LEG_KICK_RAG_FORCE_MUL
+                    local propForceMul = isCurbstomp and CURBSTOMP_PROP_FORCE_MUL or LEG_KICK_PROP_FORCE_MUL
+                    local playerPush = isCurbstomp and CURBSTOMP_PLAYER_PUSH or LEG_KICK_PLAYER_PUSH
+                    local force = normal * dmg * ragForceMul
+
+                    dmginfo:SetDamageForce(force)
                     dmginfo:SetDamageType((ent:GetClass() == "func_breakable_surf") and DMG_SLASH or DMG_CLUB)
                     dmginfo:SetDamagePosition(tr.HitPos)
 
                     PenetrationGlobal = 1
 					MaxPenLenGlobal = 1
-                    hg.AddForceRag(ent, tr.PhysicsBone or 0, normal * dmg * 1000, 0.25)
+                    hg.AddForceRag(ent, tr.PhysicsBone or 0, force, 0.25)
                     ent:TakeDamageInfo(dmginfo)
                     
                     if IsValid(phys) then
-                        phys:ApplyForceOffset(normal * dmg * 200, tr.HitPos)
+                        phys:ApplyForceOffset(normal * dmg * propForceMul, tr.HitPos)
                     end
 
 					if ent:IsPlayer() or ent:GetClass() == "prop_ragdoll" then
@@ -167,13 +347,18 @@ function PLAYER:LegAttack()
 					end
 
                     if ent:IsPlayer() then
-                        if math.random(1,5) > 1 then
+                        local fakeChance = isCurbstomp and CURBSTOMP_FAKE_CHANCE or LEG_KICK_FAKE_CHANCE
+                        if math.Rand(0, 1) <= fakeChance then
                             timer.Simple(0,function()
                                 hg.Fake(ent)
                             end)
                         end
 
-                        ent:SetVelocity(normal * 150)
+                        ent:SetVelocity(normal * playerPush)
+                    end
+
+                    if isCurbstomp then
+                        handleCurbstompHead(ent, footPos or tr.HitPos)
                     end
                     if hgIsDoor(ent) and !ent:GetNoDraw() then
                         ent.HP = ent.HP or 200

@@ -495,6 +495,62 @@ if CLIENT then
 	end)
 
 	local mat = Material("homigrad/vgui/gradient_left.png")
+	local equipmentMenuGradient = Material("vgui/gradient-d")
+	local equipmentMenuOutline = Color(255, 255, 255, 255)
+	local equipmentMenuFill = Color(0, 0, 0, 245)
+	local equipmentMenuGradientColor = Color(40, 40, 40, 55)
+	local equipmentMenuButtonIdle = Color(20, 20, 20, 235)
+	local equipmentMenuButtonHover = Color(34, 34, 34, 235)
+
+	local function PaintEquipmentFrame(self, w, h)
+		hg.DrawBlur(self, 2)
+		surface.SetDrawColor(equipmentMenuFill)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(equipmentMenuGradientColor)
+		surface.SetMaterial(equipmentMenuGradient)
+		surface.DrawTexturedRect(0, 0, w, h)
+		surface.SetDrawColor(equipmentMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintEquipmentButton(self, w, h)
+		surface.SetDrawColor(self:IsHovered() and equipmentMenuButtonHover or equipmentMenuButtonIdle)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(equipmentMenuGradientColor)
+		surface.SetMaterial(mat)
+		surface.DrawTexturedRect(0, 0, w, h)
+		surface.SetDrawColor(equipmentMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+	end
+
+	local function PaintEquipmentClose(self, w, h)
+		surface.SetDrawColor(self:IsHovered() and equipmentMenuButtonHover or equipmentMenuButtonIdle)
+		surface.DrawRect(0, 0, w, h)
+		surface.SetDrawColor(equipmentMenuOutline)
+		surface.DrawOutlinedRect(0, 0, w, h, 1)
+		draw.SimpleText(self:GetText(), "ZCity_Menu_Settings_Small", w * 0.5, h * 0.5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	end
+
+	local function StyleEquipmentScroll(scroll)
+		scroll.Paint = PaintEquipmentFrame
+
+		local sbar = scroll:GetVBar()
+		sbar:SetHideButtons(true)
+
+		function sbar:Paint(w, h)
+			surface.SetDrawColor(18, 18, 18, 220)
+			surface.DrawRect(0, 0, w, h)
+			surface.SetDrawColor(equipmentMenuOutline)
+			surface.DrawOutlinedRect(0, 0, w, h, 1)
+		end
+
+		function sbar.btnGrip:Paint(w, h)
+			self.lerpcolor = Lerp(FrameTime() * 10, self.lerpcolor or 0.35, self:IsHovered() and 0.65 or 0.35)
+			local col = 255 * self.lerpcolor
+			surface.SetDrawColor(col, col, col, 255)
+			surface.DrawRect(0, 0, w, h)
+		end
+	end
 
 	CreateMenu = function()
 		if IsValid(hg.armorMenuPanel) then
@@ -507,10 +563,33 @@ if CLIENT then
 		local frame = vgui.Create( "ZFrame" )
 		hg.armorMenuPanel = frame
 		frame:SetTitle("")
-		frame:SetSize( ScrW() / 3, ScrH() / 2 )
+		frame:SetSize( math.min(ScrW() * 0.38, 560), math.min(ScrH() * 0.58, 520) )
 		frame:SetPos( ScrW() * 0.5 - frame:GetWide() * 0.5,ScrH() + 500 )
 		frame:MakePopup()
 		frame:SetKeyboardInputEnabled(false)
+		frame:SetColorBG(equipmentMenuFill)
+		frame:SetColorBR(equipmentMenuOutline)
+		frame.Paint = PaintEquipmentFrame
+		if IsValid(frame.btnClose) then
+			frame.btnClose:SetVisible(false)
+			frame.btnClose:SetMouseInputEnabled(false)
+		end
+
+		local close = frame:Add("DButton")
+		close:SetPos(frame:GetWide() - 38, 10)
+		close:SetSize(28, 28)
+		close:SetText("X")
+		close.Paint = PaintEquipmentClose
+		close.DoClick = function()
+			frame:Close()
+		end
+
+		local title = vgui.Create("DLabel", frame)
+		title:SetPos(14, 12)
+		title:SetTextColor(color_white)
+		title:SetText("equipment")
+		title:SetFont("ZCity_Menu_Settings_Small")
+		title:SizeToContents()
 
 		frame:SetAlpha(0)
 	
@@ -523,9 +602,9 @@ if CLIENT then
 		local lbl = vgui.Create("DLabel", frame)
 		lbl:SetText( "" )
 		lbl:SetFont("ZCity_Tiny")
-		lbl:SetSize(0, ScreenScaleH(15))
+		lbl:SetSize(0, ScreenScaleH(18))
 		lbl:Dock(BOTTOM)
-		lbl:DockMargin(10,0,0,10)
+		lbl:DockMargin(10,0,10,10)
 
 		lbl.Paint = function(self, w, h)
 			draw.SimpleText("LMB - Drop equipment", "ZCity_Tiny", w * 0.5, h * 0.5, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
@@ -533,19 +612,9 @@ if CLIENT then
 
 		local scroll = vgui.Create("DScrollPanel",frame)
 		scroll:Dock(FILL)
+		scroll:DockMargin(10, 44, 10, 8)
 		frame.scroll = scroll
-	
-		local sbar = scroll:GetVBar()
-		sbar:SetHideButtons(true)
-
-		function sbar:Paint(w, h)
-			draw.RoundedBox(0, 0, 0, w, h, Color(0, 0, 0, 100))
-		end
-
-		function sbar.btnGrip:Paint(w, h)
-			self.lerpcolor = Lerp(FrameTime() * 10, self.lerpcolor or 0.2,(self:IsHovered() and 1 or 0.2))
-			draw.RoundedBox(0, 0, 0, w, h, Color(100 * self.lerpcolor, 10, 10))
-		end
+		StyleEquipmentScroll(scroll)
 
 		function frame:RefreshTbl()
 			tblcpy = refreshtbl()
@@ -556,7 +625,9 @@ if CLIENT then
 
 			scroll = vgui.Create("DScrollPanel", frame)
 			scroll:Dock(FILL)
+			scroll:DockMargin(10, 44, 10, 8)
 			frame.scroll = scroll
+			StyleEquipmentScroll(scroll)
 			
 			for k, v in pairs(tblcpy) do
 				if !hg.armorNames[v] and isnumber(k) then continue end
@@ -570,19 +641,17 @@ if CLIENT then
 				but:SetText( hg.armorNames[v] or string.NiceName(k) )
 				but:SetFont("ZCity_Tiny")
 				but:Dock( TOP )
-				but:DockMargin( 0, 0, 0, 5 )
-				but:SetSize(0, ScreenScaleH(20))
+				but:DockMargin( 6, 6, 6, 0 )
+				but:SetSize(0, ScreenScaleH(24))
 
 				but.Paint = function(self, w, h)
-					surface.SetMaterial(mat)
-					surface.SetDrawColor(100, 0, 0, 255)
-					surface.DrawTexturedRect(0, 0, w, h)
+					PaintEquipmentButton(self, w, h)
 				end
 	
 				local img = vgui.Create("DImage", but)
-				img:SetSize(ScreenScaleH(20), ScreenScaleH(20))
+				img:SetSize(ScreenScaleH(22), ScreenScaleH(22))
 				img:Dock(LEFT)
-				img:DockMargin( 5, 0, 0, 0 )
+				img:DockMargin( 8, 1, 0, 1 )
 				if hg.armorIcons[v] then img:SetImage( hg.armorIcons[v] ) end
 	
 				but.DoClick = function()
