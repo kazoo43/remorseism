@@ -406,7 +406,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			end
 		--//
 
-		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.6) or ply:GetRunSpeed()
+		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.7) or ply:GetRunSpeed()
 		local move = target_run_speed * 1.1
 		k = 1 * weightmul
 		k = k * math.Clamp(consmul, 0.7, 1)
