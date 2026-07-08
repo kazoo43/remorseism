@@ -705,7 +705,7 @@ local function renderscene(pos, angle, fov)
 	local view = CalcView(lply, pos, angle, fov)
 	viewOverride = view
 	
-	local invert = invertCam:GetBool()
+	local invert = false
 	
 	RENDERSCENE = nil
 	if not view then return end

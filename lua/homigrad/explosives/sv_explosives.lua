@@ -104,11 +104,9 @@ local ents_FindInSphere = ents.FindInSphere
 
 local vecCone = Vector(5, 5, 0)
 local BlastWaveSpeed = 5200
-local BlastWaveTick = 0.03
 local BlastWaveThickness = 120
 local BlastWaveForce = 50000
-local BlastWaves = {}
-local NextBlastWaveThink = 0
+local BlastMaxTargets = 96
 
 local function GetExplosionNetType(ent, defaultType)
 	return ent:GetModel() == PropaneModel and PropaneExplosionNetType or defaultType
@@ -132,7 +130,7 @@ local function SendExplosionNet(pos, explosionType, radius)
 		net.WriteFloat(radius)
 		net.WriteFloat(BlastWaveSpeed)
 		net.WriteFloat(BlastWaveThickness)
-	net.Broadcast()
+	net.SendPVS(pos)
 end
 
 local function EmitDebris(ent, count)
@@ -158,6 +156,7 @@ local function ApplyBlastDamage(data, enta, tracePos, len)
 	local tr = hg.ExplosionTrace(data.Pos, tracePos, data.Filter)
 	local blocked = tr.Entity != enta
 	local behindwall = blocked and tr.MatType != MAT_GLASS
+	if behindwall then return end
 	local frac = math_Clamp((data.Distance - len) / data.Distance, 0, 1)
 	local forceFrac = math_max(frac, data.MinForceFrac)
 	local damageFrac = math_max(frac ^ data.DamageExponent, data.MinDamageFrac)
@@ -213,62 +212,32 @@ local function FinishBlastWave(data)
 	end
 end
 
-local function QueueBlastWave(ent, owner, pos, distance, damage, damageType, config)
-	BlastWaves[#BlastWaves + 1] = {
-		Ent = ent,
-		Owner = owner,
-		Pos = pos,
-		Distance = distance,
-		Damage = damage,
-		DamageType = damageType,
-		ForceMul = config.ForceMul or BlastWaveForce,
-		MinForceFrac = config.MinForceFrac or 0.5,
-		MinDamageFrac = config.MinDamageFrac or 0.5,
-		DamageExponent = config.DamageExponent or 1,
-		DisorientPower = config.DisorientPower or 5,
-		DisorientTime = config.DisorientTime or 6,
-		BehindWallDisorientDiv = config.BehindWallDisorientDiv or 1,
-		BlockBehindWallDisorient = config.BlockBehindWallDisorient,
-		Radius = 0,
-		Thickness = config.Thickness or BlastWaveThickness,
-		Filter = IsValid(ent) and {ent} or {},
-		HitEnts = {},
-		HitPhysCount = 0,
-		OnFinish = config.OnFinish
-	}
-end
+local function ApplyBlastBurst(data)
+	data.Filter = IsValid(data.Ent) and {data.Ent} or {}
+	data.HitPhysCount = 0
+	data.HitEnts = {}
+	data.ForceMul = data.ForceMul or BlastWaveForce
+	data.MinForceFrac = data.MinForceFrac or 0.5
+	data.MinDamageFrac = data.MinDamageFrac or 0.5
+	data.DamageExponent = data.DamageExponent or 1
+	data.DisorientPower = data.DisorientPower or 5
+	data.DisorientTime = data.DisorientTime or 6
+	data.BehindWallDisorientDiv = data.BehindWallDisorientDiv or 1
+	local hitCount = 0
 
-hook.Add("Think", "hg_blastwaves", function()
-	local time = CurTime()
-	if NextBlastWaveThink > time then return end
-	NextBlastWaveThink = time + BlastWaveTick
-
-	for i = #BlastWaves, 1, -1 do
-		local data = BlastWaves[i]
-		local oldRadius = data.Radius
-		local newRadius = math_min(oldRadius + BlastWaveSpeed * BlastWaveTick, data.Distance)
-		local innerRadius = math_max(newRadius - data.Thickness, oldRadius)
-		local innerRadiusSqr = innerRadius * innerRadius
-
-		data.Radius = newRadius
-
-		for _, enta in ipairs(ents_FindInSphere(data.Pos, newRadius)) do
-			if data.HitEnts[enta] or enta == data.Ent then continue end
-			if not IsValid(enta) then continue end
-			local tracePos = enta:IsPlayer() and (enta:GetPos() + enta:OBBCenter()) or enta:GetPos()
-			local lenSqr = tracePos:DistToSqr(data.Pos)
-			if lenSqr <= innerRadiusSqr then continue end
-			data.HitEnts[enta] = true
-			ApplyBlastDamage(data, enta, tracePos, math_sqrt(lenSqr))
-		end
-
-		if newRadius >= data.Distance then
-			FinishBlastWave(data)
-			BlastWaves[i] = BlastWaves[#BlastWaves]
-			BlastWaves[#BlastWaves] = nil
-		end
+	for _, enta in ipairs(ents_FindInSphere(data.Pos, data.Distance)) do
+		if hitCount >= (data.MaxTargets or BlastMaxTargets) then break end
+		if enta == data.Ent or not IsValid(enta) or data.HitEnts[enta] then continue end
+		data.HitEnts[enta] = true
+		local tracePos = enta:IsPlayer() and (enta:GetPos() + enta:OBBCenter()) or enta:GetPos()
+		local lenSqr = tracePos:DistToSqr(data.Pos)
+		if lenSqr > data.Distance * data.Distance then continue end
+		ApplyBlastDamage(data, enta, tracePos, math_sqrt(lenSqr))
+		hitCount = hitCount + 1
 	end
-end)
+
+	FinishBlastWave(data)
+end
 
 local function StartShrapnel(ent, selfPos, owner, force, mass, countMul)
 	if not IsValid(ent) then return end
@@ -355,7 +324,13 @@ local ExpTypes = {
 			end
 		end
 
-		QueueBlastWave(ent, owner, selfPos, distance, blastDamage, DMG_BLAST + DMG_BURN, {
+		ApplyBlastBurst({
+			Ent = ent,
+			Owner = owner,
+			Pos = selfPos,
+			Distance = distance,
+			Damage = blastDamage,
+			DamageType = DMG_BLAST + DMG_BURN,
 			ForceMul = BlastWaveForce * (info.KnockbackMul or 1),
 			MinForceFrac = info.MinForceFrac or 0.5,
 			MinDamageFrac = info.MinDamageFrac or 0.5,
@@ -379,7 +354,13 @@ local ExpTypes = {
 		hgBlastDoors(ent, selfPos, force / 50)
 		hg.ExplosionEffect(selfPos, force / 0.2, 80)
 		SendExplosionNet(selfPos, "Sharpnel", distance)
-		QueueBlastWave(ent, owner, selfPos, distance, blastDamage, DMG_BLAST, {
+		ApplyBlastBurst({
+			Ent = ent,
+			Owner = owner,
+			Pos = selfPos,
+			Distance = distance,
+			Damage = blastDamage,
+			DamageType = DMG_BLAST,
 			ForceMul = BlastWaveForce * (info.KnockbackMul or 1),
 			MinForceFrac = info.MinForceFrac or 0.5,
 			MinDamageFrac = info.MinDamageFrac or 0.5,
@@ -402,7 +383,13 @@ local ExpTypes = {
 		hgBlastDoors(ent, selfPos, force / 50)
 		hg.ExplosionEffect(selfPos, force / 0.2, 80)
 		SendExplosionNet(selfPos, "Normal", distance)
-		QueueBlastWave(ent, owner, selfPos, distance, blastDamage, DMG_BLAST, {
+		ApplyBlastBurst({
+			Ent = ent,
+			Owner = owner,
+			Pos = selfPos,
+			Distance = distance,
+			Damage = blastDamage,
+			DamageType = DMG_BLAST,
 			ForceMul = BlastWaveForce * (info.KnockbackMul or 1),
 			MinForceFrac = info.MinForceFrac or 0.5,
 			MinDamageFrac = info.MinDamageFrac or 0.5,
@@ -441,7 +428,13 @@ local ExpTypes = {
 			fire:ChangeLife(95)
 		end
 
-		QueueBlastWave(ent, owner, selfPos, distance, blastDamage, DMG_BLAST + DMG_BURN, {
+		ApplyBlastBurst({
+			Ent = ent,
+			Owner = owner,
+			Pos = selfPos,
+			Distance = distance,
+			Damage = blastDamage,
+			DamageType = DMG_BLAST + DMG_BURN,
 			ForceMul = BlastWaveForce * (info.KnockbackMul or 1.1),
 			MinForceFrac = info.MinForceFrac or 0.2,
 			MinDamageFrac = info.MinDamageFrac or 0.08,
@@ -487,14 +480,14 @@ local function ConsumeIEDBonus(ent)
 end
 
 local expItems = {
-	["models/props_c17/oildrum001_explosive.mdl"] = {ExpType = "Fire", Force = 75, RangeMul = 1.35},
-	["models/props_junk/gascan001a.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.3},
-	["models/props_junk/propane_tank001a.mdl"] = {ExpType = "Sharpnel", Force = 30, RangeMul = 1.35},
-	["models/props_junk/metalgascan.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.3},
-	["models/props_junk/PropaneCanister001a.mdl"] = {ExpType = "Sharpnel", Force = 40, RangeMul = 1.3},
-	["models/props_c17/canister01a.mdl"] = {ExpType = "Sharpnel", Force = 45, RangeMul = 1.25},
-	["models/props_c17/canister02a.mdl"] = {ExpType = "Sharpnel", Force = 45, RangeMul = 1.25},
-	[PropaneModel] = {ExpType = "Fire", Force = 28, RangeMul = 0.5, DamageMul = 0.5, KnockbackMul = 0.85, MinForceFrac = 0.18, MinDamageFrac = 0.03, DamageExponent = 1.65}
+	["models/props_c17/oildrum001_explosive.mdl"] = {ExpType = "Fire", Force = 55, RangeMul = 1.05, DamageMul = 0.45, KnockbackMul = 0.65, MinForceFrac = 0.12, MinDamageFrac = 0.015, DamageExponent = 1.75},
+	["models/props_junk/gascan001a.mdl"] = {ExpType = "Fire", Force = 28, RangeMul = 1, DamageMul = 0.45, KnockbackMul = 0.65, MinForceFrac = 0.1, MinDamageFrac = 0.015, DamageExponent = 1.8},
+	["models/props_junk/propane_tank001a.mdl"] = {ExpType = "Sharpnel", Force = 30, RangeMul = 1.5},
+	["models/props_junk/metalgascan.mdl"] = {ExpType = "Fire", Force = 28, RangeMul = 1, DamageMul = 0.45, KnockbackMul = 0.65, MinForceFrac = 0.1, MinDamageFrac = 0.015, DamageExponent = 1.8},
+	["models/props_junk/PropaneCanister001a.mdl"] = {ExpType = "Sharpnel", Force = 40, RangeMul = 1.45},
+	["models/props_c17/canister01a.mdl"] = {ExpType = "Sharpnel", Force = 45, RangeMul = 1.4},
+	["models/props_c17/canister02a.mdl"] = {ExpType = "Sharpnel", Force = 45, RangeMul = 1.4},
+	[PropaneModel] = {ExpType = "Fire", Force = 28, RangeMul = 0.65, DamageMul = 0.5, KnockbackMul = 0.85, MinForceFrac = 0.18, MinDamageFrac = 0.03, DamageExponent = 1.65}
 }
 
 hg.expItems = expItems
@@ -815,6 +808,10 @@ local function IgniteGasCloud(cloud, source)
 	if not cloud then return end
 	local idx = cloud.TankEntIndex
 	local data = hg.GasTank.ActiveTanks[idx]
+	if data and data.LeakFinished then
+		RemoveCloudsForTank(idx)
+		return
+	end
 	local owner = cloud.Owner
 	if IsValid(source) then
 		if source.debil and IsValid(source.debil) then
@@ -845,7 +842,7 @@ function hg.GasTankDetonate(ent)
 	RemoveCloudsForTank(idx)
 	local baseGas = (data and data.BaseGasAmount) or (ent.Volume or 75)
 	local curGas = (data and data.GasAmount) or baseGas
-	local ratio = math_Clamp(curGas / baseGas, 0.12, 1)
+	local ratio = math_Clamp(curGas / baseGas, 0.55, 1)
 
 	net.Start("hg_gastank_stop")
 	net.WriteUInt(idx, 16)
@@ -856,13 +853,14 @@ function hg.GasTankDetonate(ent)
 	local phys = ent:GetPhysicsObject()
 	local mass = IsValid(phys) and phys:GetMass() or 30
 	local iedBonus, ied = ConsumeIEDBonus(ent)
-	hg.PropExplosion(ent, "CustomBarrel", (baseGas * 2.15 * ratio) + iedBonus, mass, {
-		RangeMul = 1.15,
-		DamageMul = 1.2,
-		KnockbackMul = 1.1,
-		MinForceFrac = 0.2,
-		MinDamageFrac = 0.08,
-		DamageExponent = 1.2
+	hg.PropExplosion(ent, "CustomBarrel", (baseGas * 1.25 * ratio) + iedBonus, mass, {
+		ForceMul = 0.85,
+		RangeMul = 0.9,
+		DamageMul = 0.45,
+		KnockbackMul = 0.65,
+		MinForceFrac = 0.1,
+		MinDamageFrac = 0.015,
+		DamageExponent = 1.8
 	})
 	if IsValid(ied) then
 		ied:Remove()
@@ -936,7 +934,7 @@ hook.Add("Think", "hg_gastank_mainloop", function()
 			continue
 		end
 
-		if not data.IsActive and IsLeakingTankOnFire(ent) then
+		if not data.IsActive and not data.LeakFinished and IsLeakingTankOnFire(ent) then
 			hg.GasTankDetonate(ent)
 			continue
 		end
@@ -1004,7 +1002,9 @@ hook.Add("Think", "hg_gastank_mainloop", function()
 
 		if (data.GasAmount or 0) <= 0 and data.LeakMode == "smoke" then
 			data.IsActive = false
+			data.LeakFinished = true
 			RemoveTankLeakFires(data)
+			RemoveCloudsForTank(idx)
 			data.Leaks = {}
 			net.Start("hg_gastank_stop")
 			net.WriteUInt(idx, 16)
@@ -1119,8 +1119,9 @@ hook.Add("EntityTakeDamage", "ExplosiveDamage", function(target, dmginfo)
 				local phys = target:GetPhysicsObject()
 				local mass = IsValid(phys) and phys:GetMass() or 10
 				local iedBonus, ied = ConsumeIEDBonus(target)
+				local explosionVolume = target.Volume and math_max(target.Volume, tbl.Force * 0.65) or tbl.Force
 				target.babahnut = true
-				hg.PropExplosion(target, tbl.ExpType, ((target.Volume or tbl.Force) * 2) + iedBonus, mass, tbl)
+				hg.PropExplosion(target, tbl.ExpType, (explosionVolume * 2) + iedBonus, mass, tbl)
 				if IsValid(ied) then
 					ied:Remove()
 				end

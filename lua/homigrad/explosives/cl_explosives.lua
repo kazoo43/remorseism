@@ -1,18 +1,9 @@
 local PropaneExplosionEffect = "cloudmaker_ground"
-local ShockwaveMaterial = Material("sprites/physbeama")
-local ShockwaveSegments = 18
-local ShockwaveLift = 6
-local ShockwaveWidthScale = 0.35
-local ShockwaveMinWidth = 18
-local ShockwaveMaxCount = 24
-local ExplosionShockwaves = {}
 local effectPerMSec = 0
 local effectCDCurTime = 0
 local GasTankEffects = {}
 local GasTankLeakReceiveCooldown = 0.05
 local GasTankMaxVisualLeaks = 1
-local math_cos, math_sin, math_pi = math.cos, math.sin, math.pi
-local math_max = math.max
 
 local ExplosiveSound = {
 	Fire = {
@@ -63,44 +54,12 @@ end
 
 PrecacheParticleSystem("fire_jet_01")
 
-hook.Add("PostDrawTranslucentRenderables", "hg_explosion_shockwaves", function(_, skybox)
-	if skybox then return end
-	local time = CurTime()
-	local step = math_pi * 2 / ShockwaveSegments
-	render.SetMaterial(ShockwaveMaterial)
-
-	for i = #ExplosionShockwaves, 1, -1 do
-		local wave = ExplosionShockwaves[i]
-		local radius = (time - wave.StartTime) * wave.Speed
-		if radius >= wave.Radius then
-			table.remove(ExplosionShockwaves, i)
-			continue
-		end
-
-		local frac = 1 - radius / wave.Radius
-		local drawColor = wave.DrawColor
-		drawColor.a = wave.Alpha * frac
-
-		local width = math_max(ShockwaveMinWidth, wave.Thickness * ShockwaveWidthScale) * (0.45 + frac * 0.55)
-		local pos = wave.Pos
-		local z = pos.z + ShockwaveLift
-		local prev = Vector(pos.x + radius, pos.y, z)
-
-		for segment = 1, ShockwaveSegments do
-			local ang = segment * step
-			local nextPos = Vector(pos.x + math_cos(ang) * radius, pos.y + math_sin(ang) * radius, z)
-			render.DrawBeam(prev, nextPos, width, 0, 1, drawColor)
-			prev = nextPos
-		end
-	end
-end)
-
 net.Receive("hg_booom", function()
 	local pos = net.ReadVector()
 	local type = net.ReadString()
-	local radius = net.ReadFloat()
-	local speed = net.ReadFloat()
-	local thickness = net.ReadFloat()
+	net.ReadFloat()
+	net.ReadFloat()
+	net.ReadFloat()
 	local data = ExplosiveSound[type]
 	if not data then return end
 
@@ -113,20 +72,6 @@ net.Receive("hg_booom", function()
 		effectPerMSec = effectPerMSec + 1
 		effectCDCurTime = CurTime() + 0.2
 	end
-
-	if #ExplosionShockwaves >= ShockwaveMaxCount then
-		table.remove(ExplosionShockwaves, 1)
-	end
-
-	ExplosionShockwaves[#ExplosionShockwaves + 1] = {
-		Pos = pos,
-		Radius = radius,
-		Speed = speed,
-		Thickness = thickness,
-		StartTime = CurTime(),
-		Alpha = data.ShockwaveColor.a,
-		DrawColor = Color(data.ShockwaveColor.r, data.ShockwaveColor.g, data.ShockwaveColor.b, data.ShockwaveColor.a)
-	}
 
 	PlaySndDist(table.Random(data.Near), table.Random(data.Far), pos, false, "huy")
 end)
