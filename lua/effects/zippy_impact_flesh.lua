@@ -6,13 +6,24 @@ for i = 10,16 do
     table.insert(smoke_mats, "particle/smokesprites_00" .. i)
 end
 
+local g_emit
+local g_emitpos
+local function getEmitter(pos)
+    if not IsValid(g_emit) or not g_emitpos or g_emitpos:DistToSqr(pos) > 65536 then
+        if IsValid(g_emit) then g_emit:Finish() end
+        g_emit = ParticleEmitter(pos)
+        g_emitpos = pos
+    end
+    return g_emit
+end
+
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function EFFECT:Init(data)
     local pos = data:GetStart()
     local normal = data:GetNormal()
     local intensity = data:GetMagnitude()
 
-    local emitter = ParticleEmitter(pos)
+    local emitter = getEmitter(pos)
 
     for i = 1,15*intensity do
         local smoke = emitter:Add(smoke_mats[math.random(#smoke_mats)], pos)
@@ -36,8 +47,6 @@ function EFFECT:Init(data)
 
         flesh:SetStartAlpha(255)
         flesh:SetEndAlpha(0)
-        flesh:SetCollide(true)
-        flesh:SetBounce(math.Rand(0,1))
         flesh:SetColor(150,50,50)
         --flesh:SetLighting(true)
         flesh:SetGravity(Vector(0,0,-600))
@@ -50,8 +59,6 @@ function EFFECT:Init(data)
         flesh:SetDieTime(math.Rand(0.5, 1)*intensity)
         flesh:SetVelocity((normal*math.Rand(40, 200)+VectorRand()*50)*intensity*1.25)
     end
-
-    emitter:Finish()
 end
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function EFFECT:Think() end

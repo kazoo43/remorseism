@@ -46,20 +46,6 @@ function EFFECT:Init(data)
     self.Length = (self.StartPos - self.EndPos):Length()
     self.DieTime = self.SpawnTime + (self.Length / self.Speed)
     self:SetRenderBoundsWS(self.StartPos, self.EndPos)
-
-    local bullet = self.bullet
-    
-    local dlight = DynamicLight(self:EntIndex())
-	dlight.pos = self.StartPos
-	dlight.r = bullet.TracerColor.r
-	dlight.g = bullet.TracerColor.g
-	dlight.b = bullet.TracerColor.b
-	dlight.brightness = 1
-	dlight.Decay = 1
-	dlight.Size = bullet.TracerHeadSize / 5
-	dlight.DieTime = self.DieTime
-    
-    self.dlight = dlight
 end
 
 function EFFECT:Think()
@@ -91,5 +77,4 @@ function EFFECT:Render()
         render.SetMaterial(bullet.TracerTail)
         render.DrawBeam(startbeampos, endbeampos, width, bullet.TracerTPoint2, bullet.TracerTPoint1, col)
     end
-    self.dlight.pos = endbeampos
 end

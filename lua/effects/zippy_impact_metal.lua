@@ -6,13 +6,26 @@ for i = 10,16 do
     table.insert(smoke_mats, "particle/smokesprites_00" .. i)
 end
 
+local g_emit
+local g_emitpos
+local function getEmitter(pos)
+    if not IsValid(g_emit) or not g_emitpos or g_emitpos:DistToSqr(pos) > 65536 then
+        if IsValid(g_emit) then g_emit:Finish() end
+        g_emit = ParticleEmitter(pos)
+        g_emitpos = pos
+    end
+    return g_emit
+end
+
+local g_lastlight = 0
+
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function EFFECT:Init(data)
     local pos = data:GetStart()
     local normal = data:GetNormal()
     local intensity = data:GetMagnitude()
 
-    local emitter = ParticleEmitter(pos)
+    local emitter = getEmitter(pos)
 
     for i = 1,4*intensity do
         local smoke = emitter:Add(smoke_mats[math.random(#smoke_mats)], pos)
@@ -36,8 +49,6 @@ function EFFECT:Init(data)
         
         spark:SetStartAlpha(255)
         spark:SetEndAlpha(0)
-        spark:SetCollide(true)
-        spark:SetBounce(math.Rand(0,1))
         spark:SetColor(200,150,100)
         --spark:SetLighting(true)
         spark:SetGravity(Vector(0,0,-600))
@@ -63,19 +74,20 @@ function EFFECT:Init(data)
 
     flash:SetStartSize(math.random(66, 75)*intensity)
 
-    local dlight = DynamicLight( LocalPlayer():EntIndex() )
-	if dlight then
-		dlight.pos = pos
-		dlight.r = 255
-		dlight.g = 125
-		dlight.b = 0
-		dlight.brightness = math.Rand(0, 1)*1
-		dlight.Decay = 1000
-		dlight.Size = 256*intensity*1
-		dlight.DieTime = CurTime() + 0.075
-	end
-
-    emitter:Finish()
+    if CurTime() - g_lastlight > 0.1 then
+        g_lastlight = CurTime()
+        local dlight = DynamicLight( LocalPlayer():EntIndex() )
+        if dlight then
+            dlight.pos = pos
+            dlight.r = 255
+            dlight.g = 125
+            dlight.b = 0
+            dlight.brightness = math.Rand(0, 1)*1
+            dlight.Decay = 1000
+            dlight.Size = 256*intensity*1
+            dlight.DieTime = CurTime() + 0.075
+        end
+    end
 end
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 function EFFECT:Think() end
