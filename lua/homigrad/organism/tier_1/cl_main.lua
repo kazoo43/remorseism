@@ -75,6 +75,45 @@ local tabblood = {
 	["$pp_colour_mulb"] = 0,
 }
 
+surface.CreateFont("RemDeathStateFont", {
+	font = "Lora",
+	size = ScreenScale(22),
+	weight = 1100,
+	outline = true
+})
+
+local remDeathStateColor = Color(255, 255, 255, 0)
+local remDeathStateStation
+local remDeathStateLoading
+
+local function PlayRemDeathStateSound()
+	if IsValid(remDeathStateStation) then
+		remDeathStateStation:Play()
+		return
+	end
+	if remDeathStateLoading then return end
+
+	remDeathStateLoading = true
+	sound.PlayFile("sound/rem_deathstatefull.mp3", "noplay", function(station)
+		remDeathStateLoading = nil
+		if not IsValid(station) then return end
+		if not LocalPlayer():Alive() then station:Stop() return end
+		remDeathStateStation = station
+		station:EnableLooping(true)
+		station:SetVolume(1)
+		station:Play()
+	end)
+end
+
+net.Receive("rem_deathstate_sound", PlayRemDeathStateSound)
+
+hook.Add("Think", "RemDeathStateSoundStop", function()
+	local ply = LocalPlayer()
+	if not IsValid(ply) or ply:Alive() or not IsValid(remDeathStateStation) then return end
+	remDeathStateStation:Stop()
+	remDeathStateStation = nil
+end)
+
 local k1, k2, k3
 
 local upDir = Vector(0, 0, 1)
@@ -395,10 +434,22 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local health = health
 	local disorientation = org.disorientation or 0
 	local immobilization = org.immobilization or 0
-	local incapacitated = org.incapacitated or false
+	local incapacitated = org.incapacitated or new_organism.incapacitated or false
 	local critical = org.critical or false
+	local deathStateEnd = new_organism.deathStateEnd or org.deathStateEnd
+	if deathStateEnd and deathStateEnd <= 0 then deathStateEnd = nil end
 	tinnitusSoundFactor = Lerp(FrameTime()*2.5,tinnitusSoundFactor or 0, math.min(math.max( lply.tinnitus and (lply.tinnitus - CurTime()) or 0, 0)*7.5,120))
 	local tinnitusSoundFactor2 = tinnitusSoundFactor + (hook.Run("ModifyTinnitusFactor", tinnitusSoundFactor) or 0)
+
+	if lply:Alive() and (otrub or new_organism.otrub) and incapacitated and deathStateEnd then
+		local seconds = math.max(math.ceil(deathStateEnd - CurTime()), 0)
+		remDeathStateColor.a = math.Clamp((25 - (deathStateEnd - CurTime())) / 2, 0, 1) * 255
+		PlayRemDeathStateSound()
+		draw.SimpleText("You are incapacitated, You will die in " .. seconds, "RemDeathStateFont", ScrW() / 2, ScrH() / 2, remDeathStateColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	elseif IsValid(remDeathStateStation) then
+		remDeathStateStation:Stop()
+		remDeathStateStation = nil
+	end
 
 	--print(lply.tinnitus)
 	local adrenK = math.min(math.max(1 + adrenaline, 1), 1.2)

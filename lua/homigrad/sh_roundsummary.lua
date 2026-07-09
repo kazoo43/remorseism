@@ -2,6 +2,8 @@ local SUMMARY_MAX = 3
 local SUMMARY_POST_ROUND = 24
 local SUMMARY_CLEAR_DELAY = 6
 local SUMMARY_LIFETIME = 16
+local SUMMARY_MEDAL_XP = 10
+local SUMMARY_MVP_XP_MULT = 5
 
 if SERVER then
 	util.AddNetworkString("rem_roundsummary")
@@ -43,6 +45,7 @@ if SERVER then
 			damageDealt = 0,
 			damageTaken = 0,
 			headshotHits = 0,
+			firstHurtTime = 0,
 			deaths = 0,
 			diedTime = 0,
 			survived = true,
@@ -50,6 +53,8 @@ if SERVER then
 	end
 
 	local function ResetStats()
+		zb.RSRoundStart = CurTime()
+		zb.RSSummaryXPDone = false
 		zb.RSDeathOrder = {}
 		zb.RSKilledMain = nil
 		for _, ply in player.Iterator() do
@@ -71,6 +76,7 @@ if SERVER then
 		harm = math.max(harm or 0, 0)
 		attacker.RSStats.damageDealt = attacker.RSStats.damageDealt + harm
 		victim.RSStats.damageTaken = victim.RSStats.damageTaken + harm
+		if harm > 0 and attacker.RSStats.firstHurtTime <= 0 then attacker.RSStats.firstHurtTime = CurTime() end
 
 		local head = hitgroup == HITGROUP_HEAD
 		if head then attacker.RSStats.headshotHits = attacker.RSStats.headshotHits + 1 end
@@ -175,6 +181,12 @@ if SERVER then
 		{ "melee", function(plys)
 			return BestBy(plys, function(p) local v = p.RSStats.meleeKills return v >= 1 and v or nil end)
 		end },
+		{ "unstoppable", function(plys)
+			return BestBy(plys, function(p)
+				local s = p.RSStats
+				if s.survived and s.kills >= 4 then return s.kills end
+			end)
+		end },
 		{ "berserker", function(plys)
 			return BestBy(plys, function(p) local v = p.RSStats.kills return v >= 2 and v or nil end)
 		end },
@@ -185,25 +197,68 @@ if SERVER then
 			return BestBy(plys, function(p)
 				local s = p.RSStats
 				if s.kills < 2 or s.headshotKills < 1 then return end
-				return math.floor((s.headshotKills / s.kills) * 100)
+				local v = math.floor((s.headshotKills / s.kills) * 100)
+				return v >= 75 and v or nil
 			end)
 		end },
 		{ "untouchable", function(plys)
 			return BestBy(plys, function(p)
 				local s = p.RSStats
-				if s.kills >= 1 and s.damageTaken <= 0 then return s.kills end
+				if s.survived and s.kills >= 1 and s.damageTaken <= 0 then return s.kills end
 			end)
+		end },
+		{ "gunslinger", function(plys)
+			return BestBy(plys, function(p) local v = p.RSStats.rangedKills return v >= 3 and v or nil end)
+		end },
+		{ "stalker", function(plys)
+			return BestBy(plys, function(p) local v = p.RSStats.meleeKills return v >= 2 and v or nil end)
+		end },
+		{ "headhunter2", function(plys)
+			return BestBy(plys, function(p) local v = p.RSStats.headshotHits return v >= 3 and v or nil end)
 		end },
 		{ "bloodthirsty", function(plys)
 			return BestBy(plys, function(p) local v = math.floor(p.RSStats.damageDealt) return v >= 80 and v or nil end)
 		end },
+		{ "warrior", function(plys)
+			return BestBy(plys, function(p)
+				local s = p.RSStats
+				local v = math.floor(s.damageDealt)
+				if s.survived and v >= 120 then return v end
+			end)
+		end },
+		{ "glasscannon", function(plys)
+			return BestBy(plys, function(p)
+				local s = p.RSStats
+				local v = math.floor(s.damageDealt)
+				if v >= 120 and s.damageTaken <= 20 then return v end
+			end)
+		end },
 		{ "punchingbag", function(plys)
 			return BestBy(plys, function(p) local v = math.floor(p.RSStats.damageTaken) return v >= 120 and v or nil end)
 		end },
-		{ "survivor", function(plys)
-			if not zb.RSDeathOrder or #zb.RSDeathOrder < 1 then return end
+		{ "laststand", function(plys)
 			return BestBy(plys, function(p)
-				if p.RSStats.survived and p.RSStats.kills >= 1 then return p.RSStats.kills end
+				local s = p.RSStats
+				if s.survived and s.kills >= 1 and s.damageTaken >= 80 then return math.floor(s.damageTaken) end
+			end)
+		end },
+		{ "revenant", function(plys)
+			return BestBy(plys, function(p)
+				local s = p.RSStats
+				local v = math.floor(s.damageDealt)
+				if not s.survived and v >= 100 then return v end
+			end)
+		end },
+		{ "savior", function(plys)
+			return BestBy(plys, function(p)
+				if p.isTraitor then return end
+				local v = p.RSStats.traitorKills return v >= 2 and v or nil
+			end)
+		end },
+		{ "menace", function(plys)
+			return BestBy(plys, function(p)
+				if not p.isTraitor then return end
+				local v = p.RSStats.kills return v >= 3 and v or nil
 			end)
 		end },
 		{ "firstblood", function()
@@ -213,10 +268,29 @@ if SERVER then
 		{ "pacifist", function(plys)
 			return BestBy(plys, function(p)
 				local s = p.RSStats
-				if s.survived and s.kills == 0 and s.damageDealt < 1 then return 1 end
+				local start = zb.RSRoundStart or 0
+				if s.survived and s.kills == 0 and s.damageDealt < 1 and CurTime() - start >= 60 and (s.firstHurtTime <= 0 or s.firstHurtTime - start >= 60) then return 1 end
 			end)
 		end },
 	}
+
+	local function MedalXP(key)
+		return SUMMARY_MEDAL_XP * (key == "mvp" and SUMMARY_MVP_XP_MULT or 1)
+	end
+
+	local function ApplyMedalXP(featured)
+		if zb.RSSummaryXPDone then return end
+		zb.RSSummaryXPDone = true
+		for _, f in ipairs(featured) do
+			local ply = f.ply
+			f.xpbonus = MedalXP(f.key)
+			if IsValid(ply) then
+				local instance = zb.Experience and zb.Experience.PlayerInstances and zb.Experience.PlayerInstances[ply:SteamID64()]
+				f.expstart = math.floor(tonumber((instance and instance.experience) or ply.exp or -1) or -1)
+				if ply.GiveExp then ply:GiveExp(f.xpbonus) end
+			end
+		end
+	end
 
 	local function NameOf(ply)
 		if not IsValid(ply) then return "Unknown" end
@@ -301,6 +375,7 @@ if SERVER then
 	hook.Add("ZB_EndRound", "rem_roundsummary_send", function()
 		local featured, NameOf, RoleFor = ComputeFeatured()
 		if #featured == 0 then return end
+		ApplyMedalXP(featured)
 
 		if zb.nextround ~= "coop" then
 			local want = CurTime() + math.max(SUMMARY_POST_ROUND, CurrentRound().end_time or 5)
@@ -320,13 +395,13 @@ if SERVER then
 					steamid = ply:IsBot() and "0" or (ply:SteamID64() or "0")
 					spec = ply:Team() == TEAM_SPECTATOR
 				end
-			local hasAppearance = IsValid(ply) and istable(ply.CurAppearance) and ply.CurAppearance.AModel ~= nil
-			local exp, skill = -1, 0
-			if IsValid(ply) then
-				local instance = zb.Experience and zb.Experience.PlayerInstances and zb.Experience.PlayerInstances[ply:SteamID64()]
-				exp = math.floor(tonumber((instance and instance.experience) or ply.exp or -1) or -1)
-				skill = tonumber((instance and instance.skill) or ply.skill or 0) or 0
-			end
+				local hasAppearance = IsValid(ply) and istable(ply.CurAppearance) and ply.CurAppearance.AModel ~= nil
+				local exp, skill = -1, 0
+				if IsValid(ply) then
+					local instance = zb.Experience and zb.Experience.PlayerInstances and zb.Experience.PlayerInstances[ply:SteamID64()]
+					exp = math.floor(tonumber(f.expstart or (instance and instance.experience) or ply.exp or -1) or -1)
+					skill = tonumber((instance and instance.skill) or ply.skill or 0) or 0
+				end
 
 				net.WriteEntity(ply)
 				net.WriteString(model)
@@ -339,6 +414,7 @@ if SERVER then
 				net.WriteString(IsValid(ply) and (ply.PlayerClassName or "") or "")
 				net.WriteInt(math.Clamp(exp, -1, 2147483647), 32)
 				net.WriteFloat(skill)
+				net.WriteInt(math.Clamp(math.floor(f.xpbonus or 0), 0, 2147483647), 32)
 				net.WriteBool(hasAppearance)
 			end
 
@@ -367,16 +443,25 @@ local AWARD_INFO = {
 	serialkiller = { title = "SERIAL KILLER",    color = Color(170, 25, 25),   desc = function(v) return v .. " victims" end },
 	hero         = { title = "THE HERO",         color = Color(70, 130, 220),  desc = function(v) return "Slayed a traitor" end },
 	melee        = { title = "BRAWLER", color = Color(210, 120, 40), desc = function(v) return v .. " melee kill" .. (v == 1 and "" or "s") end },
+	unstoppable  = { title = "UNSTOPPABLE",      color = Color(230, 120, 45),  desc = function(v) return v .. " kills and survived" end },
 	berserker    = { title = "BERSERKER",        color = Color(190, 45, 45),   desc = function(v) return v .. " kills" end },
 	sharpshooter = { title = "SHARPSHOOTER",     color = Color(60, 170, 170),  desc = function(v) return v .. " gun kills" end },
 	deadeye      = { title = "DEADEYE",          color = Color(232, 190, 70),  desc = function(v) return v .. "% headshots" end },
 	untouchable  = { title = "UNTOUCHABLE",      color = Color(90, 200, 220),  desc = function(v) return "Not a scratch" end },
+	gunslinger   = { title = "GUNSLINGER",       color = Color(80, 180, 210),  desc = function(v) return v .. " gun kills" end },
+	stalker      = { title = "STALKER",          color = Color(160, 80, 45),   desc = function(v) return v .. " melee kills" end },
+	headhunter2  = { title = "CRACK SHOT",       color = Color(215, 80, 60),   desc = function(v) return v .. " headshots landed" end },
 	bloodthirsty = { title = "BLOODTHIRSTY",     color = Color(150, 20, 20),   desc = function(v) return v .. " damage dealt" end },
+	warrior      = { title = "WARRIOR",          color = Color(200, 90, 50),   desc = function(v) return v .. " damage and survived" end },
+	glasscannon  = { title = "GLASS CANNON",     color = Color(235, 160, 70),  desc = function(v) return v .. " damage, barely touched" end },
 	punchingbag  = { title = "DEMOLISHED",     color = Color(130, 130, 130), desc = function(v) return v .. " damage taken" end },
-	survivor     = { title = "SOLE SURVIVOR",    color = Color(80, 190, 90),   desc = function(v) return "Made it out alive" end },
+	laststand    = { title = "LAST STAND",       color = Color(180, 70, 40),   desc = function(v) return v .. " damage taken and lived" end },
+	revenant     = { title = "REVENANT",         color = Color(120, 70, 150),  desc = function(v) return v .. " damage before death" end },
+	savior       = { title = "SAVIOR",           color = Color(70, 150, 240),  desc = function(v) return v .. " traitors killed" end },
+	menace       = { title = "MENACE",           color = Color(190, 35, 35),   desc = function(v) return v .. " victims" end },
 	firstblood   = { title = "FIRST TO FALL",    color = Color(120, 120, 120), desc = function(v) return "Died first" end },
 	pacifist     = { title = "THE PACIFIST",     color = Color(220, 220, 220), desc = function(v) return "Harmed no one" end },
-	participant  = { title = "SURVIVOR",         color = Color(140, 140, 140), desc = function(v) return "Stood their ground" end },
+	participant  = { title = "PARTICIPANT",      color = Color(140, 140, 140), desc = function(v) return "Stood their ground" end },
 }
 
 local RS_GradD = Material("vgui/gradient-d")
@@ -589,6 +674,7 @@ local function SetupModel(mp, ply, model, pose, spec, appearance, playerClassNam
 			end
 		end
 		local parent = self:GetParent()
+		if IsValid(parent) and IsValid(parent.RSCard) then parent = parent.RSCard end
 		local targetSeq = IsValid(parent) and parent.RSSettled and self.RSIdleSeq or self.RSWalkSeq
 		if self.RSActiveSeq ~= targetSeq then
 			ent:ResetSequence(targetSeq)
@@ -697,7 +783,14 @@ local function BuildCard(parent, data, slot)
 		end
 	end
 
-	local mp = vgui.Create("DModelPanel", card)
+	local modelWrap = vgui.Create("DPanel", card)
+	modelWrap:SetSize(w, h)
+	modelWrap:SetPos(0, 0)
+	modelWrap:SetMouseInputEnabled(false)
+	modelWrap.RSCard = card
+	modelWrap.Paint = function() end
+
+	local mp = vgui.Create("DModelPanel", modelWrap)
 	mp:SetSize(w, h)
 	mp:SetPos(0, 0)
 	mp:SetMouseInputEnabled(false)
@@ -766,14 +859,37 @@ local function BuildCard(parent, data, slot)
 	xp:SetContentAlignment(4)
 	xp:SetExpensiveShadow(1, Color(0, 0, 0, 225))
 
+	local gainXP = vgui.Create("DLabel", infoWrap)
+	gainXP:SetFont(xpFont)
+	gainXP:SetTextColor(Color(120, 220, 120))
+	gainXP:SetContentAlignment(4)
+	gainXP:SetExpensiveShadow(1, Color(0, 0, 0, 225))
+
 	local lastXP, lastSkill = "", nil
 	infoWrap.Think = function(self)
-		local xpText, band, med = GetProfileState(data.ply, data.exp, data.skill)
+		local bonus = math.floor(data.xpbonus or 0)
+		local expOverride = data.exp
+		local gainAlpha = bonus > 0 and 255 or 0
+		if bonus > 0 and data.exp and data.exp >= 0 then
+			if self:GetAlpha() > 10 and not self.RSXPStart then self.RSXPStart = CurTime() end
+			local elapsed = self.RSXPStart and CurTime() - self.RSXPStart or 0
+			local frac = math.Clamp(elapsed / 2.2, 0, 1)
+			gainAlpha = 255 * (1 - math.Clamp((elapsed - 2.2) / 0.75, 0, 1))
+			frac = 1 - (1 - frac) * (1 - frac)
+			expOverride = data.exp + math.floor(bonus * frac)
+		end
+		local xpText, band, med = GetProfileState(data.ply, expOverride, data.skill)
+		local gainText = bonus > 0 and "+" .. bonus or ""
 		local skill = tonumber(data.skill or (IsValid(data.ply) and data.ply.skill or 0)) or 0
 		if xp:GetText() ~= xpText then
 			xp:SetText(xpText)
 			xp:SizeToContents()
 		end
+		if gainXP:GetText() ~= gainText then
+			gainXP:SetText(gainText)
+			gainXP:SizeToContents()
+		end
+		gainXP:SetAlpha(gainAlpha)
 		if lastXP ~= xpText or lastSkill ~= skill then
 			medal.Band = band or RS_FallbackBand
 			medal.Medal = med or RS_FallbackMedal
@@ -788,10 +904,12 @@ local function BuildCard(parent, data, slot)
 		local _, nameH = name:GetContentSize()
 		name:SetTall(nameH)
 		local medalY = infoH - medal:GetTall() - math.floor(infoH * 0.16)
-		local totalW = medal:GetWide() + math.floor(w * 0.025) + xp:GetWide()
+		local gainGap = gainXP:GetAlpha() > 0 and math.floor(w * 0.015) or 0
+		local totalW = medal:GetWide() + math.floor(w * 0.025) + xp:GetWide() + gainGap + (gainXP:GetAlpha() > 0 and gainXP:GetWide() or 0)
 		local startX = math.floor(w / 2 - totalW / 2)
 		medal:SetPos(startX, medalY)
 		xp:SetPos(startX + medal:GetWide() + math.floor(w * 0.025), medalY + math.floor((medal:GetTall() - xp:GetTall()) / 2))
+		gainXP:SetPos(xp:GetX() + xp:GetWide() + gainGap, medalY + math.floor((medal:GetTall() - gainXP:GetTall()) / 2))
 	end
 
 	card.RSTitle = titleWrap
@@ -939,8 +1057,9 @@ net.Receive("rem_roundsummary", function()
 		local playerclass = net.ReadString()
 		local exp = net.ReadInt(32)
 		local skill = net.ReadFloat()
+		local xpbonus = net.ReadInt(32)
 		local hasAppearance = net.ReadBool()
-		featured[i] = { ply = ply, model = model, name = name, steamid = steamid, key = key, value = value, spec = spec, appearance = appearance, playerclass = playerclass, exp = exp, skill = skill, hasAppearance = hasAppearance }
+		featured[i] = { ply = ply, model = model, name = name, steamid = steamid, key = key, value = value, spec = spec, appearance = appearance, playerclass = playerclass, exp = exp, skill = skill, xpbonus = xpbonus, hasAppearance = hasAppearance }
 	end
 
 	if count == 0 then return end
