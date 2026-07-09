@@ -1197,50 +1197,58 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-		if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
-			if org.canmove and org.spine1 < hg.organism.fake_spine1 then
-				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
-				local angle = -(-angles2)
-				angle:RotateAroundAxis(angle:Forward(), -90)
+        if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
+            if org.canmove and org.spine1 < hg.organism.fake_spine1 then
+                local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
+                local angle = -(-angles2)
+                angle:RotateAroundAxis(angle:Forward(), -90)
 
-				if ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -angle.p - 30)
-				end
+                --if ishgweapon(wep) then
+                local tr = util.TraceLine({
+                    start = ragdoll:GetPos(),
+                    endpos = ragdoll:GetPos() - Vector(0,0,45),
+                    filter = ragdoll
+                })
 
-				if ply:KeyDown(IN_ATTACK2) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 30)
-				end
+                if tr.Hit then
+                    angle:RotateAroundAxis(angle:Up(), -angle.p - 30)
+                end
+                --end
 
-				angle:RotateAroundAxis(angle:Right(), -15)
-				shadowControl(ragdoll, 8, 0.001, angle, 120, 30)
+                if ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), 30)
+                end
 
-				if ply:KeyDown(IN_ATTACK2) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -30)
-				end
+                angle:RotateAroundAxis(angle:Right(), ply:KeyDown(IN_JUMP) and 0 or -15)
+                shadowControl(ragdoll, 8, 0.001, angle, 600, 200)
 
-				if ply:KeyDown(IN_ATTACK) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 30)
-				end
+                if ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), -30)
+                end
 
-				angle:RotateAroundAxis(angle:Right(), 30)
-				shadowControl(ragdoll, 11, 0.001, angle, 120, 30) -- ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
+                if ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), 30)
+                end
 
-				if ply:KeyDown(IN_ATTACK) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -30)
-				end
+                angle:RotateAroundAxis(angle:Right(), ply:KeyDown(IN_JUMP) and 0 or 30)
+                shadowControl(ragdoll, 11, 0.001, angle, 600, 200) -- ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
 
-				//if vellen < 200 then
-				if !ply:KeyDown(IN_ATTACK2) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 90)
-				end
-				shadowControl(ragdoll, 9, 0.001, angle, 120, 30)
-				if !ply:KeyDown(IN_ATTACK2) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -90)
-				end
-				if !ply:KeyDown(IN_ATTACK) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 90)
-				end
-				shadowControl(ragdoll, 12, 0.001, angle, 120, 30)
+                if ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), -30)
+                end
+
+                //if vellen < 200 then
+                if !ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), 90)
+                end
+                shadowControl(ragdoll, 9, 0.001, angle, 600, 200)
+                if !ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), -90)
+                end
+                if !ply:KeyDown(IN_JUMP) then
+                    angle:RotateAroundAxis(angle:Up(), 90)
+                end
+                shadowControl(ragdoll, 12, 0.001, angle, 600, 200)
 
 				local rleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 13))
 				local lleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 14))
