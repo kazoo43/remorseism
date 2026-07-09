@@ -127,6 +127,10 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 		local runnin_held = in_speed and not ply:Crouching() and ply:KeyDown(IN_FORWARD)
 		ply.hg_isSprinting = runnin_held and (ply.isSprintingState or force_sprint)
 		ply.hg_isJogging = runnin_held and not ply.hg_isSprinting
+		if SERVER then
+			if ply:GetNWBool("hg_isSprinting", false) ~= ply.hg_isSprinting then ply:SetNWBool("hg_isSprinting", ply.hg_isSprinting) end
+			if ply:GetNWBool("hg_isJogging", false) ~= ply.hg_isJogging then ply:SetNWBool("hg_isJogging", ply.hg_isJogging) end
+		end
 		local runnin = ply.hg_isSprinting or ply.hg_isJogging
 
 		--[[if runnin then
@@ -243,7 +247,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 
 		hook.Run("HG_MovementCalc", vel, velLen, weightmul, ply, cmd, mv)
 
-		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.7) or ply:GetRunSpeed()
+		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.55) or ply:GetRunSpeed()
 		local mul = {(ply.move or ply.CurrentSpeed) / target_run_speed}
 
 		hook.Run("HG_MovementCalc_2", mul, ply, cmd, mv)
@@ -261,7 +265,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			if ply.sprintDebuff and ply.sprintDebuff > CurTime() then sprint_mul = 0.5 end
 			ply.CurrentSpeed = math.Approach(ply.CurrentSpeed, (ply.move or ply:GetRunSpeed()) * mul * sprint_mul, delta_time * ply.SpeedGainMul)
 		elseif(ply.hg_isJogging and velLen >= 10)then
-			ply.CurrentSpeed = math.Approach(ply.CurrentSpeed, (ply.move or (ply:GetRunSpeed() * 0.7)) * mul, delta_time * ply.SpeedGainMul)
+			ply.CurrentSpeed = math.Approach(ply.CurrentSpeed, (ply.move or (ply:GetRunSpeed() * 0.55)) * mul, delta_time * ply.SpeedGainMul)
 		else
 			if(ply:Crouching())then
 				ply.CurrentSpeed = math.Approach(ply.CurrentSpeed, crouch_walk_speed * mul, delta_time * ply.SpeedLoseMul)
@@ -402,7 +406,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			end
 		--//
 
-		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.6) or ply:GetRunSpeed()
+		local target_run_speed = ply.hg_isJogging and (ply:GetRunSpeed() * 0.55) or ply:GetRunSpeed()
 		local move = target_run_speed * 1.1
 		k = 1 * weightmul
 		k = k * math.Clamp(consmul, 0.7, 1)
