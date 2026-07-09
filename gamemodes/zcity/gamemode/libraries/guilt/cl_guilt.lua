@@ -58,7 +58,7 @@ local gradient_u = Material("vgui/gradient-u")
 local gradient_d = Material("vgui/gradient-d")
 
 local function ScaleMenu(v)
-    return math.Round(v * math.Clamp(math.min(ScrW(), ScrH()) / 1080, 0.65, 1))
+    return math.Round(v * math.Clamp(ScrH() / 1080, 0.75, 1.15))
 end
 
 local function PaintGuiltBlur(self)
@@ -172,8 +172,8 @@ OpenMenu = function(tbl)
 	local margin = math.max(8, math.min(ScaleMenu(20), ScrW() * 0.05, ScrH() * 0.05))
 	local maxX = ScrW() - margin * 2
 	local maxY = ScrH() - margin * 2
-	local sizeX = math.min(ScaleMenu(520), maxX)
-	local sizeY = math.Clamp(ScaleMenu(70) + math.max(playerCount, 3) * (rowH + ScaleMenu(5)) + ScaleMenu(16), math.min(ScaleMenu(210), maxY), math.min(ScaleMenu(440), maxY))
+	local sizeX = math.Clamp(ScrW() * 0.4, math.min(ScaleMenu(480), maxX), math.min(ScaleMenu(640), maxX))
+	local sizeY = math.Clamp(ScaleMenu(70) + math.max(playerCount, 3) * (rowH + ScaleMenu(5)) + ScaleMenu(16), math.min(ScaleMenu(210), maxY), math.min(ScrH() * 0.46, maxY))
 
 	guiltMenu = vgui.Create("ZFrame")
 	guiltMenu:SetTitle("")

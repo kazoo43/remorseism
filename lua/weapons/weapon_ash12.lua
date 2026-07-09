@@ -1,312 +1,267 @@
-SWEP.Base = "homigrad_base"
+SWEP.Base = "weapon_m4super"
 SWEP.Spawnable = true
-SWEP.AdminOnly = true
+SWEP.AdminOnly = false
 SWEP.PrintName = "ASH-12"
 SWEP.Author = "Izhmash TsKIB SOO"
-SWEP.Instructions = "The ASH-12 is a 12.7×55mm large-caliber assault rifle designed for close-quarters combat. It delivers high stopping power at around 700 rounds per minute."
+SWEP.Instructions = "12.7x55mm large-caliber assault rifle"
 SWEP.Category = "Weapons - Assault Rifles"
 SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/shak_12/ash12/w_mk18.mdl"
-SWEP.weaponInvCategory = 1
-SWEP.CustomEjectAngle = Angle(0, 0, 90)
-SWEP.Primary.ClipSize = 20
-SWEP.Primary.DefaultClip = 20
-SWEP.Primary.Automatic = true
-SWEP.Primary.Ammo = "12.7x55 mm"
+SWEP.WorldModelFake = "models/weapons/c_ash12.mdl" -- Проверь путь!
+SWEP.WorldModelReal = "models/weapons/c_ash12.mdl"
 
-SWEP.CustomShell = "50cal"
-SWEP.EjectPos = Vector(9,0,3.5)
-SWEP.EjectAng = Angle(0,0,0)
+SWEP.FakePos = Vector(-15, 1, 4) -- Подбери в игре
+SWEP.FakeAng = Angle(0, 0, 0)
+SWEP.FakeAttachment = "1"
+SWEP.AttachmentPos = Vector(3.5,-0.2,-0.05)
+SWEP.AttachmentAng = Angle(0,0,0)
 
-SWEP.ScrappersSlot = "Primary"
-SWEP.Primary.Cone = 0
-SWEP.Primary.Damage = 70
-SWEP.Primary.Spread = 0
-SWEP.Primary.Force = 70
-SWEP.Primary.Sound = {"weapons/ash12.7/fph12.wav", 85, 100, 110}
-SWEP.Primary.SoundEmpty = {"zcitysnd/sound/weapons/ak74/handling/ak74_empty.wav", 75, 100, 105, CHAN_WEAPON, 2}
-SWEP.Primary.Wait = 0.085
-SWEP.ReloadTime = 5.5
-SWEP.ReloadSoundes = {
-	"none",
-	"none",
-	"weapons/tfa_ins2/akp/ak47/ak47_magout.wav",
-	"none",
-	"weapons/tfa_ins2/akp/ak47/ak47_magin.wav",
-	"weapons/tfa_ins2/akp/aks74u/aks_boltback.wav",
-	"weapons/tfa_ins2/akp/aks74u/aks_boltrelease.wav",
-	"none",
-	"none"
+SWEP.FakeBodyGroups = "011111111" -- Подбери если нужно
+SWEP.CantFireFromCollision = true
+
+SWEP.FakeBodyGroupsPresets = {
+    "011111111"
 }
 
-SWEP.PPSMuzzleEffect = "pcf_jack_mf_mrifle1" -- shared in sh_effects.lua
+SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
+SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
+SWEP.ViewPunchDiv = 30
+
+-- Фейковые звуки (для совместимости)
+SWEP.FakeReloadSounds = {
+    [0.25] = "weapons/ak74/ak74_magout.wav",
+    [0.85] = "weapons/ak74/ak74_magin.wav",
+}
+
+SWEP.FakeEmptyReloadSounds = {
+    [0.25] = "weapons/ak74/ak74_magout.wav",
+    [0.65] = "weapons/ak74/ak74_magin.wav",
+}
+
+SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
+SWEP.FakeReloadEvents = {}
+
+SWEP.FakeVPShouldUseHand = false
+
+SWEP.WepSelectIcon2 = Material("entities/tfa_pd2_ash12.png")
+SWEP.IconOverride = "entities/tfa_pd2_ash12.png"
 
 SWEP.LocalMuzzlePos = Vector(12,0,3)
 SWEP.LocalMuzzleAng = Angle(0,0,0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
+SWEP.CustomShell = "50cal"
+SWEP.ReloadSound = "weapons/remington_870/870_shell_in_1.wav"
+SWEP.CockSound = "pwb2/weapons/ithaca37stakeout/pump.wav"
+SWEP.weight = 5
+SWEP.ScrappersSlot = "Primary"
+SWEP.weaponInvCategory = 1
+SWEP.ShellEject = "RifleShellEject"
+SWEP.AutomaticDraw = false
+SWEP.UseCustomWorldModel = true
+SWEP.ViewPunchDiv = 115
+
+-- Характеристики
+SWEP.Primary.ClipSize = 20
+SWEP.Primary.DefaultClip = 20
+SWEP.Primary.Automatic = true
+SWEP.Primary.Ammo = "12.7x55 mm"
+SWEP.Primary.Damage = 70
+SWEP.Primary.Force = 70
+SWEP.Primary.Cone = 0
+SWEP.Primary.Spread = 0
+-- Звуки выстрела (ASH-12)
+SWEP.Primary.Sound = {"weapons/darsu_eft/ash12/fire/ash12_outdoor_close_1.wav", 85, 100, 100}
+SWEP.SupressedSound = {"weapons/darsu_eft/ash12/fire/ash12_indoor_distant_loop_tail.wav", 65, 100, 100}
+SWEP.Primary.Wait = 0.085 -- ~700 RPM
+SWEP.NumBullet = 1
+
+SWEP.availableAttachments = {
+    sight = {
+        ["mountType"] = "",
+        ["mount"] = Vector(-12, 2, 0),
+    }
+}
+
+SWEP.AnimShootMul = 3
+SWEP.AnimShootHandMul = 10
+SWEP.DeploySnd = {"homigrad/weapons/draw_hmg.mp3", 55, 100, 110}
+SWEP.HolsterSnd = {"homigrad/weapons/hmg_holster.mp3", 55, 100, 110}
 SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(0, 0.0054, 5.4373)
+SWEP.ZoomPos = Vector(0, -3.4054, 4.4373)
 SWEP.RHandPos = Vector(-32, -111, 14)
 SWEP.LHandPos = Vector(37, -2, -2)
+SWEP.Ergonomics = 1.0
 SWEP.Penetration = 11
-SWEP.Spray = {}
-for i = 1, 30 do
-    if i <= 15 then
-        SWEP.Spray[i] = Angle(-0.2, 0, 0)
-    else
-        SWEP.Spray[i] = Angle(0, 0.2, 0)
-    end
-end
-
-SWEP.WepSelectIcon2 = Material("entities/tfa_pd2_ash12.png")
-SWEP.WepSelectIcon2box = true
-SWEP.IconOverride = "entities/tfa_pd2_ash12.png"
-
-SWEP.Ergonomics = 1
 SWEP.WorldPos = Vector(5, -1, -2)
 SWEP.WorldAng = Angle(0, 0, 0)
-SWEP.UseCustomWorldModel = true
 SWEP.attPos = Vector(0, 0, 0)
 SWEP.attAng = Angle(0, 0, 0)
 SWEP.lengthSub = 25
-SWEP.handsAng = Angle(1, -1.5, 0)
-SWEP.DistSound = "ak74/ak74_dist.wav"
 
-SWEP.availableAttachments = {
-	sight = {
-		["mountType"] = {"ironsight", "picatinny"},
-		["mount"] = {["picatinny"] = Vector(-12, 2, 0), ["ironsight"] = Vector(-14, 2, 0)},
-	},
-	mount = {
-		["picatinny"] = {
-			"empty",
-			Vector(-12, 2, 0),
-			{},
-			["mountType"] = "picatinny",
-		},
-	},
-	grip = {
-		["mount"] = Vector(11,-1.3,0),
-		["mountType"] = "picatinny"
-	},
-	underbarrel = {
-		["mount"] = {["picatinny_small"] = Vector(12, -2.9, -1),["picatinny"] = Vector(14,0.8,0)},
-		["mountAngle"] = {["picatinny_small"] = Angle(0, 0, 90),["picatinny"] = Angle(0, 0, 0)},
-		["mountType"] = {"picatinny_small","picatinny"},
-	}
+SWEP.holsteredBone = "ValveBiped.Bip01_Spine2"
+SWEP.holsteredPos = Vector(2, 8, -12)
+SWEP.holsteredAng = Angle(210, 0, 180)
+
+-- СПИСОК АНИМАЦИЙ
+
+SWEP.AnimList = {
+    ["idle"] = "idle",
+    ["idle_empty"] = "idle_empty",
+    ["draw"] = "draw",
+    ["draw_empty"] = "draw",
+    ["holster"] = "holster",
+    ["holster_empty"] = "holster",
+    ["ready"] = "ready",
+    ["fire"] = "fire",
+    ["fire_empty"] = "fire",
+    ["dryfire"] = "fire_dry",
+    ["cycle"] = "bolt0",
+    
+    -- ИСПРАВЛЕННЫЕ ИМЕНА
+    ["reload"] = "reload0", 
+    ["reload_empty"] = "reload_empty0_0", -- Попробуй reload_empty0_0 если не сработает
+    
+    ["inspect"] = "inspect1",
+    ["inspect_empty"] = "inspect1",
+    ["toggle"] = "mod_switch",
 }
 
-SWEP.StartAtt = {"grip2", "ironsight1"}
+-- ПУТЬ К ЗВУКАМ (ASH-12)
+local path = "weapons/darsu_eft/ash12/"
 
-SWEP.weight = 3
+SWEP.AnimsSounds = {
+    ["ready"] = {
+        [0.91] = function(self) self:EmitSound(path .. "ash12_bolt_handle_grab.ogg") end,
+        [1.09] = function(self) self:EmitSound(path .. "ash12_bolt_out.ogg") end,
+        [1.29] = function(self) self:EmitSound(path .. "ash12_bolt_in.ogg") end,
+        [1.47] = function(self) self:EmitSound(path .. "ash12_bolt_handle_bounce.ogg") end,
+    },
+    ["draw"] = {
+        [0] = function(self) self:EmitSound("arc9_eft_shared/weap_in.ogg") end,
+    },
+    ["fire"] = {
+        [0] = function(self) self:EmitSound(path .. "ash12_trigger_hammer.wav") end,
+        [0.02] = function(self) self:EmitSound(path .. "ash12_bolt_handle_bounce.ogg") end,
+    },
+}
 
---local to head
-SWEP.RHPos = Vector(6,-8,4)
-SWEP.RHAng = Angle(-7,-12,90)
---local to rh
-SWEP.LHPos = Vector(10,0.8,-3.7)
-SWEP.LHAng = Angle(-120,180,0)
+SWEP.stupidgun = true
 
-local finger1 = Angle(25,0, 40)
+function SWEP:AnimHoldPost() end
+function SWEP:ModelCreated(model) model:SetBodyGroups(self:GetRandomBodygroups() or "000000000") end
+function SWEP:PostSetupDataTables() self:NetworkVar("String", 0, "RandomBodygroups"); if CLIENT then self:NetworkVarNotify("RandomBodygroups", self.OnVarChanged) end end
+function SWEP:OnVarChanged(name, old, new) if not IsValid(self:GetWM()) then return end self:GetWM():SetBodyGroups(new) end
+function SWEP:InitializePost() self:SetRandomBodygroups(table.Random(self.FakeBodyGroupsPresets)); self.AnimStart_Insert = 0; self.AnimStart_Draw = 0 end
+function SWEP:AnimationPost() local animpos = math.Clamp(self:GetAnimPos_Draw(CurTime()), 0, 1); local sin = 1 - animpos; if sin >= 0.5 then sin = 1 - sin else sin = sin * 1 end; sin = sin * 2; sin = math.ease.InOutSine(sin); if sin > 0 then self.LHPos[1] = 18 - sin * 6; self.RHPos[1] = 1 - sin * 4; self.inanim = true else self.inanim = nil end; local wep = self:GetWeaponEntity(); if CLIENT and IsValid(wep) then wep:ManipulateBonePosition(4, Vector(0, 0, sin * -3), false) end end
+function SWEP:GetAnimPos_Insert(time) return 0 end
+function SWEP:GetAnimPos_Draw(time) return 0 end
 
-SWEP.ShootAnimMul = 3
-function SWEP:DrawPost()
-	local wep = self:GetWeaponEntity()
-	self.vec = self.vec or Vector(0,0,0)
-	local vec = self.vec
-	
-	if CLIENT and IsValid(wep) then
-		self.LHPos = LerpVectorFT(0.2,self.LHPos, self.reload and Vector(0,0.8,-4.7) or Vector(10,0.8,-3.7) )
-		self.shooanim = LerpFT(0.4,self.shooanim or 0,self.ReloadSlideOffset)
-		vec[1] = -2.1*self.shooanim
-		vec[2] = 0.2*self.shooanim
-		vec[3] = -0.1*self.shooanim
-		wep:ManipulateBonePosition(6,vec,false)
-	end
+SWEP.GunCamPos = Vector(6, -12, -5)
+SWEP.GunCamAng = Angle(190, -5, -95)
+local vector_full = Vector(1, 1, 1)
+SWEP.FakeEjectBrassATT = "2"
+
+function SWEP:PrimaryShootPost()
+    self.drawBullet = true
 end
 
-local lfang2 = Angle(12, -15, -1)
-local lfang1 = Angle(25, 0, -5)
-local lfang0 = Angle(-7,15, -30)
-local vec_zero = Vector(0,0,0)
-local ang_zero = Angle(0,0,0)
-function SWEP:AnimHoldPost()
-	self:BoneSet("l_finger0", vec_zero, lfang0)
-	self:BoneSet("l_finger02", vec_zero, ang_zero)
-	self:BoneSet("l_finger1", vec_zero, lfang1)
-	self:BoneSet("l_finger2", vec_zero, lfang2)
+function SWEP:Reload(time)
+    if self.AnimStart_Draw > CurTime() - 0.5 then return end
+    if not self:CanUse() then return end
+    if self.reloadCoolDown > CurTime() then return end
+    if self.Primary.Next > CurTime() then return end
+    if self:GetNetVar("shootgunReload", 0) > CurTime() then return end
+
+    if self:Clip1() >= self.Primary.ClipSize then return end
+
+    local ammoType = self:GetPrimaryAmmoType()
+    if self:GetOwner():GetAmmoCount(ammoType) <= 0 then return end
+
+    if SERVER then
+        local isEmpty = self:Clip1() <= 0
+        local animName = isEmpty and "reload_empty" or "reload"
+        
+        -- Скорость анимации
+        local animSpeed = 5
+        
+        -- Тайминги (примерно из конфига)
+        -- reload_tactical: ~2.8с
+        -- reload_empty: ~4.3с
+        local reloadTime = isEmpty and 4.3 or 2.8
+        
+        self:SetNetVar("shootgunReload", CurTime() + reloadTime)
+        self.reloadCoolDown = CurTime() + reloadTime
+        
+        local wep = self
+        
+        self:PlayAnim(self.AnimList[animName] or animName, animSpeed, false, function()
+            if not IsValid(wep) or not IsValid(wep:GetOwner()) then return end
+            
+            local ammoType = wep:GetPrimaryAmmoType()
+            local currentClip = wep:Clip1()
+            local maxClip = wep.Primary.ClipSize
+            local neededAmmo = maxClip - currentClip
+            local availableAmmo = wep:GetOwner():GetAmmoCount(ammoType)
+            local ammoToLoad = math.min(neededAmmo, availableAmmo)
+            
+            if ammoToLoad > 0 then
+                wep:GetOwner():RemoveAmmo(ammoToLoad, ammoType)
+                wep:SetClip1(currentClip + ammoToLoad)
+            end
+            
+            wep:SetNetVar("shootgunReload", 0)
+            
+            wep.drawBullet = true
+            if isEmpty then
+                net.Start("hgwep draw")
+                    net.WriteEntity(wep)
+                    net.WriteBool(true)
+                    net.WriteFloat(CurTime() - 10) 
+                net.Broadcast()
+            end
+        end, false, true)
+        
+        -- ЗВУКИ ПЕРЕЗАРЯДКИ (ASH-12)
+        if isEmpty then
+            -- reload_empty
+            timer.Simple(0.03, function() if IsValid(wep) then wep:EmitSound(path .. "ak50_gunflip_1.ogg") end end) -- Заглушка, если gunflip нет
+            timer.Simple(0.53, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_mag_out.ogg") end end) -- Быстрый сброс
+            timer.Simple(1.95, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_mag_in.ogg") end end)
+            -- Болт (из конфига reload_empty)
+            timer.Simple(3.3, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_bolt_out.ogg") end end)
+            timer.Simple(3.96, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_bolt_in.ogg") end end)
+        else
+            -- reload_tactical
+            timer.Simple(0.03, function() if IsValid(wep) then wep:EmitSound(path .. "ak50_gunflip_1.ogg") end end) -- Заглушка
+            timer.Simple(0.53, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_mag_out.ogg") end end) -- Быстрый сброс
+            timer.Simple(2.9, function() if IsValid(wep) then wep:EmitSound(path .. "ash12_mag_in.ogg") end end)
+        end
+    end
 end
 
--- RELOAD ANIM AKM
-SWEP.ReloadAnimLH = {
-	Vector(0,0,0),
-	Vector(-1.5,1.5,-9),
-	Vector(-1.5,1.5,-9),
-	Vector(-1.5,1.5,-9),
-	Vector(-6,7,-9),
-	Vector(-15,7,-15),
-	Vector(-15,6,-15),
-	Vector(-13,5,-5),
-	Vector(-1.5,1.5,-9),
-	Vector(-1.5,1.5,-9),
-	Vector(-1.5,1.5,-9),
-	"fastreload",
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-}
+function SWEP:CanPrimaryAttack()
+    return not (self:GetNetVar("shootgunReload", 0) > CurTime())
+end
 
-SWEP.ReloadAnimRH = {
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,1),
-	Vector(8,1,2),
-	Vector(9,4,-4),
-	Vector(9,5,-4),
-	Vector(8,5,-4),
-	Vector(1,5,-3),
-	Vector(1,5,-2),
-	Vector(0,4,-1),
-	Vector(0,5,0),
-	"reloadend",
-	Vector(-2,2,1),
-	Vector(0,0,0),
-}
-
-SWEP.ReloadSlideAnim = {
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	0,
-	3,
-	3,
-	0,
-	0,
-	0,
-	0
-}
-
-
-SWEP.ReloadAnimLHAng = {
-	Angle(0,0,0),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-70,0,110),
-	Angle(-50,0,110),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-90,0,110),
-	Angle(-60,0,95),
-	Angle(0,0,60),
-	Angle(0,0,30),
-	Angle(0,0,2),
-	Angle(0,0,0),
-}
-
-SWEP.ReloadAnimRHAng = {
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(15,0,-50),
-	Angle(15,0,-50),
-	Angle(15,0,-50),
-	Angle(0,0,0),
-}
-
-SWEP.ReloadAnimWepAng = {
-	Angle(0,0,0),
-	Angle(-15,15,-17),
-	Angle(-14,14,-22),
-	Angle(-10,15,-24),
-	Angle(12,14,-23),
-	Angle(11,15,-20),
-	Angle(12,14,-19),
-	Angle(11,14,-20),
-	Angle(7,17,-22),
-	Angle(0,14,-21),
-	Angle(0,15,-22),
-	Angle(0,24,-23),
-	Angle(0,25,-22),
-	Angle(-15,24,-25),
-	Angle(-15,25,-23),
-	Angle(5,0,2),
-	Angle(0,0,0),
-}
-
--- Inspect Assault
-
+SWEP.InspectAnimLH = { Vector(0, 0, 0) }
+SWEP.InspectAnimLHAng = { Angle(0, 0, 0) }
+SWEP.InspectAnimRH = { Vector(0, 0, 0) }
+SWEP.InspectAnimRHAng = { Angle(0, 0, 0) }
 SWEP.InspectAnimWepAng = {
-	Angle(0,0,0),
-	Angle(4,4,15),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(-6,-15,-15),
-	Angle(1,15,-45),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(0,0,0),
-	Angle(0,0,0)
+    Angle(0, 0, 0),
+    Angle(-5, 9, 5),
+    Angle(-5, 9, 14),
+    Angle(-5, 9, 16),
+    Angle(-6, 10, 15),
+    Angle(-5, 9, 16),
+    Angle(-10, 15, -15),
+    Angle(-2, 22, -15),
+    Angle(0, 25, -32),
+    Angle(0, 24, -45),
+    Angle(0, 22, -55),
+    Angle(0, 20, -56),
+    Angle(0, 0, 0)
 }

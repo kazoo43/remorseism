@@ -17,19 +17,19 @@ end
 local function CreateRTVButtonFonts()
     surface.CreateFont("ZCity_RTV_Button", {
         font = "Verily Serif Mono",
-        size = RTVUnit(14),
+        size = ScreenScale(14),
         weight = 200
     })
 
     surface.CreateFont("ZCity_RTV_ButtonTiny", {
         font = "Verily Serif Mono",
-        size = RTVUnit(7),
+        size = ScreenScale(7),
         weight = 200
     })
 
     surface.CreateFont("ZCity_RTV_Voted", {
         font = "Verily Serif Mono",
-        size = RTVUnit(18),
+        size = ScreenScale(18),
         weight = 800
     })
 end

@@ -2615,7 +2615,7 @@ function SWEP:CustomThink()
 
             if CLIENT then goto meleeskip1 end
 
-            if ent:IsWorld() and self:ShouldStopAttackOnWorldHit(1) then
+            if not soft and self:ShouldStopAttackOnWorldHit(1) then
                 self:PlayEffects(trace, false)
                 self:SendMeleeHitStop(1, trace.HitNormal)
                 self:AbortBlockedAttack()
@@ -2750,7 +2750,7 @@ function SWEP:CustomThink()
 
             if CLIENT then goto meleeskip2 end
 
-            if ent:IsWorld() and self:ShouldStopAttackOnWorldHit(2) then
+            if not soft and self:ShouldStopAttackOnWorldHit(2) then
                 self:PlayEffects(trace, true)
                 self:SendMeleeHitStop(2, trace.HitNormal)
                 self:AbortBlockedAttack()
@@ -2908,7 +2908,7 @@ function SWEP:CustomThink()
                     goto meleeskip3
                 end
 
-                if ent:IsWorld() and self:ShouldStopAttackOnWorldHit(3) then
+                if self:ShouldStopAttackOnWorldHit(3) then
                     self:PlayEffects(trace, 3)
                     self:SendMeleeHitStop(3, trace.HitNormal)
                     self:AbortBlockedAttack()

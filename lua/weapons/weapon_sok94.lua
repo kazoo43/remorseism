@@ -42,6 +42,3 @@ SWEP.IconOverride = "entities/rpk.png" --"entities/tfa_ins2_akm_r.png"
 SWEP.Primary.ClipSize = 10
 SWEP.Primary.DefaultClip = 10
 SWEP.Primary.Ammo = ".366 TKM"
-
-SWEP.Primary.Sound = {"weapons/ak74/ak74_tp.wav", 85, 90, 100}
-SWEP.Primary.SoundFP = {"zcitysnd/sound/weapons/sks/sks_fp.wav", 85, 90, 100}

@@ -1,0 +1,394 @@
+local min, max, Round, halfValue2 = math.min, math.max, math.Round, util.halfValue2
+hg.organism.module.pulse = {}
+local module = hg.organism.module.pulse
+module[1] = function(org)
+	org.heart = 0
+	org.heartstop = false
+	org.pulse = 70
+	org.heartbeat = 70
+	org.tempchanging = 0
+	org.heatbuff = 30
+	org.needed_temp = 36.7
+end
+function hg.organism.should_gain_fear(org)
+	return ((org.pain > 30) or (org.blood < 3000) or (org.bleed > 1))
+end
+module[2] = function(owner, org, timeValue)
+	local heart = 1 - org.heart
+	local brain = math.Clamp(1 - org.brain * 1.5,0,1)
+	local o2 = org.o2
+	local o2 = halfValue2(o2[1], o2.range, o2.k)
+	local stamina = org.stamina
+	local pulse = 70-- + 120 * ((stamina.max or 180) - stamina[1]) / (stamina.max or 180) * (org.lungsfunction and 1 or 0)
+	pulse = org.alive and pulse or 0
+	pulse = math.Clamp(pulse, 0, 200)
+	org.pulse = math.Approach(org.pulse, pulse, pulse > org.pulse and timeValue * 2 or timeValue * 2)
+	local k = heart * o2 * (math.Clamp((org.blood - 1000) / 4000,0,1)) * brain * (org.heartstop and 0.1 or 1)
+	pulse = pulse * k
+	pulse = pulse * (math.Clamp(math.Remap(org.temperature, 28, 36.7, 0.5, 1), 0.5, 1))
+	org.pulse = math.Approach(org.pulse, pulse, heart == 0 and timeValue * 10 or timeValue * 5)
+	org.fearadd = math.Clamp(org.fearadd, 0, 3)
+	local heartbeat = org.pulse < 70 and 70 + (70 - org.pulse) * 4 or org.pulse
+	local runnin_or_exhausted = org.analgesia < 1 and (org.stamina.sub > 0 or org.stamina[1] < (org.stamina.max * 0.66))
+	org.heartbeat = math.Approach(org.heartbeat, math.max(heartbeat - 10, runnin_or_exhausted and ((1 - math.min(1, org.stamina[1] / (org.stamina.max * 1))) * 110 + 90) or 60), !runnin_or_exhausted and timeValue * 2 or timeValue * 15)
+	heartbeat = heartbeat + (owner.suiciding and 50 or 0)
+	heartbeat = heartbeat + 40 * math.max(0, org.fear)
+	heartbeat = heartbeat + math.Clamp(org.shock, 0, 40)
+	heartbeat = heartbeat + math.Clamp(org.pain, 40, 80) - 40
+	heartbeat = heartbeat + 40 * math.min(org.adrenaline, 3)
+	heartbeat = heartbeat - 40 * math.min(org.analgesia / 2.5, 1)
+	heartbeat = heartbeat + 100 * math.Clamp(math.Remap(org.temperature, 40, 42, 0, 1), 0, 1)
+	heartbeat = heartbeat - 160 * (1 - math.Clamp(math.Remap(org.temperature, 28, 36.7, 0, 1), 0, 1))
+	org.heartbeat = math.Approach(org.heartbeat, heartbeat, heartbeat > org.heartbeat and timeValue * 5 or timeValue * 3)
+	if org.heartbeat > 300 then
+		org.heartstop = true
+	end
+	if org.heartstop then
+		org.heartbeat = 0
+	end
+	org.fear = math.Approach(org.fear, (org.otrub and 0 or (org.fearadd > 0 and 1 or -1)), org.otrub and timeValue * 0.5 or (org.fearadd > 0 and (org.fear < 0 and timeValue * 5 * org.fearadd or timeValue / 5 * org.fearadd) or (org.fear <= 0 and timeValue / 240 or timeValue / 50)))
+	local gainfear = hg.organism.should_gain_fear(org)
+	org.fearadd = math.Approach(org.fearadd, 0, gainfear and timeValue or timeValue / 4.9)
+	org.fearadd = math.Approach(org.fearadd, 1, gainfear and timeValue / 5 or 0)
+	local adrenK = max(1 + org.adrenaline, 1)
+	local adren = org.adrenaline
+	if org.pulse < 10 or org.brain >= 0.6 then org.heartstop = true end
+	if org.temperature < 28 or org.temperature > 42 then org.heartstop = true end
+	if org.temperature < 34 or org.temperature > 38 or org.blood < 4000 or org.pain > 20 then
+		org.fear = math.max(org.fear, 0)
+	end
+	local needed_temp = math.min(math.max(37 * (org.pulse / 45), 35), 36.7)
+	local changeRate = timeValue / 60
+	changeRate = changeRate * (org.temperature < needed_temp and math.Clamp(org.heatbuff / 60, 1, 2) or 1)
+	if math.abs(org.tempchanging) < changeRate then
+		org.temperature = math.Approach(org.temperature, needed_temp, changeRate)
+	else
+		org.needed_temp = needed_temp
+	end
+	if not org.heartstop then
+		org.last_heartbeat = CurTime()
+	end
+	if org.heartstop and adren > 0 and (org.adrenaline_try or 0) < CurTime() then
+		local chance = math.Clamp(adren * 25,0,25)
+		local rand = math.random(100)
+		org.adrenaline_try = CurTime() + 0.1
+		if chance > rand then org.heartstop = false end
+	end
+	if org.heartstop then
+		org.heartstoptime = org.heartstoptime or CurTime()
+		if org.isPly then
+		end
+	else
+		if org.isPly then
+		end
+		org.heartstoptime = nil
+	end
+	if org.alive and org.heartstoptime and org.heartstoptime + 30 < CurTime() and (org.lastsoundtime or 0) < CurTime() and org.otrub then
+		org.owner:EmitSound("breathing/agonalbreathing_"..math.random(13)..".wav", 60)
+		org.lastsoundtime = CurTime() + math.random(25,35)
+	end
+end
+util.AddNetworkString("pulse")
+function hg.organism.Pulse(owner, org, timeValue)
+	local stamina = org.stamina
+	if org.o2[1] > 1 and org.alive and org.heart < 1 and org.brain < 0.6 then
+	end--brain damage is usually permanent
+	if owner:IsPlayer() and owner:Alive() then
+		net.Start("pulse")
+		net.Send(owner)
+	end
+end
+local CurTime = CurTime
+local time
+local max, min, Round = math.max, math.min, math.Round
+hg.organism.module.blood = {}
+local module = hg.organism.module.blood
+hg.organism.bloodtypes = {
+	["o-"] = {["o-"] = true,["o+"] = true,["a-"] = true,["a+"] = true,["b-"] = true,["b+"] = true,["ab-"] = true,["ab+"] = true},
+	["o+"] = {["o+"] = true,["a+"] = true,["b+"] = true,["ab+"] = true},
+	["a-"] = {["a+"] = true,["a-"] = true,["ab+"] = true,["ab-"] = true},
+	["a+"] = {["a+"] = true,["ab+"] = true},
+	["b-"] = {["b+"] = true,["b-"] = true,["ab+"] = true,["ab-"] = true},
+	["b+"] = {["b+"] = true,["ab+"] = true},
+	["ab-"] = {["ab+"] = true,["ab-"] = true},
+	["ab+"] = {["ab+"] = true},
+	["c-"] = {["c-"] = true,["o-"] = true,["o+"] = true,["a-"] = true,["a+"] = true,["b-"] = true,["b+"] = true,["ab-"] = true,["ab+"] = true},
+}
+module[1] = function(org)
+	org.blood = 5000
+	org.bleed = 0
+	org.internalBleed = 0
+	org.internalBleedHeal = 0
+	org.arteria = 0
+	org.rarmartery = 0
+	org.larmartery = 0
+	org.rlegartery = 0
+	org.llegartery = 0
+	org.spineartery = 0
+	org.bleedStart = 0
+	org.wounds = {}
+	org.arterialwounds = {}
+	org.holdWound = nil
+	org.holdWoundArterial = nil
+	org.wantToVomit = 0
+	org.vomitInThroat = nil
+	org.bloodtype = table.GetKeys(hg.organism.bloodtypes)[math.random(8)]
+	if org.bloodtype == "c-" then
+		org.bloodtype = "o-"
+	end
+	org.hemotransfusionshock = 0
+	org.survivalchance = 1
+end
+local internalbleed_phrases = {
+	"That's... that's blood I just vomited...",
+	"Oh, that's blood...",
+	"Fuck, I just puked blood...",
+	"Oh shit... I don't feel good...",
+}
+local about_to_puke = {
+	"I feel like I'm gonna puke any second now...",
+	"Not feeling good...",
+	"Gonna puke right now...",
+	"I want to vomit...",
+}
+local vecZero = Vector(0, 0, 0)
+local hold_wound_size_threshold = 4
+local hold_wound_pain_threshold = 72
+local hold_wound_painadd_threshold = 8
+local hold_wound_bleed_threshold = 0.35
+local hold_wound_bleed_slow_mul = 0.72
+local hold_wound_bleed_slow_twohand_mul = 0.55
+local hold_wound_arterial_slow_mul = 0.2
+local function hasWound(wounds, target)
+	if not target or not wounds then return false end
+	for i, wound in pairs(wounds) do
+		if wound == target then
+			return true
+		end
+	end
+	return false
+end
+local function getLargestWound(wounds)
+	local best
+	local bestSize = 0
+	for i, wound in pairs(wounds or {}) do
+		local size = wound[1] or 0
+		if size > bestSize then
+			best = wound
+			bestSize = size
+		end
+	end
+	return best, bestSize
+end
+local function updateHoldWound(org)
+	local arteryWound = getLargestWound(org.arterialwounds)
+	if arteryWound then
+		org.holdWound = arteryWound
+		org.holdWoundArterial = true
+		return
+	end
+	if org.holdWoundArterial then
+		org.holdWound = nil
+		org.holdWoundArterial = nil
+	end
+	if org.holdWound and hasWound(org.wounds, org.holdWound) then
+		return
+	end
+	org.holdWound = nil
+	org.holdWoundArterial = nil
+	local wound, woundSize = getLargestWound(org.wounds)
+	if not wound then return end
+	local intensePain = org.pain >= hold_wound_pain_threshold or org.painadd >= hold_wound_painadd_threshold
+	local profuseBleeding = org.bleed >= hold_wound_bleed_threshold
+	if woundSize >= hold_wound_size_threshold and (intensePain or profuseBleeding) then
+		org.holdWound = wound
+		org.holdWoundArterial = false
+	end
+end
+local function getHeldWoundBleedMul(org, wound)
+	if not org.manualHoldWound or org.manualHoldWoundTarget != wound then return 1 end
+	if org.manualHoldWoundArterial then
+		return hold_wound_arterial_slow_mul
+	end
+	if (org.manualHoldWoundHands or 0) >= 2 then
+		return hold_wound_bleed_slow_twohand_mul
+	end
+	return hold_wound_bleed_slow_mul
+end
+module[2] = function(owner, org, mulTime)
+	local adrenaline = math.min(org.adrenaline, 2)
+	if org.vomitInThroat then
+		local ent = hg.GetCurrentCharacter(owner)
+		local bon = "ValveBiped.Bip01_Head1"
+		local bone = ent:LookupBone(bon)
+		local mat = ent:GetBoneMatrix(bone)
+		if mat and mat:GetAngles():Right()[3] < 0.25 then
+			org.vomitInThroat = nil
+			net.Start("bloodsquirt2")
+			net.WriteEntity(ent)
+			net.WriteString(bon)
+			net.WriteMatrix(mat)
+			net.WriteVector(mat:GetTranslation() + mat:GetAngles():Right() * 6 + mat:GetAngles():Forward() * 1)
+			net.WriteVector(mat:GetAngles():Right() * 2 * math.Clamp(org.pulse / 70, 0.4, 1))
+			net.Broadcast()
+			ent:EmitSound("vomit/vomit5.mp3")
+		end
+	end
+	if org.isPly and not org.otrub and org.blood < 2900 then org.owner:Notify(math.random(2) == 1 and "I cant feel anything..." or (math.random(2) == 1 and "I think I'm gonna faint right now...") or "I dont feel so good...",60,"blood2",0) end
+	if org.internalBleed < 0.5 and org.bleed < 0.05 and org.pulse > 5 then
+		org.blood = min(org.blood + mulTime * 5 * (adrenaline * 1.5 + 1) * (org.satiety / 100 + 1) * org.pulse / 70, 5000)
+	end
+	if org.hemotransfusionshock > 0 then
+		org.hemotransfusionshock = math.max(org.hemotransfusionshock - mulTime / 200,0)
+		org.internalBleed = org.internalBleed + mulTime / 30
+	end
+	if org.arteria == 1 then
+		org.o2[1] = math.max(org.o2[1] - mulTime * 5,0)
+	end
+	org.consciousness = math.min(org.consciousness, math.min(org.blood / 3000, 1) * math.Clamp(((org.temperature < 30 and org.temperature - 30 or 0) * 0.25 + 1), 0.25, 1))
+	local beatsPerSecond = max(min(60 / math.max(org.pulse,2) / (org.bleed / 15), 7), 0.3)
+	time = CurTime()
+	local coagulatespeed = 0
+	local bleedoutspeed = 0
+	if #org.wounds > 0 then
+		local ent = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
+		for i, wound in pairs(org.wounds) do
+			local rand1 = math.Rand(4, 10) * 1
+			local rand2 = math.Rand(0.5, 1) * 1
+			local bleed = rand1 * wound[1] * mulTime * math.max(org.pulse, 20) / 70 * 2.0 * (1 - math.min(adrenaline / 6, 0.5)) * org.bleedingmul * 0.02
+			bleed = bleed * getHeldWoundBleedMul(org, wound)
+			local coagulate = 2 * mulTime * rand2 * (adrenaline * 0.1 + 1) * 0.04-- / #org.wounds
+			bleedoutspeed = bleedoutspeed + bleed / rand1 * 3--we pray for the luck of it being in the center
+			coagulatespeed = coagulatespeed + coagulate / rand2 * 1
+			local rand = math.Rand(0, 2) * 2
+				wound[5] = time
+				org.blood = max(org.blood - bleed, 1)
+				if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
+					hg.organism.BloodDroplet2(owner, org, wound, ent:GetVelocity() + VectorRand(-15, 15), false)
+					wound[1] = max(wound[1] - coagulate, 0)
+				end
+				if wound[1] == 0 then table.remove(org.wounds, i) owner:SetNetVar("wounds",org.wounds) end
+		end
+	end
+	if org.heart == 1 then
+		org.blood = math.max(org.blood - mulTime * 100 * org.pulse / 70,0)
+		bleedoutspeed = bleedoutspeed + mulTime * 100 * org.pulse / 70
+	end
+	if org.liver > 0.5 then
+	end
+	bleedoutspeed = bleedoutspeed / (beatsPerSecond + 2)
+	local bleedoutspeed2 = 0
+	local next_arterypump = 1 / math.max(org.pulse, 10)
+	local ent = owner:IsPlayer() and IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
+	for i, wound in pairs(org.arterialwounds) do
+		local arterialBleed = wound[1] * mulTime * 0.2 * math.max(org.pulse, 20) / 80
+		arterialBleed = arterialBleed * getHeldWoundBleedMul(org, wound)
+		bleedoutspeed2 = bleedoutspeed2 + arterialBleed
+		if wound[5] + next_arterypump * 2 < time then
+			local pos, ang = ent:GetBonePosition(ent:LookupBone(wound[4]))
+			wound[5] = time
+			local pumpBleed = wound[1] * mulTime * 4.5 * math.max(org.pulse, 20) / 80
+			pumpBleed = pumpBleed * getHeldWoundBleedMul(org, wound)
+			org.blood = max(org.blood - pumpBleed, 1)
+			if (owner:IsPlayer() and owner:Alive()) or not owner:IsPlayer() then
+				local dir = wound[6]
+				local len = dir:Length()
+				local _, dir = LocalToWorld(vecZero, dir:Angle(), vecZero, ang)
+				dir = -dir:Forward() * len
+				hg.organism.BloodDroplet2(owner, org, wound, owner:GetVelocity() + VectorRand(-10, 10) + dir, true)
+			end
+			if wound[1] == 0 then
+				table.remove(org.arterialwounds, i)
+				owner:SetNetVar("arterialwounds", org.arterialwounds)
+				org[wound[7]] = 0
+			end
+		end
+	end
+	bleedoutspeed2 = bleedoutspeed2 / next_arterypump
+	if org.blood < (2400 / (adrenaline / 3 + 1)) * ((math.cos(CurTime()/2) + 1) / 2 * 0.1 + 1) then org.needotrub = true end
+	local bleed = org.internalBleed / 14
+	org.internalBleed = math.Approach(org.internalBleed, 0, org.internalBleedHeal > 0 and mulTime / 2 or mulTime / 55)
+	coagulatespeed = coagulatespeed + mulTime
+	org.internalBleedHeal = math.Approach(org.internalBleedHeal, 0, mulTime / 2)
+	if bleed > 0 then org.blood = max(org.blood - bleed * mulTime * 10 * org.pulse / 70, 1) end
+	if (org.internalBleed > 1 or org.pneumothorax > 0) and org.blood > 2000 and org.o2[1] > 0 then
+		org.wantToVomit = org.wantToVomit or 0
+		org.wantToVomit = org.wantToVomit + math.Rand(0, org.internalBleed / 1000 + org.pneumothorax / 200) * mulTime * 5
+		if org.wantToVomit > 0.90 then
+		end
+	end
+	if org.wantToVomit > 1 then
+		org.wantToVomit = 0
+		if org.isPly then owner:Notify(internalbleed_phrases[math.random(#internalbleed_phrases)], 15, "internalbleed") end
+		hg.organism.Vomit(owner)
+	end
+	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)
+	local timetouncon = (org.blood - 2500) / org.bleed
+	local bleeding_will_stop = (timetouncon ~= timetouncon) or ((coagulatespeed * timetouncon - org.bleed) > 0)
+	local canwakeup_pain = ((org.pain - 5) / (org.painlessen)) < timetouncon
+	org.timetouncon = (timetouncon ~= timetouncon) and timetouncon or Lerp(hg.lerpFrameTime2(0.01,mulTime), org.timetouncon or 10000, timetouncon)
+	if org.otrub and ((not bleeding_will_stop and not (canwakeup_pain and org.blood > 3000)) or (org.brain > 0.4) or (org.pulse < 15) or (org.o2[1] < 5) or (org.trachea >= 0.5) or org.heartstop or (org.spine3 >= hg.organism.fake_spine3) or (org.spine2 >= hg.organism.fake_spine2)) then
+		org.incapacitated = true
+	else
+		org.incapacitated = false
+	end
+	if (org.brain > 0.4) or (org.heart > 0.6) or (org.trachea >= 0.6) then
+		org.critical = true
+	else
+		org.critical = false
+	end
+	org.bleed = (bleedoutspeed + bleedoutspeed2)
+	updateHoldWound(org)
+end
+util.AddNetworkString("bloodsquirt2")
+function hg.organism.Vomit(owner, snd)
+	if !hg.IsValidPlayer(owner) then return end
+	local org = owner.organism
+	org.blood = math.max(org.blood - 200, 0)
+	local ent = hg.GetCurrentCharacter(owner)
+	local bon = "ValveBiped.Bip01_Head1"
+	local bone = ent:LookupBone(bon)
+	local mat = ent:GetBoneMatrix(bone)
+	if not mat then return end
+	local on_spine = mat:GetAngles():Right()[3] > 0.25
+	if on_spine then
+		org.vomitInThroat = true
+	end
+	owner:SetNetVar("vomiting", CurTime() + 1.5)
+	ent:EmitSound(snd or "zcitysnd/real_sonar/"..(ThatPlyIsFemale(ent) and "female" or "male").."_cough"..math.random(4)..".mp3")
+	if !on_spine then ent:EmitSound("vomit/vomit5.mp3") end
+	if owner.armors and owner.armors.face and hg.armor.face[owner.armors.face].voice_change then
+		owner:SetNetVar("zableval_masku", true)
+	else
+		if !on_spine then
+			net.Start("bloodsquirt2")
+			net.WriteEntity(ent)
+			net.WriteString(bon)
+			net.WriteMatrix(mat)
+			net.WriteVector(mat:GetTranslation() + mat:GetAngles():Right() * 6 + mat:GetAngles():Forward() * 1)
+			net.WriteVector(mat:GetAngles():Right() * 2 * math.Clamp(org.pulse / 70, 0.4, 1))
+			net.Broadcast()
+		end
+	end
+end
+function hg.organism.CoughBlood(org)
+	local ply = org.owner
+	local phr = "zcitysnd/real_sonar/" .. (ThatPlyIsFemale(ply) and "female" or "male") .. "_cough" .. math.random(4) .. ".mp3"
+	ply:EmitSound(phr)
+	ply.phrCld = CurTime() + 2
+	ply.lastPhr = phr
+	if math.random(5) == 1 then
+		org.vomitInThroat = nil
+		net.Start("bloodsquirt2")
+		net.WriteEntity(ent)
+		net.WriteString(bon)
+		net.WriteMatrix(mat)
+		net.WriteVector(mat:GetTranslation() + mat:GetAngles():Right() * 6 + mat:GetAngles():Forward() * 1)
+		net.WriteVector(mat:GetAngles():Right() * 2 * math.Clamp(org.pulse / 70, 0.4, 1))
+		net.Broadcast()
+		ent:EmitSound("vomit/vomit5.mp3")
+	end
+end
+function hg.organism.BloodDroplet2(owner, org, wound, dir, artery)
+	hook.Run("HG_BloodParticleStartedDropping", owner, org, wound, dir, artery)
+end

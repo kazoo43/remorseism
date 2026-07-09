@@ -99,6 +99,8 @@ local list = {
 	{"rlegamputated", true, true},
 	{"larmamputated", true, true},
 	{"rarmamputated", true, true},
+	{"lhandamputated", true, true},
+	{"rhandamputated", true, true},
 	0,
 	"likely_phrase",
 	{"alive", true}, 

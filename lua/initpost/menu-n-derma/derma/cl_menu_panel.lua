@@ -2,9 +2,9 @@ local PANEL = {}
 local curent_panel 
 local red_select = Color(192,0,0)
 local menu_music_default_path = "sound/rem_mainmenu.mp3"
-local menu_music_appearance_path = "sound/rem_appearencemenu.mp3"
+local menu_music_appearance_path = "sound/theyouthinmyblood.mp3"
 local menu_music_flags = "noblock noplay"
-local menu_music_volume = 0.25
+local menu_music_volume = 0.6
 local menu_music_fade_speed = 1.8
 local menu_music_station
 local menu_music_station_path
@@ -523,7 +523,20 @@ function PANEL:CreateAppearancePreview()
     holder.TargetY = targetY
     holder.ClosedY = ScrH()
     holder:SetMouseInputEnabled(false)
-    holder.Paint = function() end
+    holder.Paint = function(this, w, h)
+        local c = 180
+        local len = MenuUnit(24)
+        local gap = MenuUnit(4)
+        surface.SetDrawColor(c, c, c, 180)
+        surface.DrawRect(gap, gap, len, 2)
+        surface.DrawRect(gap, gap, 2, len)
+        surface.DrawRect(w - gap - len, gap, len, 2)
+        surface.DrawRect(w - gap - 2, gap, 2, len)
+        surface.DrawRect(gap, h - gap - 2, len, 2)
+        surface.DrawRect(gap, h - gap - len, 2, len)
+        surface.DrawRect(w - gap - len, h - gap - 2, len, 2)
+        surface.DrawRect(w - gap - 2, h - gap - len, 2, len)
+    end
     holder.Think = function(this)
         if not this.AppearanceFollow then return end
         local x, y = this:GetPos()
@@ -569,11 +582,19 @@ function PANEL:CreateAppearancePreview()
         local appearance = self.AppearanceTable
         if not appearance or not hg or not hg.Appearance or not hg.Appearance.PlayerModels then return end
 
+        ent.CurAppearance = appearance
+        ent.PreviewAppearanceColor = appearance.AColor
+        ent.PreviewAccessoryColors = appearance.AAttachmentColors
+
         local modelData = hg.Appearance.PlayerModels[1][appearance.AModel] or hg.Appearance.PlayerModels[2][appearance.AModel]
         if not modelData or not modelData.mdl then return end
 
         local colorData = appearance.AColor or color_white
         ent:SetNWVector("PlayerColor", Vector((colorData.r or 255) / 255, (colorData.g or 255) / 255, (colorData.b or 255) / 255))
+
+        local heightScale = (appearance.AHeight or 100) / 100
+        local bodyScale = (appearance.ABodySize or 100) / 100
+        ent:SetModelScale(math.Clamp(heightScale, 0.85, 1.25) * math.Clamp(bodyScale, 0.85, 1.25))
 
         local targetPos = Vector(0, 0, 0)
         if self.OwnerMenu and self.OwnerMenu.DisconnectCutscene then
@@ -954,34 +975,23 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
 
         for _, child in ipairs(luaMenu:GetChildren()) do
             if child ~= luaMenu.panelparrent and not (strTitle == "Appearance" and child == luaMenu.previewHolder) then
-                child:AlphaTo(0, 0.2, 0, function()
-                    if IsValid(child) then child:SetVisible(false) end
-                end)
+                child:SetAlpha(0)
+                child:SetVisible(false)
             end
         end
 
         luaMenu.SwitchingPanel = true
-        local oldPanel = luaMenu.panelparrent
-        local function openPanel()
-            if IsValid(luaMenu.panelparrent) then
-                luaMenu.panelparrent:Remove()
-            end
-            luaMenu.panelparrent = vgui.Create("DPanel", luaMenu)
-            
-            luaMenu.panelparrent:SetPos(0, 0)
-            luaMenu.panelparrent:SetSize(ScrW(), ScrH())
-            luaMenu.panelparrent:MoveToFront()
-            luaMenu.panelparrent.Paint = function(this, w, h) end
-            btn.Func(luaMenu,luaMenu.panelparrent)
-            curent_panel = string.lower(strTitle)
-            luaMenu.SwitchingPanel = false
+        if IsValid(luaMenu.panelparrent) then
+            luaMenu.panelparrent:Remove()
         end
-
-        if IsValid(oldPanel) then
-            oldPanel:AlphaTo(0,0.2,0,openPanel)
-        else
-            openPanel()
-        end
+        luaMenu.panelparrent = vgui.Create("DPanel", luaMenu)
+        luaMenu.panelparrent:SetPos(0, 0)
+        luaMenu.panelparrent:SetSize(ScrW(), ScrH())
+        luaMenu.panelparrent:MoveToFront()
+        luaMenu.panelparrent.Paint = function(this, w, h) end
+        btn.Func(luaMenu,luaMenu.panelparrent)
+        curent_panel = string.lower(strTitle)
+        luaMenu.SwitchingPanel = false
     end
 
     function btn:Think()

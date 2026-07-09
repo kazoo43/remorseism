@@ -1,48 +1,47 @@
 SWEP.Base = "homigrad_base"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
-SWEP.PrintName = "HK MP7"
+SWEP.PrintName = "MP7"
 SWEP.Author = "Heckler & Koch"
-SWEP.Instructions = "Submachine gun chambered in 4.6x30 mm\n\nRate of fire 950 rounds per minute"
+SWEP.Instructions = "The MP7 is a modern German Personal Defense Weapon (PDW) designed to penetrate body armor. Compact and polymer-built, it fires the unique 4.6x30mm cartridge at a high rate of fire. Introduced in 2001, it is widely used by special forces and police units worldwide."
 SWEP.Category = "Weapons - Machine-Pistols"
 SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
-SWEP.WorldModel = "models/weapons/w_smg_mp5.mdl"
-SWEP.WorldModelFake = "models/weapons/tfa_ins2/c_mp7.mdl"
-
-SWEP.FakePos = Vector(-9.5, 3.05, 5.77)
+SWEP.WorldModel = "models/tfa_ins2_wpns/steyrmp40/w_mp40.mdl"
+SWEP.WorldModelFake = "models/weapons/c_tarkov_mp7.mdl"
+//SWEP.FakeScale = 1.2
+SWEP.FakePos = Vector(-9.5, 2.05, 5.77)
 SWEP.FakeAng = Angle(0, 0, 0)
-SWEP.AttachmentPos = Vector(-0.3,-0.22,-0.8)
-SWEP.AttachmentAng = Angle(0,0,90)
+SWEP.AttachmentPos = Vector(0.3,-0.95,0.25)
+SWEP.AttachmentAng = Angle(0,0,0)
+SWEP.FakeBodyGroups = "00100"
+//SWEP.MagIndex = 53
+//MagazineSwap
+--Entity(1):GetActiveWeapon():GetWM():AddLayeredSequence(Entity(1):GetActiveWeapon():GetWM():LookupSequence("delta_foregrip"),1)
+--PrintBones(Entity(1):GetActiveWeapon():GetWM())
 
-
-SWEP.CanEpicRun = true
-SWEP.EpicRunPos = Vector(2,10,7)
-//SWEP.IsPistol = true
+-- ОБЫЧНАЯ ПЕРЕЗАРЯДКА
 SWEP.FakeReloadSounds = {
-	[0.22] = "weapons/universal/uni_crawl_l_03.wav",
-	[0.4] = "weapons/tfa_ins2/mp7/magout.wav",
-
-	[0.65] = "weapons/universal/uni_crawl_l_02.wav",
-	[0.8] = "weapons/tfa_ins2/mp7/magin.wav",
+	[0.22] = "weapons/universal/uni_crawl_l_03.wav", -- Одежда
+	[0.35] = "weapons/mp7/mp7_mag_out.wav",           -- Вытаскиваем магазин
+	[0.65] = "weapons/universal/uni_crawl_l_02.wav", -- Шуршание
+	[0.78] = "weapons/mp7/mp7_mag_in.wav",            -- Вставляем магазин
 	[0.94] = "weapons/universal/uni_crawl_l_04.wav",
-	--[0.9] = "zcitysnd/sound/weapons/m9/handling/m9_maghit.wav",
-
 }
+
+-- ПЕРЕЗАРЯДКА ПРИ ПУСТОМ МАГАЗИНЕ
 SWEP.FakeEmptyReloadSounds = {
 	[0.16] = "weapons/universal/uni_crawl_l_03.wav",
-	[0.25] = "weapons/tfa_ins2/mp7/magout.wav",
-
-	[0.42] = "weapons/universal/uni_crawl_l_02.wav",
-	[0.62] = "weapons/tfa_ins2/mp7/magin.wav",
-	[0.72] = "weapons/universal/uni_crawl_l_05.wav",
-	[0.83] = "weapons/tfa_ins2/mp7/boltback.wav",
-	[0.92] = "weapons/tfa_ins2/mp7/boltrelease.wav",
-	[1.02] = "weapons/universal/uni_crawl_l_04.wav",
-	--[0.9] = "zcitysnd/sound/weapons/m9/handling/m9_maghit.wav",
-
+	[0.22] = "weapons/mp7/mp7_mag_button.wav",        -- Кнопка сброса
+	[0.30] = "weapons/mp7/mp7_mag_out.wav",            -- Выпадение
+	[0.60] = "weapons/mp7/mp7_mag_in.wav",             -- Вставка нового
+	
+	-- Работа затвором (рукоятка сзади)
+	[0.82] = "weapons/mp7/mp7_bolt_na_tebya.wav",     -- Тянем на себя
+	[0.90] = "weapons/mp7/mp7_bolt_ot_tebya.wav",     -- Отпускаем (от себя)
 }
+
 SWEP.MagModel = "models/eu_homicide/mp7_magazine.mdl"
 local vector_full = Vector(1,1,1)
 
@@ -82,23 +81,23 @@ SWEP.FakeReloadEvents = {
 SWEP.AnimList = {
 	["idle"] = "base_idle",
 	["reload"] = "base_reload",
-	["reload_empty"] = "base_reload_empty",
+	["reload_empty"] = "base_reloadempty",
 }
 
-SWEP.WepSelectIcon2 = Material("vgui/hud/tfa_ins2_mp7.png")
-SWEP.IconOverride = "vgui/hud/tfa_ins2_mp7.png"
+SWEP.WepSelectIcon2 = Material("entities/arc9_eft_mp7a1.png")
+SWEP.IconOverride = "entities/arc9_eft_mp7a1.png"
 
-SWEP.CustomShell = "556x45"
+SWEP.CustomShell = "9x19"
 //SWEP.EjectPos = Vector(-2.5,0,-3)
 SWEP.EjectAng = Angle(0,40,-15)
 
 SWEP.ShockMultiplier = 2
 
 SWEP.holsteredBone = "ValveBiped.Bip01_Spine2"
-SWEP.holsteredPos = Vector(4, 9, 0)
-SWEP.holsteredAng = Angle(210, -5, 180)
+SWEP.holsteredPos = Vector(4, 8, -3)
+SWEP.holsteredAng = Angle(210, 0, 180)
 
-SWEP.LocalMuzzlePos = Vector(15.528,0.013,1.613)
+SWEP.LocalMuzzlePos = Vector(15.528,0.5,4)
 SWEP.LocalMuzzleAng = Angle(0.25,-0.026,0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
@@ -106,8 +105,8 @@ SWEP.weight = 2.5
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
 SWEP.ShellEject = "EjectBrass_57"
-SWEP.Primary.ClipSize = 40
-SWEP.Primary.DefaultClip = 40
+SWEP.Primary.ClipSize = 30
+SWEP.Primary.DefaultClip = 30
 SWEP.Primary.Automatic = true
 SWEP.Primary.Ammo = "4.6x30 mm"
 SWEP.Primary.Cone = 0
@@ -118,28 +117,28 @@ SWEP.animposmul = 2
 SWEP.Primary.Sound = {"homigrad/weapons/pistols/ump45-3.wav", 75, 120, 130}
 SWEP.Primary.Wait = 0.05
 
-SWEP.WepSelectIcon2 = Material("vgui/hud/tfa_ins2_mp7.png")
+SWEP.WepSelectIcon2 = Material("entities/arc9_eft_mp7a1.png")
 
 SWEP.availableAttachments = {
 	barrel = {
-		[1] = {"supressor2", Vector(0,0,0), {}},
-		[2] = {"supressor6", Vector(0,0,0), {}},
+		[1] = {"supressor4", Vector(0,0,0), {}},
+		[2] = {"supressor3", Vector(0,0,0), {}},
 		["mount"] = Vector(-2,1.3,0),
 	},
 	sight = {
-		["mount"] = Vector(-10, 2.95, -0.17),
+		["mount"] = Vector(-9, 2.95, -0.17),
 		["mountType"] = "picatinny",
 		["empty"] = {"empty", {}},
 		["removehuy"] = {},
 	},
 	underbarrel = {
-		["mount"] = {picatinny_small = Vector(9, 0.78, -0.1),picatinny = Vector(12, 1.8, -0.21)},
-		["mountAngle"] = {picatinny_small = Angle(1, 0, 0),picatinny = Angle(0.4, 0, 0)},
+		["mount"] = {picatinny_small = Vector(9, 0.78, -0.1),picatinny = Vector(12, -0.3, 0.8)},
+		["mountAngle"] = {picatinny_small = Angle(1, 0, 0),picatinny = Angle(0.4, 0, 90)},
 		["mountType"] = {"picatinny_small","picatinny"}
 	}
 }
 
-SWEP.ReloadTime = 4.5
+SWEP.ReloadTime = 3
 SWEP.ReloadSoundes = {
 	"none",
 	"none",
@@ -159,7 +158,7 @@ SWEP.ReloadSoundes = {
 SWEP.PPSMuzzleEffect = "muzzleflash_FAMAS" -- shared in sh_effects.lua
 
 SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(-3, 0.2258, 5.0211)
+SWEP.ZoomPos = Vector(-3, -0.63, 4.6)
 SWEP.RHandPos = Vector(1, -1, 0)
 SWEP.LHandPos = false
 SWEP.Spray = {}
@@ -169,7 +168,7 @@ end
 
 SWEP.Ergonomics = 1.1
 SWEP.Penetration = 9
-SWEP.WorldPos = Vector(-3, 0, -2.5)
+SWEP.WorldPos = Vector(-2, 0, -2.5)
 SWEP.WorldAng = Angle(0, 0, 0)
 SWEP.UseCustomWorldModel = true
 SWEP.lengthSub = 30
@@ -288,17 +287,33 @@ SWEP.ReloadSlideAnim = {
 
 -- Inspect Assault
 
+SWEP.InspectAnimLH = {
+	Vector(0,0,0)
+}
+SWEP.InspectAnimLHAng = {
+	Angle(0,0,0)
+}
+SWEP.InspectAnimRH = {
+	Vector(0,0,0)
+}
+SWEP.InspectAnimRHAng = {
+	Angle(0,0,0)
+}
 SWEP.InspectAnimWepAng = {
 	Angle(0,0,0),
-	Angle(4,4,15),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(-6,-15,-15),
-	Angle(1,15,-45),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(0,0,0),
+	Angle(15,0,5),
+	Angle(15,0,14),
+	Angle(15,0,14),
+	Angle(15,0,15),
+	Angle(15,0,16),
+	Angle(12,0,5),
+	Angle(2,0,-15),
+	Angle(0,0,-45),
+	Angle(0,0,-45),
+	Angle(0,0,-45),
+	Angle(0,0,-45),
+	Angle(5,15,-65),
+	Angle(5,15,-65),
+	Angle(4,15,-65),
 	Angle(0,0,0)
 }

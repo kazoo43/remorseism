@@ -45,69 +45,130 @@ local function CheckAttachments(ply,tbl)
 end
 
 local function ForceApplyAppearance(ply, tbl, noModelChange)
+    local classModelLocked = {
+        bloodz = true,
+        combine = true,
+        commanderforces = true,
+        furry = true,
+        gordon = true,
+        groove = true,
+        headcrabzombie = true,
+        infection_zombie = true,
+        metrocop = true,
+        nationalguard = true,
+        police = true,
+        rebel = true,
+        refugee = true,
+        slugcat = true,
+        swat = true,
+        ukr = true,
+        wagner = true
+    }
+
+    local function getRoundName()
+        if zb and isstring(zb.CROUND) and zb.CROUND ~= "" then
+            return string.lower(zb.CROUND)
+        end
+        local rnd = CurrentRound and CurrentRound() or nil
+        if istable(rnd) and isstring(rnd.name) then
+            return string.lower(rnd.name)
+        end
+        return ""
+    end
+
+    local function shouldUseAccessoriesOnly(ent)
+        if not IsValid(ent) or not ent:IsPlayer() then return false end
+
+        local roundName = getRoundName()
+        if roundName == "survival" or roundName == "superfighters" then
+            return false
+        end
+
+        local className = string.lower(ent.PlayerClassName or "")
+        if className == "" then return false end
+        return classModelLocked[className] == true
+    end
+
+    tbl.AAttachmentColors = tbl.AAttachmentColors or {}
+    local accessoriesOnly = shouldUseAccessoriesOnly(ply)
+
     local tMdl = APmodule.PlayerModels[1][tbl.AModel] or APmodule.PlayerModels[2][tbl.AModel] or tbl.AModel
     local mdl = istable(tMdl) and tMdl.mdl or tMdl
-    if mdl ~= ply:GetModel() and !noModelChange then
+    if mdl ~= ply:GetModel() and !noModelChange and not accessoriesOnly then
         ply:SetModel(mdl)
     end
 
-    local clr = tbl.AColor
-    if ply.SetPlayerColor then
-        ply:SetPlayerColor(Vector(clr.r / 255,clr.g / 255,clr.b / 255))
-    end
-    ply:SetNWVector( "PlayerColor", Vector(clr.r / 255,clr.g / 255,clr.b / 255) )
+    if not accessoriesOnly then
+        local clr = tbl.AColor
+        local vecColor = Vector(clr.r / 255,clr.g / 255,clr.b / 255)
+        if ply.SetPlayerColor then
+            ply:SetPlayerColor(vecColor)
+        end
+        ply:SetNWVector( "PlayerColor", vecColor )
 
-    ply:SetSubMaterial()
+        ply:SetSubMaterial()
 
-    local mats = ply:GetMaterials()
-    --PrintTable(mats)
-    if istable(tMdl) then
-        for k, v in pairs(tMdl.submatSlots) do
-            --print(k)
-            local slot = 1
-            for i = 1, #mats do
-                --print(mats[i], v,mats[i] == v, i)
-                if mats[i] == v then slot = i-1 break end
+        local mats = ply:GetMaterials()
+        --PrintTable(mats)
+        if istable(tMdl) then
+            for k, v in pairs(tMdl.submatSlots) do
+                --print(k)
+                local slot = 1
+                for i = 1, #mats do
+                    --print(mats[i], v,mats[i] == v, i)
+                    if mats[i] == v then slot = i-1 break end
+                end
+                ply:SetSubMaterial(slot, hg.Appearance.Clothes[tMdl.sex and 2 or 1][tbl.AClothes[k]] or hg.Appearance.Clothes[tMdl.sex and 2 or 1]["normal"] )
+                ply:SetNWString("Colthes" .. k,tbl.AClothes[k] or "normal")
+                --print("true")
             end
-            ply:SetSubMaterial(slot, hg.Appearance.Clothes[tMdl.sex and 2 or 1][tbl.AClothes[k]] or hg.Appearance.Clothes[tMdl.sex and 2 or 1]["normal"] )
-            ply:SetNWString("Colthes" .. k,tbl.AClothes[k] or "normal")
-            --print("true")
         end
-    end
-    for i = 1, #mats do
-        if hg.Appearance.FacemapsSlots[mats[i]] and hg.Appearance.FacemapsSlots[mats[i]][tbl.AFacemap] then
-            ply:SetSubMaterial(i - 1, hg.Appearance.FacemapsSlots[mats[i]][tbl.AFacemap])
+        for i = 1, #mats do
+            if hg.Appearance.FacemapsSlots[mats[i]] and hg.Appearance.FacemapsSlots[mats[i]][tbl.AFacemap] then
+                ply:SetSubMaterial(i - 1, hg.Appearance.FacemapsSlots[mats[i]][tbl.AFacemap])
+            end
         end
-    end
 
-    ply:SetNWString("PlayerName", tbl.AName)
-    ply:SetBodyGroups( "00000000000000000000" )
-    --print(mdl)
-    --if mdl == "models/zcity/m/male_09.mdl" and ply:SteamID() == "STEAM_0:1:163575696" then
-    --    timer.Simple(0,function()
-    --    ply:SetBodygroup( 1,7 )
-    --    end)
-    --end
+        ply:SetNWString("PlayerName", tbl.AName)
+        ply:SetBodyGroups( "00000000000000000000" )
 
-    local bodygroups = ply:GetBodyGroups()
-    tbl.ABodygroups = tbl.ABodygroups or {}
-    for k, v in ipairs(bodygroups) do
-        if !v.name then continue end
-        if !tbl.ABodygroups[v.name] then continue end
-        if !hg.Appearance.Bodygroups[v.name] then continue end
-        --PrintTable(hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1])
-        for i = 0, #v.submodels do
-            local b = v.submodels[i]
-            if !hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]] then continue end
-            if hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]][1] != b then continue end
-            ply:SetBodygroup(k-1,i)
+        local bodygroups = ply:GetBodyGroups()
+        tbl.ABodygroups = tbl.ABodygroups or {}
+        for k, v in ipairs(bodygroups) do
+            if !v.name then continue end
+            if !tbl.ABodygroups[v.name] then continue end
+            if !hg.Appearance.Bodygroups[v.name] then continue end
+            for i = 0, #v.submodels do
+                local b = v.submodels[i]
+                if !hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]] then continue end
+                if hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]][1] != b then continue end
+                ply:SetBodygroup(k-1,i)
+            end
         end
     end
 
     ply:SetNetVar("Accessories", tbl.AAttachments)
+    ply:SetNetVar("AccessoryColors", tbl.AAttachmentColors)
 
     ply.CurAppearance = {}
     table.CopyFromTo(tbl, ply.CurAppearance)
+end
+
+local function SyncAppearanceColor(ply)
+    if not IsValid(ply) then return end
+
+    local appearance = ply.CurAppearance
+    if not appearance or not appearance.AColor then return end
+
+    local clr = appearance.AColor
+    local vecColor = Vector(clr.r / 255, clr.g / 255, clr.b / 255)
+
+    if ply.SetPlayerColor then
+        ply:SetPlayerColor(vecColor)
+    end
+
+    ply:SetNWVector("PlayerColor", vecColor)
+    ply:SetNetVar("AccessoryColors", appearance.AAttachmentColors or {})
 end
 
 
@@ -167,9 +228,23 @@ net.Receive("OnlyGet_Appearance",function(len,client)
     local bRandom = !tAppearance or table.IsEmpty(tAppearance)
     --client:ChatPrint(bRandom)
     client.CachedAppearance = bRandom and APmodule.GetRandomAppearance() or tAppearance
+    if not bRandom and APmodule.AppearanceValidater(client.CachedAppearance) then
+        WearAppearance(client, table.Copy(client.CachedAppearance))
+    end
 end)
 
 APmodule.ApplyAppearance = ApplyAppearance
+APmodule.SyncAppearanceColor = SyncAppearanceColor
+
+hook.Add("PlayerSpawn", "HG_AppearanceLockPlayerColor", function(ply)
+    timer.Simple(0, function()
+        SyncAppearanceColor(ply)
+    end)
+
+    timer.Simple(0.25, function()
+        SyncAppearanceColor(ply)
+    end)
+end)
 
 -- Ragdoll apply
 function ApplyAppearanceRagdoll(ent, ply)
@@ -177,6 +252,7 @@ function ApplyAppearanceRagdoll(ent, ply)
     if !Appearance then return end
     ent:SetNWString("PlayerName", ply:GetNWString("PlayerName", Appearance.AName))
     ent:SetNetVar("Accessories", ply:GetNetVar("Accessories",""))
+    ent:SetNetVar("AccessoryColors", ply:GetNetVar("AccessoryColors", Appearance.AAttachmentColors or {}))
 
     local tMdl = APmodule.PlayerModels[1][ent:GetModel()] or APmodule.PlayerModels[2][ent:GetModel()] or ent:GetModel()
     if istable(tMdl) then

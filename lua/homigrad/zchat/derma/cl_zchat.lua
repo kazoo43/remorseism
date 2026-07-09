@@ -78,22 +78,10 @@ local chatMinHeight = 140
 local chatHatHeight = 20
 local chatHatGap = 0
 local chatHatWidthPadding = 0
-local chatHatTickerSpeed = 32
-local chatHatTickerPadding = 8
-local chatHatTickerSpacing = 16
 local settingsRowHeight = 36
 local settingsSliderWidth = 120
 local settingsNumberWidth = 60
 local settingsStringWidth = 170
-local chatHatText = {
-	"Do you feel remorse?",
-	"Hold ALT to whisper.",
-	"True wisdom.",
-	"Theres nothing you can do.",
-	"You can kick down doors eventually.",
-	"Check their pulses."
-}
-
 local function RunZChatConVar(name, value)
 	RunConsoleCommand(name, tostring(value))
 end
@@ -132,34 +120,6 @@ local function PaintHatPanel(self, w, h)
 	surface.DrawRect(0, 0, w, h)
 	surface.SetDrawColor(chatOutlineColor)
 	surface.DrawOutlinedRect(0, 0, w, h, 1)
-
-	local reserved = IsValid(self.settingsButton) and (self.settingsButton:GetWide() + 12) or 38
-	local clipX = chatHatTickerPadding
-	local clipW = math.max(0, w - reserved - clipX)
-	if clipW <= 0 then return end
-	if #chatHatText <= 0 then return end
-
-	surface.SetFont("zChatFontHat")
-	local index = self.tickerIndex or 1
-	local tickerText = tostring(chatHatText[index] or "")
-	local tw = surface.GetTextSize(tickerText)
-	local now = RealTime()
-
-	self.tickerLast = self.tickerLast or now
-	self.tickerOffset = self.tickerOffset or -tw
-	self.tickerOffset = self.tickerOffset + math.max(0, now - self.tickerLast) * chatHatTickerSpeed
-	self.tickerLast = now
-
-	if self.tickerOffset > clipW + chatHatTickerSpacing then
-		self.tickerIndex = index % #chatHatText + 1
-		self.tickerOffset = -surface.GetTextSize(tostring(chatHatText[self.tickerIndex] or ""))
-	end
-
-	local x1, y1 = self:LocalToScreen(clipX, 1)
-	local x2, y2 = self:LocalToScreen(clipX + clipW, h - 1)
-	render.SetScissorRect(x1, y1, x2, y2, true)
-	draw.SimpleText(tickerText, "zChatFontHat", clipX + self.tickerOffset, h * 0.5, settingsColorWhite, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-	render.SetScissorRect(0, 0, 0, 0, false)
 end
 
 local function PaintSettingsButton(self, w, h)

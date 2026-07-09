@@ -83,19 +83,12 @@ local LegacyTraitorLoadout = {
 	}
 }
 
-local TraitorSkillsetSubRoles = {
-	["infiltrator"] = "traitor_infiltrator",
-	["assassin"] = "traitor_assasin",
-	["chemist"] = "traitor_chemist",
-}
-
 local function ApplyTraitorLoadout(ply)
 	local loadout = ParseLoadoutString(ply:GetInfo("hmcd_traitor_loadout"))
 	if not loadout.skillset and not istable(loadout.weapons) then loadout = LegacyTraitorLoadout end
 
 	local skillset = loadout.skillset or "none"
 	local weaponsList = loadout.weapons or {}
-	ply.SubRole = TraitorSkillsetSubRoles[skillset] or ply.SubRole
 
 	ply.organism.stamina.max = 220
 	ply.organism.recoilmul = 1

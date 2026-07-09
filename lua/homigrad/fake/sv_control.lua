@@ -443,6 +443,31 @@ hook.Add("Think", "Fake", function()
 		power = power * org.consciousness
 		ragdoll.power = power
 
+		if org.neckslit and not org.otrub and org.arterialwounds and not table.IsEmpty(org.arterialwounds) then
+			local neckwound
+			for i, wound in pairs(org.arterialwounds) do
+				if wound[7] == "arteria" then
+					neckwound = wound
+					break
+				end
+			end
+
+			if neckwound and ragdoll:LookupBone(neckwound[4]) then
+				local bone = ragdoll:LookupBone(neckwound[4])
+				local neckpos, neckang = ragdoll:GetBonePosition(bone)
+				if neckpos and neckang then
+					local right = neckang:Right()
+					local forward = neckang:Forward()
+					local up = neckang:Up()
+					local leftpos = neckpos + right * -3 + forward * 2 + up * -1
+					local rightpos = neckpos + right * 3 + forward * 2 + up * -1
+					shadowControl(ragdoll, 5, 0.001, nil, nil, nil, leftpos, 100, 20)
+					shadowControl(ragdoll, 7, 0.001, nil, nil, nil, rightpos, 100, 20)
+					shadowControl(ragdoll, 10, 0.001, nil, nil, nil, neckpos, 50, 10)
+				end
+			end
+		end
+
 		local inmove = false
 		
 		local ragdollcombat = hg.RagdollCombatInUse(ply)
@@ -1102,11 +1127,28 @@ hook.Add("Think", "Fake", function()
 			--print("huy")
 		end
 
-		if ply:KeyDown(IN_MOVELEFT) and ragdoll:IsOnFire() and not inmove and !ply:InVehicle() then
+		local keyLeft = false
+		local keyRight = false
+		local isNeckSlitRolling = false
+
+		if org.neckslit and not org.otrub and ply:Alive() and not ply:InVehicle() then
+			local phase = (CurTime() * 1.5) % 4
+			if phase < 1 then
+				keyLeft = true
+				isNeckSlitRolling = true
+			elseif phase >= 2 and phase < 3 then
+				keyRight = true
+				isNeckSlitRolling = true
+			end
+		else
+			keyLeft = ply:KeyDown(IN_MOVELEFT)
+			keyRight = ply:KeyDown(IN_MOVERIGHT)
+		end
+
+		if keyLeft and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
 			if org.canmove then
 				local angle = spine:GetAngles()
 				angle[3] = angle[3] - 20 * (ragdoll:IsOnFire() and 1.5 or 1)
-				--ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
 				shadowControl(ragdoll, 1, 0.001, angle, 490, 90)
 				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
 
@@ -1129,7 +1171,7 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-		if ply:KeyDown(IN_MOVERIGHT) and ragdoll:IsOnFire() and not inmove and !ply:InVehicle() then
+		if keyRight and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
 			if org.canmove and not org.otrub then
 				local angle = spine:GetAngles()
 				angle[3] = angle[3] + 20 * (ragdoll:IsOnFire() and 1.5 or 1)

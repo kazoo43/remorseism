@@ -118,7 +118,53 @@ local tbl = {
 				posAdjust = Vector(5,2,1),
 				angClamps = { {-55}, {55} },
 			}},
-	}
+	},
+	["models/weapons/c_ofges_model.mdl"] = {
+		["acknowledge"] = {seq = "ofges_acknowledge", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["wait"] = {seq = "ofges_wait", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["danger"] = {seq = "ofges_danger", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["thanks"] = {seq = "ofges_thanks", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["omw"] = {seq = "ofges_omw", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["regroup"] = {seq = "ofges_regroup", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["help"] = {seq = "ofges_help", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["hello"] = {seq = "ofges_hello", playTime = 2.0,
+			otherData = {
+				posAdjust = Vector(6,2,1),
+				angClamps = { {-55}, {55} },
+			}},
+		["point_of"] = {seq = "ofges_point", playTime = 2.0,
+			otherData = {
+				angClamps = { {-55}, {55} },
+			}},
+	},
 }
 
 hg.ZManipAnims = {}

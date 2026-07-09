@@ -1,3 +1,5 @@
+include("sh_bullet_pickup.lua")
+
 SWEP.Base = "weapon_base"
 SWEP.PrintName = "base_hg"
 SWEP.Category = "Other"

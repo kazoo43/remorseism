@@ -118,6 +118,8 @@ local limbs = {
 	["rleg"] = "ValveBiped.Bip01_R_Calf",
 	["larm"] = "ValveBiped.Bip01_L_Forearm",
 	["rarm"] = "ValveBiped.Bip01_R_Forearm",
+	["lhand"] = "ValveBiped.Bip01_L_Hand",
+	["rhand"] = "ValveBiped.Bip01_R_Hand",
 }
 
 hook.Add("HG_OrganismChanged", "explodelegs", function(oldorg, org)

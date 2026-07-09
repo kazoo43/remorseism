@@ -100,6 +100,7 @@ hook.Add("OnScreenSizeChanged", "ZCity_Settings_Fonts", CreateSettingsFonts)
 CreateSettingsFonts()
 
 hg.settings:AddOpt("Gameplay","hg_old_notificate", "Old Notifications")
+hg.settings:AddOpt("Gameplay","hg_cheats", "Enable Cheats")
 hg.settings:AddOpt("Gameplay","hg_showthoughts", "Show thoughts")
 hg.settings:AddOpt("Gameplay","hg_hints", "Show hints")
 hg.settings:AddOpt("Gameplay","hg_gary", "HG GARY")
@@ -246,13 +247,12 @@ local isValidMainMenuPanel = false
 
 local info_sections = {
     {title = "Rank", key = "rank"},
-    {title = "Credits", key = "credits", disabled = true, disabledColor = Color(105, 105, 105, 180)},
-    {title = "Socials", key = "socials"}
+    {title = "Credits", key = "credits"}
 }
-local info_credit_lines = {
-    "PLACEHOLDER",
-    "PLACEHOLDER",
-    "PLACEHOLDER"
+local info_credit_entries = {
+    {name = "Ваше Имя", merit = "Заслуга / вклад"},
+    {name = "Ещё Имя", merit = "Что-то сделал"},
+    {name = "Третий Человек", merit = "Помог с чем-то"}
 }
 local info_fallback_band = {
     icon = Material("vgui/mats_jack_awards/10")
@@ -265,38 +265,6 @@ local info_stat_rows = {
     {"Deaths", "Deaths"},
     {"Suicides", "Suicides"}
 }
-local info_social_links = {
-    {
-        title = "Lapse",
-        subtitle = "In judgement. (Official Community Server)",
-        url = DISCORD_URL or "https://discord.gg/Tgz7N58PzV",
-        icon = Material("vgui/lapseinjudgement.png", "smooth")
-    },
-    {
-        title = "Z-CITY English Community Server",
-        subtitle = "Official community server for the Z-CITY repository. (ENG)",
-        url = "https://discord.gg/SjqRcv3yYY",
-        icon = Material("vgui/zcityeng.png", "smooth")
-    },
-    {
-        title = "Z-CITY Russian Community Server",
-        subtitle = "Official community server for the Z-CITY repository. (RUS)",
-        url = "https://discord.gg/475EmEdTgH",
-        icon = Material("vgui/zcityrus.png", "smooth")
-    },
-    {
-        title = "Community Hub (RENCHDEDSEX'S ZCITY SERVER)",
-        subtitle = "If you are looking for a more vanilla-ish BETTER alternative.",
-        url = "https://discord.gg/3UrJapj6kF",
-        icon = Material("vgui/communhub.png", "smooth")
-    }
-}
-local info_social_icon_size = MenuUnit(24)
-local info_social_icon_x = MenuUnit(18)
-local info_social_text_x = MenuUnit(54)
-local info_social_button_w = MenuUnit(72)
-local info_social_button_h = MenuUnit(24)
-local info_social_button_right = MenuUnit(18)
 local info_active_section = nil
 local info_section_buttons = {}
 local info_content_panel = nil
@@ -1180,6 +1148,28 @@ function InfoRefreshContent()
         bandLabel:SetContentAlignment(5)
         bandLabel:SetText("")
 
+        profileBlock.LastSkill = nil
+        profileBlock.LastExp = nil
+        function profileBlock:Think()
+            local ply = LocalPlayer()
+            if not IsValid(ply) then return end
+            local skill = ply.skill or 0
+            local exp = ply.exp or 0
+            if skill == (self.LastSkill or 0) and exp == (self.LastExp or 0) then return end
+            self.LastSkill = skill
+            self.LastExp = exp
+            local Band, Medal = zb.Experience.GetAwards({skill = skill, exp = exp})
+            if Band then
+                medalPanel.Band = Band
+                medalPanel.Medal = Medal
+            end
+            playerLabel:SetText(ply:Nick())
+            xpLabel:SetText("Experience: " .. math.Round(exp))
+            skillLabel:SetText("Skill: " .. math.Round(skill, 3))
+            medalLabel:SetText("Medal: " .. (Medal and Medal.name or "None"))
+            bandLabel:SetText("Band: " .. (Band and Band.name or "None"))
+        end
+
         profileBlock.PerformLayout = function(self, w, h)
             local medalSize = math.min(MenuUnit(200), math.max(MenuUnit(130), math.floor(w * 0.28)))
             medalPanel:SetSize(medalSize, medalSize)
@@ -1235,6 +1225,18 @@ function InfoRefreshContent()
             value:SetTextColor(settings_color_text)
             value:SetText("0")
             value:SizeToContents()
+            value.StatKey = statData[2]
+            function value:Think()
+                local ply = LocalPlayer()
+                if not IsValid(ply) then return end
+                local val = ply.SvDB and ply.SvDB[self.StatKey]
+                if val == nil then return end
+                local str = tostring(math.Round(val))
+                if self:GetText() ~= str then
+                    self:SetText(str)
+                    self:SizeToContents()
+                end
+            end
 
             statCards[#statCards + 1] = {
                 key = statData[2],
@@ -1264,6 +1266,18 @@ function InfoRefreshContent()
         kdValue:SetTextColor(settings_color_text)
         kdValue:SetText("0.00")
         kdValue:SizeToContents()
+        function kdValue:Think()
+            local ply = LocalPlayer()
+            if not IsValid(ply) then return end
+            local kills = ply.SvDB and ply.SvDB["Kills"] or 0
+            local deaths = ply.SvDB and ply.SvDB["Deaths"] or 0
+            local kd = deaths > 0 and math.Round(kills / deaths, 2) or kills
+            local str = string.format("%.2f", kd)
+            if self:GetText() ~= str then
+                self:SetText(str)
+                self:SizeToContents()
+            end
+        end
 
         statsGrid.PerformLayout = function(self, w, h)
             local gap = MenuUnit(8)
@@ -1439,7 +1453,7 @@ function InfoRefreshContent()
             draw.RoundedBox(2, 1, 1, w - 2, h - 2, col)
         end
 
-        for _, line in ipairs(info_credit_lines) do
+        for _, entry in ipairs(info_credit_entries) do
             local row = vgui.Create("DPanel", scroll)
             row:Dock(TOP)
             row:DockMargin(0, 0, 0, MenuUnit(10))
@@ -1451,73 +1465,19 @@ function InfoRefreshContent()
                 surface.DrawRect(0, h - MenuUnit(1), w, MenuUnit(1))
             end
 
-            local text = vgui.Create("DLabel", row)
-            text:SetPos(MenuUnit(18), MenuUnit(18))
-            text:SetFont("ZCity_Menu_Settings_Small")
-            text:SetTextColor(settings_color_text)
-            text:SetText(line)
-            text:SizeToContents()
-        end
+            local name = vgui.Create("DLabel", row)
+            name:SetPos(MenuUnit(18), MenuUnit(18))
+            name:SetFont("ZCity_Menu_Settings_Small")
+            name:SetTextColor(settings_color_text)
+            name:SetText(entry.name or "")
+            name:SizeToContents()
 
-    elseif sectionKey == "socials" then
-        local scroll = vgui.Create("DScrollPanel", info_content_panel)
-        scroll:Dock(FILL)
-        scroll:DockMargin(MenuUnit(24), MenuUnit(24), MenuUnit(24), MenuUnit(24))
-        scroll.Paint = function() end
-
-        local sbar = scroll:GetVBar()
-        sbar:SetWide(MenuUnit(4))
-        sbar:SetHideButtons(true)
-        function sbar:Paint(w, h)
-            surface.SetDrawColor(0, 0, 0, 80)
-            surface.DrawRect(0, 0, w, h)
-        end
-        function sbar.btnGrip:Paint(w, h)
-            local col = self:IsHovered() and settings_color_whitey or settings_color_dim
-            draw.RoundedBox(2, 1, 1, w - 2, h - 2, col)
-        end
-
-        for _, social in ipairs(info_social_links) do
-            local row = vgui.Create("DButton", scroll)
-            row:Dock(TOP)
-            row:DockMargin(0, 0, 0, MenuUnit(10))
-            row:SetTall(MenuUnit(70))
-            row:SetText("")
-            row.HoverLerp = 0
-            row.DoClick = function()
-                if social.url and social.url ~= "" then
-                    gui.OpenURL(social.url)
-                end
-            end
-            row.Think = function(self)
-                self.HoverLerp = LerpFT(0.2, self.HoverLerp or 0, self:IsHovered() and 1 or 0)
-            end
-            row.Paint = function(self, w, h)
-                local alpha = 120 + 30 * (self.HoverLerp or 0)
-                local iconSize = info_social_icon_size
-                local iconX = info_social_icon_x
-                local iconY = math.floor(h * 0.5 - iconSize * 0.5)
-                local buttonW = info_social_button_w
-                local buttonH = info_social_button_h
-                local buttonX = w - info_social_button_right - buttonW
-                local buttonY = math.floor(h * 0.5 - buttonH * 0.5)
-                surface.SetDrawColor(20, 20, 30, alpha)
-                surface.DrawRect(0, 0, w, h)
-                surface.SetDrawColor(settings_color_whitey.r, settings_color_whitey.g, settings_color_whitey.b, 80 + 80 * (self.HoverLerp or 0))
-                surface.DrawRect(0, h - MenuUnit(1), w, MenuUnit(1))
-                if social.icon then
-                    surface.SetMaterial(social.icon)
-                    surface.SetDrawColor(255, 255, 255, 220)
-                    surface.DrawTexturedRect(iconX, iconY, iconSize, iconSize)
-                end
-                draw.SimpleText(social.title, "ZCity_Menu_Settings_Small", info_social_text_x, MenuUnit(20), settings_color_text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                draw.SimpleText(social.subtitle, "ZCity_Menu_Settings_Tiny", info_social_text_x, MenuUnit(42), settings_color_text_dim, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-                surface.SetDrawColor(0, 0, 0, 245)
-                surface.DrawRect(buttonX, buttonY, buttonW, buttonH)
-                surface.SetDrawColor(255, 255, 255, 210)
-                surface.DrawOutlinedRect(buttonX, buttonY, buttonW, buttonH, 1)
-                draw.SimpleText("Join", "ZCity_Menu_Settings_Tiny", buttonX + buttonW * 0.5, buttonY + buttonH * 0.5, settings_color_whitey, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-            end
+            local merit = vgui.Create("DLabel", row)
+            merit:SetPos(MenuUnit(18), MenuUnit(40))
+            merit:SetFont("ZCity_Menu_Settings_Tiny")
+            merit:SetTextColor(settings_color_text_dim)
+            merit:SetText(entry.merit or "")
+            merit:SizeToContents()
         end
     end
 end
@@ -1742,7 +1702,7 @@ function hg.DrawInformation(ParentPanel)
     headerHint:SetPos(MenuUnit(25), MenuUnit(45))
     headerHint:SetFont("ZCity_Menu_Settings_Tiny")
     headerHint:SetTextColor(settings_color_text_dim)
-    headerHint:SetText("View rank and social links")
+    headerHint:SetText("View rank and credits")
     headerHint:SizeToContents()
 
     local contentHolder = vgui.Create("DPanel", mainPanel)

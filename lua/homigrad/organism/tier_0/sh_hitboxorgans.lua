@@ -48,8 +48,12 @@ function hg.organism.ShootMatrix(ent, organs)
 			local additional = organ[7]
 			if additional then
 				local ent = ent:IsPlayer() and ent or ent:IsRagdoll() and IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
-				if ent and ent.armors and not table.HasValue(ent.armors,organ[1]) then
-					continue
+				if ent and ent.armors then
+					if type(additional) == "string" then
+						if not ent.armors[additional] then continue end
+					elseif not table.HasValue(ent.armors, organ[1]) then
+						continue
+					end
 				end
 			end
 			mins = -organ[5]

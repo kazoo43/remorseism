@@ -11,15 +11,11 @@ local VoteCD = 0
 -- RTV CL Functions
 local BlurBackground = hg.BlurBackground
 
-local function RTVUnit(num)
-    return math.floor(num * math.min(ScrW(), ScrH()) / 1000)
-end
-
 function zb.RTVMenu()
     system.FlashWindow()
 
     local RTVMenu = vgui.Create("ZB_RTVMenu")
-    RTVMenu:SetSize(math.min(RTVUnit(760), ScrW() - RTVUnit(40)), math.min(RTVUnit(760), ScrH() - RTVUnit(40)))
+    RTVMenu:SetSize(math.min(ScrW() * 0.58, 860), ScrH() * 0.86)
     RTVMenu:Center()
     RTVMenu:SetTitle("")
     RTVMenu:SetBackgroundBlur(true)
@@ -30,15 +26,15 @@ function zb.RTVMenu()
 
     local MAPSPanel = vgui.Create("DPanel", RTVMenu)
     MAPSPanel:Dock(FILL)
-    MAPSPanel:DockMargin(RTVUnit(12), RTVUnit(48), RTVUnit(12), RTVUnit(18))
+    MAPSPanel:DockMargin(ScreenScale(12), ScreenScale(48), ScreenScale(12), ScreenScale(18))
     function MAPSPanel.Paint() end
 
     local selectedButton
     for k, v in ipairs(maps) do
         local MapButton = vgui.Create("ZB_RTVButton", MAPSPanel)
         MapButton:Dock(TOP)
-        MapButton:DockMargin(0, 0, 0, RTVUnit(4))
-        MapButton:SetSize(0, RTVUnit(34))
+        MapButton:DockMargin(0, 0, 0, ScreenScale(4))
+        MapButton:SetSize(0, ScreenScale(34))
         
         if v == "random" then
             MapButton:SetText("Random Map")
@@ -84,8 +80,8 @@ function zb.RTVMenu()
     end
 
     local button = vgui.Create("DButton", RTVMenu)
-    button:SetPos(RTVMenu:GetWide() - RTVUnit(48), RTVUnit(12))
-    button:SetSize(RTVUnit(36), RTVUnit(14))
+    button:SetPos(RTVMenu:GetWide() - ScreenScale(48), ScreenScale(12))
+    button:SetSize(ScreenScale(36), ScreenScale(14))
     button:SetText("")
 
     function button:Paint(w, h)

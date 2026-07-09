@@ -533,6 +533,18 @@ properties.Add( "amputate_limb", {
 		rleg:SetChecked(ent.organism.rleg > 0)
 		rleg:SetIsCheckable(true)
 		rleg.OnChecked = function(s, checked) self:AmputateLimb(ent, 4) end
+
+		local lhand = submenu:AddOption("Left Hand")
+		lhand:SetRadio(true)
+		lhand:SetChecked(ent.organism.lhandamputated)
+		lhand:SetIsCheckable(true)
+		lhand.OnChecked = function(s, checked) self:AmputateLimb(ent, 5) end
+
+		local rhand = submenu:AddOption("Right Hand")
+		rhand:SetRadio(true)
+		rhand:SetChecked(ent.organism.rhandamputated)
+		rhand:SetIsCheckable(true)
+		rhand.OnChecked = function(s, checked) self:AmputateLimb(ent, 6) end
 	end,
 
 	AmputateLimb = function( self, ent, id )
@@ -562,6 +574,10 @@ properties.Add( "amputate_limb", {
 			hg.organism.AmputateLimb(ent.organism, "lleg")
 		elseif limb == 4 then
 			hg.organism.AmputateLimb(ent.organism, "rleg")
+		elseif limb == 5 then
+			hg.organism.AmputateLimb(ent.organism, "lhand")
+		elseif limb == 6 then
+			hg.organism.AmputateLimb(ent.organism, "rhand")
 		end
 	end
 } )

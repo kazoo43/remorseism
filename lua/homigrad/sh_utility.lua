@@ -1328,7 +1328,7 @@ local IsValid = IsValid
 			return false
 		end
 
-		if ent.organism and ent.organism.larmamputated then
+		if ent.organism and (ent.organism.larmamputated or ent.organism.lhandamputated) then
 			return false
 		end
 
@@ -1356,7 +1356,7 @@ local IsValid = IsValid
 			return false
 		end
 
-		if ent.organism and ent.organism.rarmamputated then
+		if ent.organism and (ent.organism.rarmamputated or ent.organism.rhandamputated) then
 			return false
 		end
 

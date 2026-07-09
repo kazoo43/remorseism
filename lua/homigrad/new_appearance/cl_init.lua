@@ -1,11 +1,12 @@
 hg.Appearance = hg.Appearance or {}
+hg.Accessories = hg.Accessories or {}
 
 -- File manager
 
 hg.Appearance.SelectedAppearance = ConVarExists("hg_appearance_selected") and GetConVar("hg_appearance_selected") or CreateClientConVar("hg_appearance_selected","main",true,false,"name of selected appearance json file")
 hg.Appearance.ForcedRandom = ConVarExists("hg_appearance_force_random") and GetConVar("hg_appearance_force_random") or CreateClientConVar("hg_appearance_force_random","0",true,false,"forced appearance random",0,1)
 
-local dir = "zcity/appearances/"
+local dir = "ZCity/appearances/"
 function hg.Appearance.CreateAppearanceFile(strFile_name, tblAppearance)
 	file.CreateDir(dir)
 	file.Write(dir .. strFile_name .. ".json", util.TableToJSON(tblAppearance, true) )
@@ -55,7 +56,7 @@ local function OnlyGetAppearance()
 
     net.SendToServer()
 
-	if not tbl and not forced_random and reason then lply:ChatPrint("[Appearance] file load failed - " .. reason) end
+	if not tbl and not forced_random then lply:ChatPrint("[Appearance] file load failed - " .. (reason or "unknown error")) end
 end
 
 net.Receive("OnlyGet_Appearance", OnlyGetAppearance)
@@ -116,6 +117,7 @@ function RenderAccessories(ply, accessories, setup)
 	if istable(accessories) then
 		for k = 1, #accessories do
 			local accessoriess = accessories[k]
+			if not accessoriess or accessoriess == "none" then continue end
 			local accessData = hg.Accessories[accessoriess]
 			if not accessData then continue end
 			if accessData.needcoolRender then continue end
@@ -132,6 +134,77 @@ function RenderAccessories(ply, accessories, setup)
 end
 
 local huy_addvec = Vector(0.4,0,0.4)
+
+local function NormalizeAppearanceColor(colorValue)
+	if IsColor(colorValue) then return colorValue end
+	if isvector(colorValue) then
+		return Color(colorValue.x * 255, colorValue.y * 255, colorValue.z * 255, 255)
+	end
+	if istable(colorValue) and colorValue.r and colorValue.g and colorValue.b then
+		return Color(colorValue.r, colorValue.g, colorValue.b, colorValue.a or 255)
+	end
+	if istable(colorValue) and colorValue[1] and colorValue[2] and colorValue[3] then
+		return Color(colorValue[1], colorValue[2], colorValue[3], colorValue[4] or 255)
+	end
+end
+
+
+local function NormalizeAppearanceVector(colorValue)
+	if isvector(colorValue) then return colorValue end
+
+	local clr = NormalizeAppearanceColor(colorValue)
+	if not clr then return end
+
+	return Vector(clr.r / 255, clr.g / 255, clr.b / 255)
+end
+
+
+local function GetAppearanceModelData(ply, ent)
+	local appearance = ent and ent.CurAppearance or ply.CurAppearance
+	if not appearance or not appearance.AModel then return end
+
+	return hg.Appearance.PlayerModels[1][appearance.AModel] or hg.Appearance.PlayerModels[2][appearance.AModel]
+end
+
+
+
+
+
+
+local function GetAppearanceBaseColor(ply, ent)
+	local previewColor = ent and ent.PreviewAppearanceColor
+	if previewColor then
+		return NormalizeAppearanceColor(previewColor)
+	end
+
+	local appearance = ent and ent.CurAppearance or ply.CurAppearance
+	if appearance and appearance.AColor then
+		return NormalizeAppearanceColor(appearance.AColor)
+	end
+
+	return color_white
+end
+
+local function GetAccessoryColorOverride(ply, ent, accessoryKey)
+	local previewColors = ent and ent.PreviewAccessoryColors
+	local previewColor = previewColors and previewColors[accessoryKey]
+	if previewColor then
+		return NormalizeAppearanceColor(previewColor)
+	end
+
+	local appearance = ent and ent.CurAppearance or ply.CurAppearance
+	local storedColor = appearance and appearance.AAttachmentColors and appearance.AAttachmentColors[accessoryKey]
+	if storedColor then
+		return NormalizeAppearanceColor(storedColor)
+	end
+
+	local netColors = (ent and ent.GetNetVar and ent:GetNetVar("AccessoryColors", nil)) or (ply.GetNetVar and ply:GetNetVar("AccessoryColors", nil))
+	local netColor = netColors and netColors[accessoryKey]
+	if netColor then
+		return NormalizeAppearanceColor(netColor)
+	end
+end
+
 function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 	if not accessories then return end
 	if not accessData then return end
@@ -153,11 +226,8 @@ function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 			model:AddEffects(EF_BONEMERGE)
 		end
 		if accessData["bSetColor"] then
-			if ply.GetPlayerColor then 
-				model:SetColor(ply:GetPlayerColor():ToColor())
-			else
-				model:SetColor(ply:GetNWVector("PlayerColor",Vector(1,1,1)):ToColor())
-			end
+			local accessoryColor = GetAccessoryColorOverride(ply, ent, accessories)
+			model:SetColor(accessoryColor or GetAppearanceBaseColor(ply, ent))
 		end
 
 		if accessData["SubMat"] then
@@ -201,10 +271,15 @@ function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 		return
 	end
 
+	if islply and accessData.hideWhenAim and ply:IsPlayer() and ply:KeyDown(IN_ATTACK2) then
+		return
+	end
+
 	if ply.organism and hg.amputatedlimbs2[accessData["bone"]] and ent.organism and ent.organism[hg.amputatedlimbs2[accessData["bone"]].."amputated"] then return end
 
+	local bone
 	if setup != false then
-		local bone = ent:LookupBone(accessData["bone"])
+		bone = ent:LookupBone(accessData["bone"])
 		if not bone then return end
 		if ent:GetManipulateBoneScale(bone):LengthSqr() < 0.1 then return end
 		local matrix = ent:GetBoneMatrix(bone)
@@ -225,8 +300,8 @@ function DrawAccesories(ply, ent, accessories,accessData, islply, force, setup)
 	if model:GetParent() != ent then model:SetParent(ent, bone) end
 	if !(islply and accessData.norender) and (!setup or accessData.bonemerge) then
 		if accessData["bSetColor"] then
-			local colorDraw = accessData["vecColorOveride"] or ( ply.GetPlayerColor and ply:GetPlayerColor() or ply:GetNWVector("PlayerColor",Vector(1,1,1)) )
-			render.SetColorModulation( colorDraw[1],colorDraw[2],colorDraw[3] )
+			local colorDraw = NormalizeAppearanceColor(GetAccessoryColorOverride(ply, ent, accessories) or accessData["vecColorOveride"] or GetAppearanceBaseColor(ply, ent))
+			render.SetColorModulation( colorDraw.r / 255, colorDraw.g / 255, colorDraw.b / 255 )
 		end
 		
 		model:DrawModel()
@@ -306,40 +381,28 @@ function DrawAppearance(ent, ply, setup)
 
 		local pos,_ = LocalToWorld(flpos,flang,pos,handmat:GetAngles())
 
-		if IsValid(ply.flmodel) and (ply ~= LocalPlayer() or ply ~= GetViewEntity()) then
-			local veclh,lang = hg.FlashlightTransform(ply)
+		if IsValid(ply.flmodel) then
+			ply.flmodel:SetRenderOrigin(pos)
+			ply.flmodel:SetRenderAngles(ply:EyeAngles())
 		end
 
 		ply.flmodel:DrawModel()
 
-		ply.flashlight = IsValid(ply.flashlight) and ply.flashlight or ProjectedTexture()
-		if ply.flashlight and ply.flashlight:IsValid() and (ply.FlashlightUpdateTime or 0) < CurTime() then
-			local flash = ply.flashlight
-			ply.FlashlightUpdateTime = CurTime() + 0.01
-			flash:SetTexture(mat3:GetTexture("$basetexture"))
-			flash:SetFarZ(1500)
-			flash:SetHorizontalFOV(60)
-			flash:SetVerticalFOV(60)
-			flash:SetConstantAttenuation(0.1)
-			flash:SetLinearAttenuation(50)
-			flash:SetPos(ply.flmodel:GetPos() + ply.flmodel:GetAngles():Forward() * (ply:GetVelocity():Length() / 10 + 15))
-			flash:SetAngles(ply.flmodel:GetAngles())
-			flash:Update()
+		if not IsValid(ply.flashlight) then
+			ply.flashlight = ProjectedTexture()
+			ply.flashlight:SetTexture(mat3:GetTexture("$basetexture"))
+			ply.flashlight:SetFarZ(1500)
+			ply.flashlight:SetHorizontalFOV(60)
+			ply.flashlight:SetVerticalFOV(60)
+			ply.flashlight:SetConstantAttenuation(0.1)
+			ply.flashlight:SetLinearAttenuation(50)
 		end
-
-		--[[ply.dlight = DynamicLight( ply:EntIndex() )
-		if ( ply.dlight ) then
-			ply.dlight.pos = ply.flmodel:GetPos()
-			ply.dlight.r = 255
-			ply.dlight.g = 255
-			ply.dlight.b = 255
-			ply.dlight.brightness = -3
-			ply.dlight.decay = 400
-			ply.dlight.size = 100
-			ply.dlight.dietime = CurTime() + 0.1
-		else
-			ply.dlight = DynamicLight( ply:EntIndex() )
-		end--]]
+		
+		if ply.flashlight and ply.flashlight:IsValid() then
+			ply.flashlight:SetPos(ply.flmodel:GetPos() + ply.flmodel:GetAngles():Forward() * 8)
+			ply.flashlight:SetAngles(ply.flmodel:GetAngles())
+			ply.flashlight:Update()
+		end
 
 		local view = render.GetViewSetup(true)
 		local deg = ply.flmodel:GetAngles():Forward():Dot(view.angles:Forward())
@@ -370,7 +433,9 @@ hook.Add("RenderScreenspaceEffects","AppearanceShitty",function()
 	local acsses = ply:GetNetVar("Accessories", "none")
 
 	if istable(acsses) then
-		for k,accessoriess in ipairs(acsses) do
+		for k = 1, #acsses do
+			local accessoriess = acsses[k]
+			if not accessoriess or accessoriess == "none" then continue end
 			local accessData = hg.Accessories[accessoriess]
 			if not accessData then continue end
 			if ply.armors and accessData["placement"] and ply.armors[accessData["placement"]] then continue end
@@ -425,6 +490,7 @@ function CoolRenderAccessories(ply, accessories)
 	if istable(accessories) then
 		for k = 1, #accessories do
 			local accessoriess = accessories[k]
+			if not accessoriess or accessoriess == "none" then continue end
 			local accessData = hg.Accessories[accessoriess]
 			if not accessData then continue end
 			if not accessData.needcoolRender then continue end

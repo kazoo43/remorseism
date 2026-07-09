@@ -119,10 +119,10 @@ hg.bonetohitgroup = bonetohitgroup
 hg.amputeetable = {
 	--["ValveBiped.Bip01_L_UpperArm"] = "larm",
 	["ValveBiped.Bip01_L_Forearm"] = "larm",
-	["ValveBiped.Bip01_L_Hand"] = "larm",
+	["ValveBiped.Bip01_L_Hand"] = "lhand",
 	--["ValveBiped.Bip01_R_UpperArm"] = "rarm",
 	["ValveBiped.Bip01_R_Forearm"] = "rarm",
-	["ValveBiped.Bip01_R_Hand"] = "rarm",
+	["ValveBiped.Bip01_R_Hand"] = "rhand",
 	--["ValveBiped.Bip01_L_Thigh"] = "lleg",
 	["ValveBiped.Bip01_L_Calf"] = "lleg",
 	["ValveBiped.Bip01_L_Foot"] = "lleg",
@@ -159,6 +159,8 @@ local limbs = {
 	["rleg"] = "ValveBiped.Bip01_R_Calf",
 	["larm"] = "ValveBiped.Bip01_L_Forearm",
 	["rarm"] = "ValveBiped.Bip01_R_Forearm",
+	["lhand"] = "ValveBiped.Bip01_L_Hand",
+	["rhand"] = "ValveBiped.Bip01_R_Hand",
 }
 
 local function getHeadImpactPos(ent, fallback)
@@ -211,10 +213,12 @@ function hg.organism.AmputateLimb(org, limb)
 		hg.organism.AddWoundManual(org.owner, 50, vec + VectorRand(-2, 2), ang, boneup, CurTime() + math.Rand(0, 2))
 	end
 
-	local dmgInfo = DamageInfo()
-	hg.organism.input_list[limb.."up"](org, 0, 5, dmgInfo)
+    if hg.organism.input_list[limb.."up"] then
+        local dmgInfo = DamageInfo()
+        hg.organism.input_list[limb.."up"](org, 0, 5, dmgInfo)
+    end
 
-	org.owner:EmitSound(sounds[math.random(#sounds)], 70, math.random(95, 105), 2)
+    org.owner:EmitSound(sounds[math.random(#sounds)], 70, math.random(95, 105), 2)
 	
 	local ent = hg.GetCurrentCharacter(org.owner)
 	SpawnMeatGore(ent, select(1, ent:GetBonePosition(ent:LookupBone(bone))), 4)
@@ -1453,6 +1457,24 @@ local function velocityDamage(ent, data)
 
 	local org = ent.organism
 	if org.godmode then return end
+
+	-- Armor protection vs physical/fall damage
+	local armorDmgMul = 1
+	local eqArmors = org.owner.armors or {}
+	if hitgroup == HITGROUP_CHEST or hitgroup == HITGROUP_STOMACH then
+		local a = eqArmors["torso"]
+		if a and hg.armor.torso[a] then
+			armorDmgMul = math.Clamp(1 - (hg.armor.torso[a].protection or 0) / 40, 0.25, 1)
+		end
+	elseif hitgroup == HITGROUP_HEAD then
+		local a = eqArmors["head"]
+		if a and hg.armor.head[a] then
+			armorDmgMul = math.Clamp(1 - (hg.armor.head[a].protection or 0) / 40, 0.3, 1)
+		end
+	end
+	dmg = dmg * armorDmgMul
+
+
 	org.fearadd = org.fearadd + dmg * 0.5
 
 	if not org.superfighter then

@@ -94,6 +94,9 @@ local function playBloodDripImpact(pos, tr)
 end
 
 local function decalBlood(pos, normal, tr, artery, owner)
+	if not pos or not normal then return end
+	if normal:LengthSqr() < 0.0001 then normal = vector_up end
+
 	local vec = tostring(math.Round(pos[1]))..tostring(math.Round(pos[2]))..tostring(math.Round(pos[3]))
 
 	hg.bloodcount = hg.bloodcount + 1

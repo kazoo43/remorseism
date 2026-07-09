@@ -81,6 +81,35 @@ local function getArmorDropVelocity(dmgInfo)
 	return force
 end
 
+local function DropDependentArmorRecursive(ply, basePlacement, baseArmor, visited)
+	visited = visited or {}
+	if visited[baseArmor] then return end
+	visited[baseArmor] = true
+
+	if not istable(ply.armors) then return end
+
+	for depPlacement, depArmor in pairs(ply.armors) do
+		if depArmor == baseArmor then continue end
+		local depData = hg.armor[depPlacement] and hg.armor[depPlacement][depArmor]
+		if not depData then continue end
+
+		local req = depData.requireEquipped or depData.requiresArmor or depData.requiredArmor
+		if not req then continue end
+
+		local reqPlacement, reqArmor
+		if isstring(req) then
+			reqPlacement, reqArmor = hg.GetArmorPlacement(req), req
+		elseif istable(req) and isstring(req.placement) then
+			reqPlacement, reqArmor = req.placement, req.armor
+		end
+
+		if reqPlacement == basePlacement and (not reqArmor or reqArmor == baseArmor) then
+			hg.DropArmorForce(ply, depArmor)
+			DropDependentArmorRecursive(ply, depPlacement, depArmor, visited)
+		end
+	end
+end
+
 function hg.BreakArmor(ent, equipment, pos, dmgInfo)
 	if not IsValid(ent) then return false end
 	if not ent.armors or not table.HasValue(ent.armors, equipment) then return false end
@@ -231,6 +260,32 @@ function hg.AddArmor(ply, equipment, ent)
     
     if hg.armor[placement][equipment].whitelistClasses and !hg.armor[placement][equipment].whitelistClasses[ply.PlayerClassName] then return false end
 
+	local itemData = hg.armor[placement][equipment]
+	local dep = itemData.requireEquipped or itemData.requiresArmor or itemData.requiredArmor
+	if dep then
+		local depPlacement, depArmor
+		if isstring(dep) then
+			depPlacement, depArmor = hg.GetArmorPlacement(dep), dep
+		elseif istable(dep) and isstring(dep.placement) then
+			depPlacement, depArmor = dep.placement, dep.armor
+		end
+		if depPlacement then
+			local hasRequired
+			if depArmor then
+				hasRequired = istable(ply.armors) and ply.armors[depPlacement] == depArmor
+			else
+				hasRequired = istable(ply.armors) and ply.armors[depPlacement] != nil
+			end
+			if not hasRequired then
+				if ply:IsPlayer() then
+					local needName = depArmor and (hg.armorNames and hg.armorNames[depArmor] or depArmor) or "helmet"
+					ply:Notify("You need " .. tostring(needName) .. " equipped to wear this.", true, "armor_dependency_" .. equipment, 3)
+				end
+				return false
+			end
+		end
+	end
+
     for plc, arm in pairs(ply.armors) do
         //if not hg.armor[plc] or not hg.armor[plc][arm] or not hg.armor[plc][arm].restricted then continue end
 
@@ -330,6 +385,9 @@ function hg.DropArmorForce(ent, equipment, pos, ang, vel, brokenMul)
 		if ent.armors_broken_mul then
 			ent.armors_broken_mul[equipment] = nil
 		end
+		if ent.armors_durability then
+			ent.armors_durability[equipment] = nil
+		end
         
         if hg.armor[placement][equipment].voice_change then
             if eightbit and eightbit.EnableEffect and ent.UserID then
@@ -338,6 +396,10 @@ function hg.DropArmorForce(ent, equipment, pos, ang, vel, brokenMul)
         end
 
         syncLinkedArmor(ent)
+
+		if ent:IsPlayer() then
+			DropDependentArmorRecursive(ent, placement, equipment)
+		end
         
         return equipmentEnt
     end
@@ -384,6 +446,11 @@ function hg.DropArmor(ply, equipment)
 		if ply.armors_shots then
 			ply.armors_shots[equipment] = nil
 		end
+		if ply.armors_durability then
+			ply.armors_durability[equipment] = nil
+		end
+        
+		DropDependentArmorRecursive(ply, placement, equipment)
         
         if hg.armor[placement][equipment].voice_change then
             if eightbit and eightbit.EnableEffect and ply.UserID then
@@ -402,6 +469,58 @@ util.AddNetworkString("AddFlash")
 
 local ArmorEffect
 local force
+
+local ARMOR_BREAK_SOUND = "rem_armorbreak.mp3"
+local ARMOR_BREAK_SOUND_LEVEL = 140
+local ARMOR_BREAK_SOUND_VOLUME = 2
+local DEFAULT_HELMET_DURABILITY = 180
+local DEFAULT_HELMET_BREAK_THRESHOLD = 120
+local DEFAULT_HELMET_ABSORB_MULTIPLIER = 0.2
+local DEFAULT_HELMET_DURABILITY_DAMAGE_MUL = 5
+local RAGDOLL_HEAD_IMPACT_SPEED_THRESHOLD = 170
+
+local function IsImpactDamage(dmgInfo)
+	local dmgType = dmgInfo:GetDamageType()
+	return bit.band(dmgType, DMG_CLUB) ~= 0
+		or bit.band(dmgType, DMG_CRUSH) ~= 0
+		or bit.band(dmgType, DMG_FALL) ~= 0
+		or bit.band(dmgType, DMG_SLASH) ~= 0
+end
+
+local function ProcessArmorBreak(org, placement, armor, dmgInfo, rawDmg)
+	local owner = org.owner
+	if not IsValid(owner) then return false end
+	if not owner.armors or owner.armors[placement] ~= armor then return false end
+	if owner.armors_broken and owner.armors_broken[armor] then return false end
+
+	local armorData = placement and hg.armor[placement] and hg.armor[placement][armor]
+	if not armorData then return false end
+
+	local canBreak = armorData.breakable
+	if placement == "head" and armorData.breakable ~= false then
+		canBreak = true
+	end
+	if not canBreak then return false end
+
+	owner.armors_durability = owner.armors_durability or {}
+	local baseDurability = armorData.durability or (placement == "head" and DEFAULT_HELMET_DURABILITY or 100)
+	local currentDurability = owner.armors_durability[armor] or baseDurability
+
+	local absorbMultiplier = armorData.absorbMultiplier or (placement == "head" and DEFAULT_HELMET_ABSORB_MULTIPLIER or 0.5)
+	local durabilityDamageMul = armorData.durabilityDamageMul or (placement == "head" and DEFAULT_HELMET_DURABILITY_DAMAGE_MUL or 10)
+	local damageToArmor = rawDmg * absorbMultiplier * durabilityDamageMul
+
+	currentDurability = math.max(0, currentDurability - damageToArmor)
+	owner.armors_durability[armor] = currentDurability
+
+	local breakThreshold = armorData.breakThreshold or (placement == "head" and DEFAULT_HELMET_BREAK_THRESHOLD or 50)
+	if currentDurability <= 0 or rawDmg >= breakThreshold then
+		hg.BreakArmor(owner, armor, dmgInfo and dmgInfo:GetDamagePosition(), dmgInfo)
+		return true
+	end
+	return false
+end
+
 local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scaleprot, punch, boneindex, dir, hit, ricochet)
 	if not force and org.owner.armors[placement] ~= armor then return 0 end
 	force = nil
@@ -434,21 +553,65 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 		end
 	end
 	
-	scale = scale * (dmgInfo:IsDamageType(DMG_SLASH) and 0.1 or 1)
-	
 	ArmorEffect(placement, armor, dmgInfo, org, hit, prot)
 	hg.HandleArmorShot(org, placement, armor, dmgInfo, hit)
 
-	if prot < 0 then
-		//dmgInfo:ScaleDamage(scale)
-		return 0
+	local isBullet = dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT)
+	local isImpact = IsImpactDamage(dmgInfo)
+	local armorData = placement and hg.armor[placement] and hg.armor[placement][armor]
+
+	-- Impact protection multipliers
+	if isImpact and armorData then
+		if dmgInfo:IsDamageType(DMG_CRUSH + DMG_FALL) then
+			prot = prot * (armorData.crushFallProtectionMul or armorData.impactProtectionMul or 1)
+		else
+			prot = prot * (armorData.impactProtectionMul or 1)
+		end
+	end
+
+	-- Process armor break from impact/fall
+	if not isBullet and armorData and (placement == "head" or armorData.breakable) then
+		local rawDmg = dmgInfo:GetDamage()
+		local broken = ProcessArmorBreak(org, placement, armor, dmgInfo, rawDmg)
+		if broken then
+			local absorbMul = armorData.absorbMultiplier or (placement == "head" and DEFAULT_HELMET_ABSORB_MULTIPLIER or 0.5)
+			dmgInfo:ScaleDamage(math.Clamp(1 - absorbMul, 0, 1))
+			dmgInfo:SetDamageType(DMG_CLUB)
+			dmgInfo:SetDamageForce(dmgInfo:GetDamageForce() * 0.4)
+			return 0
+		end
+
+		-- Disorientation on strong impact to head
+		if isImpact and placement == "head" and org.owner:IsPlayer() then
+			org.owner:ViewPunch(AngleRand(-20, 20))
+			org.owner:AddTinnitus(2, true)
+			hg.ExplosionDisorientation(org.owner, armorData.crushFallDisorientPower or 6, armorData.crushFallDisorientTime or 6)
+		end
+	end
+
+	local dmgScale = isBullet and 0.2 or scale
+
+	-- Impact-specific damage scaling
+	if isImpact and not isBullet and armorData then
+		if dmgInfo:IsDamageType(DMG_CRUSH + DMG_FALL) then
+			dmgScale = armorData.crushFallDamageScale or armorData.impactDamageScale or dmgScale
+		else
+			dmgScale = armorData.impactDamageScale or dmgScale
+		end
 	end
 
 	dmgInfo:SetDamageType(DMG_CLUB)
 	dmgInfo:SetDamageForce(dmgInfo:GetDamageForce() * 0.4)
-	dmgInfo:ScaleDamage(0.2)
+	dmgInfo:ScaleDamage(dmgScale)
 
-	return 0.9
+	-- Non-bullet damage (melee/fall) is still reduced by the armor's scale even if "penetrated"
+	if not isBullet then return dmgScale end
+
+	if prot < 0 then
+		return 0
+	end
+
+	return dmgScale
 end
 
 ArmorEffect = function(placement, armor, dmgInfo, org, hit, prot)
@@ -496,84 +659,31 @@ hg.ArmorEffectEx = ArmorEffectEx
 
 hg.organism = hg.organism or {}
 hg.organism.input_list = hg.organism.input_list or {}
-hg.organism.input_list.vest1 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest1", 0.6, 0.6, false, ...)
-	return protect
+-- Scale overrides preserving original per-armor balance for non-bullet melee
+local torsoDmgScale = {
+	vest1 = 0.6, vest2 = 1.0, vest3 = 0.8, vest4 = 0.8,
+	vest5 = 0.8, vest6 = 0.8, vest7 = 0.8, vest8 = 0.7,
+}
+local headDmgScale = {
+	helmet1 = 1.0, helmet2 = 1.0, helmet3 = 1.0,
+	helmet5 = 1.0, helmet6 = 1.0, helmet7 = 1.0,
+}
+local faceDmgScale = {
+	mask1 = 1.0, mask3 = 0.95,
+}
+
+local function makeArmorFunc(placement, punch, scaleTbl)
+	return function(org, bone, dmg, dmgInfo, ...)
+		local armor = org.owner.armors[placement]
+		if not armor or not hg.armor[placement] or not hg.armor[placement][armor] then return 0 end
+		local scale = scaleTbl[armor] or 0.6
+		return protec(org, bone, dmg, dmgInfo, placement, armor, scale, 0, punch, ...)
+	end
 end
 
-hg.organism.input_list.helmet1 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet1", 1, 0.6, true, ...)
-	return protect
-end
-
-hg.organism.input_list.helmet2 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet2", 1, 0.3, true, ...)
-	return protect
-end
-
-hg.organism.input_list.helmet3 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet3", 1, 0.25, true, ...)
-	return protect
-end
-
-hg.organism.input_list.helmet5 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet5", 1, 0.4, true, ...)
-	return protect
-end
-
-hg.organism.input_list.helmet6 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet6", 1, 0.5, true, ...)
-	return protect
-end
-
-hg.organism.input_list.helmet7 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "head", "helmet7", 1, 0.4, true, ...)
-	return protect
-end
-
-hg.organism.input_list.vest2 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest2", 1, 0.3, false, ...)
-	return protect
-end
-
-hg.organism.input_list.vest3 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest3", 0.8, 0.3, false, ...)
-	return protect
-end
-
-hg.organism.input_list.vest4 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest4", 0.8, 0.3, false, ...)
-	return protect
-end
-
-hg.organism.input_list.mask1 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "face", "mask1", 1, 0.9, true, ...)
-	return protect
-end
-
-hg.organism.input_list.mask3 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "face", "mask3", 0.95, 0.92, true, ...)
-	return protect
-end
-
-hg.organism.input_list.vest5 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest5", 0.8, 0.5, false, ...)
-	return protect
-end
-hg.organism.input_list.vest6 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest6", 0.8, 0.4, false, ...)
-	return protect
-end
-
-hg.organism.input_list.vest7 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest7", 0.8, 0.5, false, ...)
-	return protect
-end
-
-hg.organism.input_list.vest8 = function(org, bone, dmg, dmgInfo, ...)
-	local protect = protec(org, bone, dmg, dmgInfo, "torso", "vest8", 0.7, 0.4, false, ...)
-	return protect
-end
+hg.organism.input_list.torso_armor = makeArmorFunc("torso", false, torsoDmgScale)
+hg.organism.input_list.head_armor = makeArmorFunc("head", true, headDmgScale)
+hg.organism.input_list.face_armor = makeArmorFunc("face", true, faceDmgScale)
 -------------------------------------------------------------------
 
 -- Gordon's armor
@@ -707,5 +817,46 @@ end
 hook.Add("HG_ReplacePhrase", "MaskMuffed", function(ply, phrase, muffed, pitch)
 	if IsValid(ply) and ply.armors and ply.armors["face"] == "mask2" then
 		return ply, phrase, true, pitch
+	end
+end)
+
+-- Ragdoll head impact detection for helmet breaking
+hook.Add("Think", "HG_HelmetRagdollHeadImpact", function()
+	for _, ply in player.Iterator() do
+		if not IsValid(ply) or not ply:Alive() then continue end
+		local rag = ply.FakeRagdoll
+		if not IsValid(rag) then continue end
+		if not istable(ply.armors) then continue end
+
+		local headArmor = ply.armors["head"]
+		if not headArmor then continue end
+		local armorData = hg.armor and hg.armor.head and hg.armor.head[headArmor]
+		if not armorData then continue end
+
+		local headBone = rag:LookupBone("ValveBiped.Bip01_Head1")
+		if not headBone then continue end
+		local phys = rag:GetPhysicsObjectNum(headBone)
+		if not IsValid(phys) then continue end
+
+		local vel = phys:GetVelocity()
+		local speed = vel:Length()
+		if speed < RAGDOLL_HEAD_IMPACT_SPEED_THRESHOLD then continue end
+
+		local headPos = phys:GetPos()
+		local tr = util.TraceLine({
+			start = headPos,
+			endpos = headPos - vel:GetNormalized() * 10,
+			filter = {rag, ply}
+		})
+		if not tr.Hit then continue end
+
+		local damageLike = math.Clamp(speed / 8, 0, 120)
+
+		local fakeOrg = { owner = ply }
+		ProcessArmorBreak(fakeOrg, "head", headArmor, nil, damageLike)
+
+		if damageLike >= 20 then
+			sound.Play("physics/metal/metal_solid_impact_bullet" .. math.random(4) .. ".wav", headPos, 80, 100, 1)
+		end
 	end
 end)
