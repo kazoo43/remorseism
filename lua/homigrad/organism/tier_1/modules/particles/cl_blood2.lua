@@ -20,6 +20,8 @@ local surface_SetDrawColor = surface.SetDrawColor
 
 local color = Color(90,0,0,122)
 
+local hg_blood_draw_distance = ConVarExists("hg_blood_draw_distance") and GetConVar("hg_blood_draw_distance") or CreateClientConVar("hg_blood_draw_distance", 1024, true, nil, "distance to draw blood", 0, 4096)
+
 bloodparticles_hook[3] = function(anim_pos)
     local time = CurTime()
 
@@ -48,10 +50,15 @@ end)
 bloodparticles_hook[4] = function(mul)
     local time = CurTime()
     local grav = gravity:GetInt() / 30
+	local lplypos = LocalPlayer():EyePos()
+	local dsqr = hg_blood_draw_distance:GetInt()
+	dsqr = dsqr * dsqr
 
     for i = #hg.bloodparticles2, 1, -1 do
         local part = hg.bloodparticles2[i]
         if not part then table_remove(hg.bloodparticles2, i) continue end
+
+		if (part[1] - lplypos):LengthSqr() > dsqr then continue end
 
         local pos = part[1]
         local posSet = part[2]

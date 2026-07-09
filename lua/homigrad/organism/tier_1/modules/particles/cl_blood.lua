@@ -46,12 +46,17 @@ bloodparticles_hook[1] = function(anim_pos, mul)
 		--if !hg.isVisible(part[1],LocalPlayer():GetShootPos(),LocalPlayer(),MASK_VISIBLE) then continue end
 		--render_SetMaterial(part[4])
 		local pos = LerpVector(anim_pos, part[2], part[1])
-		
-		local light1 = render.GetLightColor(pos)
-		local light2 = render.ComputeLighting(pos, vector_up * 1)
-		local light3 = render.ComputeDynamicLighting(pos, vector_up * 1)
 
-		local light = (light1 + light2 + light3) * 3
+		local time = CurTime()
+		local light
+		if not part.lightcache_time or time - part.lightcache_time > 0.25 then
+			local light1 = render.GetLightColor(pos)
+			local light2 = render.ComputeLighting(pos, vector_up * 1)
+			local light3 = render.ComputeDynamicLighting(pos, vector_up * 1)
+			part.lightcache = (light1 + light2 + light3) * 3
+			part.lightcache_time = time
+		end
+		light = part.lightcache
 
 		if part.kishki then
 			render_SetMaterial(part[4])
@@ -171,9 +176,14 @@ bloodparticles_hook[2] = function(mul)
 	local grav = gravity:GetInt() / 10
     local time = CurTime()
 	local gravvec = vecDown * mul * (math.max(0.0, grav))
+	local lplypos = LocalPlayer():EyePos()
+	local dsqr = hg_blood_draw_distance:GetInt()
+	dsqr = dsqr * dsqr
 	for i = #hg.bloodparticles1, 1, -1 do
 		local part = hg.bloodparticles1[i]
 		if not part then table_remove(hg.bloodparticles1, i) continue end
+
+		if (part[1] - lplypos):LengthSqr() > dsqr then continue end
 		
 		local pos = part[1]
 		local posSet = part[2]
