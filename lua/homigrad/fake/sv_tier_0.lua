@@ -1636,6 +1636,8 @@ hook.Add("Ragdoll Collide", "FallSounds", function(rag, data)
 	rag.NextSND = data.DeltaTime + 1
 end)
 
+
+
 local hg_shitty_fake = CreateConVar("hg_shitty_fake", "1", FCVAR_ARCHIVE + FCVAR_NOTIFY, "enable shitty fake", 0, 1)
 SetGlobalBool("hg_shitty_fake", hg_shitty_fake:GetBool())
 cvars.AddChangeCallback("hg_shitty_fake", function(convar_name, value_old, value_new)

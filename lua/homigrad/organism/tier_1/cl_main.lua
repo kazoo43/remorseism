@@ -1,3 +1,5 @@
+EXHAUSTED_THRESHOLD = 89
+
 hg.bonetohitgroup = {
 	["ValveBiped.Bip01_Head1"] = HITGROUP_HEAD,
 	["ValveBiped.Bip01_L_UpperArm"] = HITGROUP_LEFTARM,
@@ -443,6 +445,9 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	k2 = (30 - (o2 or 30)) / 30 + (1 - (consciousnessLerp or 1)) * 1-- + brain * 2
 	k3 = ((5000 / math.max(blood, 1000)) - 1) * 1.5
 
+	local stamina = org.stamina and org.stamina[1] or 180
+	local k4 = math.Clamp((EXHAUSTED_THRESHOLD - stamina) / EXHAUSTED_THRESHOLD, 0, 1)
+
 	DrawSharpen(k1 * 2, k1 * 1)
 	local lowpulse = math.max((70 - pulse) / 70, 0) + math.max(3000 * ((math.cos(CurTime()/2) + 1) / 2 * 0.1 + 1) - (blood * adrenK - 300),0) / 400
 
@@ -496,9 +501,9 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	end
 	hg_potatopc = hg_potatopc or hg.ConVars.potatopc
 	local potato = hg_potatopc:GetBool()
-	if (k1 > 0) or (k2 > 0) or (k3 > 0) or brain > 0 then
+	if (k1 > 0) or (k2 > 0) or (k3 > 0) or (k4 > 0) or brain > 0 then
 		if !potato then
-			DrawToyTown(2, (k3 * 3 + k2 * 1 + brain * 10) * ScrH() / 2)
+			DrawToyTown(2, (k3 * 3 + k2 * 1 + k4 * 1.5 + brain * 10) * ScrH() / 2)
 		else
 
 		end
@@ -529,9 +534,9 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 
 	*/
 
-	tabblood["$pp_colour_colour"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_colour"], math.max(0, (blood / 5000) * (potato and (blood / 5000) or 1) - (!org.otrub and potato and k2 or 0) + (math.max(analgesiaVisual - 1, 0) * math.sin(CurTime()) * 5)))
+	tabblood["$pp_colour_colour"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_colour"], math.max(0, (blood / 5000) * (potato and (blood / 5000) or 1) - (!org.otrub and potato and k2 or 0) - k4 * 0.5 + (math.max(analgesiaVisual - 1, 0) * math.sin(CurTime()) * 5)))
 	//tabblood["$pp_colour_contrast"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_contrast"], health < 80 and math.max(1.5 * ( 1 - math.min(health / 50, 1) ), 1 ) or 1)
-	tabblood["$pp_colour_brightness"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_brightness"], (potato and ((blood / 5000 - 1) / 2 - (!org.otrub and k2 / 10 or 0)) or 0) )
+	tabblood["$pp_colour_brightness"] = Lerp(FrameTime() * 30, tabblood["$pp_colour_brightness"], (potato and ((blood / 5000 - 1) / 2 - (!org.otrub and k2 / 10 or 0) - k4 / 12) or 0) )
 	tabblood["$pp_colour_addb"] = 0
 	//tabblood["$pp_colour_addg"] = k2 / 15
 	//tabblood["$pp_colour_addr"] = k2 / 15
@@ -1205,3 +1210,41 @@ hook.Add("HG.InputMouseApply","zzzzzzzzzzzzbrain_death",function(tbl)
 
 	return true--]]
 end)
+
+local EXHAUSTED_SOUND = "exhaustedloop.ogg"
+
+local exhaustedSoundPatch
+
+local function StopExhaustedSound()
+	if exhaustedSoundPatch then
+		exhaustedSoundPatch:Stop()
+		exhaustedSoundPatch = nil
+	end
+end
+
+hook.Add("Think", "hg_exhausted_sound", function()
+	if not IsValid(lply) or not lply:Alive() or not lply.organism or not lply.organism.stamina then
+		StopExhaustedSound()
+		return
+	end
+
+	local stamina = lply.organism.stamina[1] or 0
+
+	if stamina >= EXHAUSTED_THRESHOLD then
+		StopExhaustedSound()
+		return
+	end
+
+	local vol = math.Clamp((EXHAUSTED_THRESHOLD - stamina) / EXHAUSTED_THRESHOLD, 0, 1)
+
+	if not exhaustedSoundPatch then
+		exhaustedSoundPatch = CreateSound(lply, EXHAUSTED_SOUND)
+		if not exhaustedSoundPatch then return end
+		exhaustedSoundPatch:Play()
+	end
+
+	exhaustedSoundPatch:ChangeVolume(vol, 0.25)
+end)
+
+hook.Add("LocalPlayerDeath", "hg_exhausted_sound_death", StopExhaustedSound)
+hook.Add("ShutDown", "hg_exhausted_sound_shutdown", StopExhaustedSound)

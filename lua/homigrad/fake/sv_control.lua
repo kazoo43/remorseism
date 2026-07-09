@@ -1197,99 +1197,92 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-        if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
-            if org.canmove and org.spine1 < hg.organism.fake_spine1 then
-                local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
-                local angle = -(-angles2)
-                angle:RotateAroundAxis(angle:Forward(), -90)
+		if not inmove and org.canmove and ply.FakeRagdoll == ragdoll then
+			if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
+				local lthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 11))
+				local rthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 8))
 
-                --if ishgweapon(wep) then
-                local tr = util.TraceLine({
-                    start = ragdoll:GetPos(),
-                    endpos = ragdoll:GetPos() - Vector(0,0,45),
-                    filter = ragdoll
-                })
+				if lthigh and rthigh then
+					local legAng1 = Angle(0, 0, 0)
+					local legAng2 = Angle(0, 0, 0)
 
-                if tr.Hit then
-                    angle:RotateAroundAxis(angle:Up(), -angle.p - 30)
-                end
-                --end
+					legAng1:Set(angles)
+					legAng1:RotateAroundAxis(angles:Right(), 80)
+					legAng1:RotateAroundAxis(angles:Forward(), -40)
+					legAng1:RotateAroundAxis(angles:Up(), -70)
 
-                if ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), 30)
-                end
+					legAng2:Set(angles)
+					legAng2:RotateAroundAxis(angles:Right(), 65)
+					legAng2:RotateAroundAxis(angles:Forward(), -40)
+					legAng2:RotateAroundAxis(angles:Up(), -70)
 
-                angle:RotateAroundAxis(angle:Right(), ply:KeyDown(IN_JUMP) and 0 or -15)
-                shadowControl(ragdoll, 8, 0.001, angle, 600, 200)
+					shadowControl(ragdoll, 11, 0.001, legAng1, 200, 10)
+					shadowControl(ragdoll, 8, 0.001, legAng2, 200, 10)
 
-                if ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), -30)
-                end
+					local calfAng1 = Angle(0, 0, 0)
+					local calfAng2 = Angle(0, 0, 0)
 
-                if ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), 30)
-                end
+					calfAng1:Set(legAng1)
+					calfAng1:RotateAroundAxis(angles:Right(), -90)
 
-                angle:RotateAroundAxis(angle:Right(), ply:KeyDown(IN_JUMP) and 0 or 30)
-                shadowControl(ragdoll, 11, 0.001, angle, 600, 200) -- ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
+					calfAng2:Set(legAng2)
+					calfAng2:RotateAroundAxis(angles:Right(), -90)
 
-                if ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), -30)
-                end
+					shadowControl(ragdoll, 12, 0.001, calfAng1, 150, 10)
+					shadowControl(ragdoll, 9, 0.001, calfAng2, 150, 10)
 
-                //if vellen < 200 then
-                if !ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), 90)
-                end
-                shadowControl(ragdoll, 9, 0.001, angle, 600, 200)
-                if !ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), -90)
-                end
-                if !ply:KeyDown(IN_JUMP) then
-                    angle:RotateAroundAxis(angle:Up(), 90)
-                end
-                shadowControl(ragdoll, 12, 0.001, angle, 600, 200)
+					if ply:KeyDown(IN_ATTACK) and ply:KeyDown(IN_ATTACK2) then
+						ragdoll.isSliding = true
 
-				local rleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 13))
-				local lleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 14))
+						legAng1:Set(angles)
+						legAng1:RotateAroundAxis(angles:Right(), 75)
+						legAng1:RotateAroundAxis(angles:Forward(), -100)
+						legAng1:RotateAroundAxis(angles:Up(), -70)
 
-				local force = angles2:Forward()
-				force:Normalize()
-				force = force * 100 * ragdoll.dtime / 0.015 * ragdoll.power
+						legAng2:Set(angles)
+						legAng2:RotateAroundAxis(angles:Right(), 75)
+						legAng2:RotateAroundAxis(angles:Forward(), -100)
+						legAng2:RotateAroundAxis(angles:Up(), -70)
 
-				if org.lleg >= 1 or org.rleg >= 1 then
-					org.painadd = org.painadd + ragdoll.dtime * 2 * (org.lleg + org.rleg)
+						calfAng1:Set(legAng1)
+						calfAng1:RotateAroundAxis(angles:Right(), 20)
+
+						calfAng2:Set(legAng2)
+						calfAng2:RotateAroundAxis(angles:Right(), 20)
+
+						local foot1 = Angle(0, 0, 0)
+						local foot2 = Angle(0, 0, 0)
+
+						foot1:Set(calfAng1)
+						foot1:RotateAroundAxis(angles:Right(), 90)
+
+						foot2:Set(calfAng2)
+						foot2:RotateAroundAxis(angles:Right(), 90)
+
+						shadowControl(ragdoll, 11, 0.001, legAng1, 600, 200)
+						shadowControl(ragdoll, 8, 0.001, legAng2, 600, 200)
+
+						shadowControl(ragdoll, 13, 0.001, foot1, 600, 200)
+						shadowControl(ragdoll, 14, 0.001, foot2, 600, 200)
+
+						shadowControl(ragdoll, 12, 0.001, calfAng1, 600, 200)
+						shadowControl(ragdoll, 9, 0.001, calfAng2, 600, 200)
+					else
+						ragdoll.isSliding = false
+					end
+
+					if org.lleg >= 1 or org.rleg >= 1 then
+						org.painadd = org.painadd + ragdoll.dtime * 2 * (org.lleg + org.rleg)
+					end
 				end
-				//rleg:ApplyForceCenter(force)
-				//lleg:ApplyForceCenter(force)
+			else
+				if IsValid(ragdoll) then ragdoll.isSliding = false end
 			end
 		end
 		local vel = ragdoll:GetVelocity()
 		local vellen = vel:Length()
-		if org.canmove and vellen > 350 and !ply:InVehicle() then
-			--[[
-			
-				local defaultBones = {
-					[0] = "ValveBiped.Bip01_Pelvis",
-					[1] = "ValveBiped.Bip01_Spine2",
-					[2] = "ValveBiped.Bip01_R_UpperArm",
-					[3] = "ValveBiped.Bip01_L_UpperArm",
-					[4] = "ValveBiped.Bip01_L_Forearm",
-					[5] = "ValveBiped.Bip01_L_Hand",
-					[6] = "ValveBiped.Bip01_R_Forearm",
-					[7] = "ValveBiped.Bip01_R_Hand",
-					[8] = "ValveBiped.Bip01_R_Thigh",
-					[9] = "ValveBiped.Bip01_R_Calf",
-					[10] = "ValveBiped.Bip01_Head1",
-					[11] = "ValveBiped.Bip01_L_Thigh",
-					[12] = "ValveBiped.Bip01_L_Calf",
-					[13] = "ValveBiped.Bip01_L_Foot",
-					[14] = "ValveBiped.Bip01_R_Foot",
-				}
-
-				(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
-			--]]
-			local mul = (vellen - 350) / 750
+		if org.canmove and vellen > 700 and !ply:InVehicle() then
+			local mul = (vellen - 700) / 750
 			local maxangdamp = 500 * mul
 			local maxangspeed = 950 *  mul
 			local rand = 360 * mul
@@ -1306,26 +1299,72 @@ hook.Add("Think", "Fake", function()
 			shadowControl(ragdoll, 12, 0.001, AngleRand(-rand,rand), maxangspeed, maxangdamp)
 		end
 
-		/*if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
-			if org.canmove then
-				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
-				local angle = spine:GetAngles()
-
-				//shadowControl(ragdoll, 13, 0.001, angle, 0, 0, spine:GetPos() + head:GetAngles():Forward() * 10, 5050, 100)
-				//shadowControl(ragdoll, 14, 0.001, angle, 0, 0, spine:GetPos() + head:GetAngles():Forward() * 10, 5050, 100)
-
-				local rleg = ragdoll:GetPhysicsObject(realPhysNum(ragdoll, 13))
-				local lleg = ragdoll:GetPhysicsObject(realPhysNum(ragdoll, 14))
-
-				local force = angles2:Forward()
-				force:Normalize()
-				force = force * 1200 * ragdoll.dtime / 0.015 * ragdoll.power
-
-				rleg:ApplyForceCenter(force)
-				lleg:ApplyForceCenter(force)
-			end
-		end*/
 	end
+end)
+
+hook.Add("Ragdoll Collide", "SlideDamage", function(ragdoll, data)
+	if not ragdoll.isSliding then return end
+
+	local hitEnt = data.HitEntity
+	if not IsValid(hitEnt) or hitEnt == game.GetWorld() then return end
+	if hitEnt == ragdoll then return end
+
+	local physObj = data.PhysObject
+	if not IsValid(physObj) then return end
+
+	local physBone = -1
+	for i = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+		if ragdoll:GetPhysicsObjectNum(i) == physObj then
+			physBone = i
+			break
+		end
+	end
+	if physBone < 0 then return end
+
+	local bone = ragdoll:TranslatePhysBoneToBone(physBone)
+	if bone < 0 then return end
+
+	local boneName = ragdoll:GetBoneName(bone)
+	if not boneName then return end
+
+	local slideBones = {
+		["ValveBiped.Bip01_L_Foot"] = true,
+		["ValveBiped.Bip01_R_Foot"] = true,
+		["ValveBiped.Bip01_L_Calf"] = true,
+		["ValveBiped.Bip01_R_Calf"] = true,
+		["ValveBiped.Bip01_L_Thigh"] = true,
+		["ValveBiped.Bip01_R_Thigh"] = true,
+	}
+
+	if not slideBones[boneName] then return end
+
+	local ply = hg.RagdollOwner(ragdoll)
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	ragdoll.slideHits = ragdoll.slideHits or {}
+	if (ragdoll.slideCd or 0) > CurTime() then return end
+	if (ragdoll.slideHits[hitEnt] or 0) > CurTime() then return end
+	ragdoll.slideHits[hitEnt] = CurTime() + 0.5
+	ragdoll.slideCd = CurTime() + 1
+
+	local speed = data.OurOldVelocity:Length()
+	local dmg = math.Clamp(speed / 25, 2, 20)
+
+	local dmgInfo = DamageInfo()
+	dmgInfo:SetDamage(dmg)
+	dmgInfo:SetDamageType(DMG_CLUB)
+	dmgInfo:SetAttacker(ply)
+	dmgInfo:SetInflictor(ragdoll)
+	dmgInfo:SetDamagePosition(physObj:GetPos())
+	dmgInfo:SetDamageForce(data.OurOldVelocity:GetNormalized() * dmg * 50)
+
+	hitEnt:TakeDamageInfo(dmgInfo)
+
+	if hg_fake_stamina:GetBool() and ply.organism then
+		ply.organism.stamina.subadd = ply.organism.stamina.subadd + 26
+	end
+
+	ragdoll:EmitSound("kickland" .. math.random(1, 2) .. ".mp3", 60, math.random(95, 110))
 end)
 
 hook.Add("PlayerDeath", "homigrad-fake-control", function(ply)
