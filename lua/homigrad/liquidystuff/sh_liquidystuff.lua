@@ -1,6 +1,7 @@
 hg.drums = hg.drums or {}
 hg.drums2 = hg.drums2 or {}
 hg.gasolinePath = hg.gasolinePath or {}
+hg.gasolineNextId = hg.gasolineNextId or 0
 
 local math_random = math.random
 local math_Round = math.Round
@@ -111,6 +112,19 @@ if SERVER then
 			end
 		end
 
+		-- prune dead/expired points so the table doesn't grow without bound
+		-- and overflow the net message when broadcast
+		for i = #hg.gasolinePath, 1, -1 do
+			local t = hg.gasolinePath[i]
+			if t[2] == true or (t[2] == false and (t[5] or 0) + 300 < CurTime()) then
+				table.remove(hg.gasolinePath, i)
+			end
+		end
+
+		while #hg.gasolinePath > 4000 do
+			table.remove(hg.gasolinePath, 1)
+		end
+
 		net.Start("gasoline_path")
 		net.WriteTable(hg.gasolinePath)
 		net.Broadcast()
@@ -179,7 +193,8 @@ if SERVER then
 					if (drum.lastFireCreated or 0) < CurTime() then
 						drum.lastFireCreated = CurTime() + 0.2
 
-						table.insert(hg.gasolinePath, {tr.HitPos, false})
+						hg.gasolineNextId = hg.gasolineNextId + 1
+						table.insert(hg.gasolinePath, {tr.HitPos, false, nil, hg.gasolineNextId, CurTime()})
 					end
 				elseif tr.Entity != Entity(0) then
 					tr.Entity.shouldburn = tr.Entity.shouldburn and tr.Entity.shouldburn + 1 or 1
@@ -251,34 +266,41 @@ else
 
 		hg.gasolinePath = net.ReadTable()
 
-		for i, eff in pairs(hg.effparticles) do
-			if hg.gasolinePath[i] then continue end
+		local present = {}
+		for i, tbl in ipairs(hg.gasolinePath) do
+			present[tbl[4]] = true
+		end
+
+		for id, eff in pairs(hg.effparticles) do
+			if present[id] then continue end
 
 			if eff and eff:IsValid() then
 				eff:StopEmissionAndDestroyImmediately()
 			end
+
+			hg.effparticles[id] = nil
 		end
 	end)
 		
 	hook.Add("PreDrawEffects","fireeffects",function()
 		for i, tbl in ipairs(hg.gasolinePath) do
-			local pos, ignited = tbl[1], tbl[2]
-			
+			local pos, ignited, id = tbl[1], tbl[2], tbl[4]
+
 			local effparticles = hg.effparticles
-			
-			if isnumber(tbl[2]) and (!effparticles[i] or !effparticles[i]:IsValid()) then
-				effparticles[i] = CreateParticleSystemNoEntity("vFire_Base_Medium",tbl[1],AngleRand()*5)
+
+			if isnumber(tbl[2]) and (!effparticles[id] or !effparticles[id]:IsValid()) then
+				effparticles[id] = CreateParticleSystemNoEntity("vFire_Base_Medium",tbl[1],AngleRand()*5)
 			end
 
 			if tbl[2] == true then -- do not change to "if tbl[2] then"
-				if effparticles[i] and effparticles[i]:IsValid() then
-					effparticles[i]:StopEmission()
+				if effparticles[id] and effparticles[id]:IsValid() then
+					effparticles[id]:StopEmission()
 				end
 			end
 
 			if isnumber(tbl[2]) and (tbl[2] + 60) < CurTime() then
-				if effparticles[i] and effparticles[i]:IsValid() then
-					effparticles[i]:StopEmission()
+				if effparticles[id] and effparticles[id]:IsValid() then
+					effparticles[id]:StopEmission()
 				end
 			end
 		end

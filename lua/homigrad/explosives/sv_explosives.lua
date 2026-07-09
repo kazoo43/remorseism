@@ -42,7 +42,17 @@ local ExplosionExtraSounds = {
 	"explosionextra/explode_6.wav",
 	"explosionextra/explode_7.wav",
 	"explosionextra/explode_8.wav",
-	"explosionextra/explode_9.wav"
+	"explosionextra/explode_9.wav",
+	"ex1.wav",
+	"ex2.wav",
+	"ex3.wav",
+	"ex4.wav",
+	"ex5.wav",
+	"ex6.wav",
+	"ex7.wav",
+	"ex8.wav",
+	"ex9.wav",
+	"ex10.wav"
 }
 
 local GasTankModels = {
