@@ -199,7 +199,7 @@ SWEP.SwingDamageEnabled = true
 SWEP.SwingDamageMinSpeed = 150
 SWEP.SwingDamageMaxSpeed = 900
 SWEP.SwingDamageMaxMul = 1.5
-SWEP.SwingDamageDebug = true
+SWEP.SwingDamageDebug = false
 SWEP.SwingDecayHalfLife = 0.5
 
 if CLIENT then
