@@ -192,7 +192,7 @@ hook.Add("radialOptions", "DislocatedJoint", function()
         local tbl = {
             function()
 				lply.tried_fixing_limb = CurTime() + 0.5
-				RunConsoleCommand("hg_fixdislocation", 1, 0)
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(1) else RunConsoleCommand("hg_fixdislocation", 1, 0) end
             end,
             "Fix dislocation (leg)"
         }
@@ -203,10 +203,11 @@ hook.Add("radialOptions", "DislocatedJoint", function()
 		if ent.organism and (ent.organism.llegdislocation or ent.organism.rlegdislocation) then
 			local tbl = {
 				function()
-					lply.tried_fixing_limb = CurTime() + 0.5
-					RunConsoleCommand("hg_fixdislocation", 1, 1)
-				end,
-				"Fix "..ent:GetPlayerName().."'s dislocation (leg)"
+				lply.tried_fixing_limb = CurTime() + 0.5
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(1, ent.organism and ent.organism.owner or ent) else RunConsoleCommand("hg_fixdislocation", 1, 1) end
+			end,
+			"Fix "..ent:GetPlayerName().."'s dislocation (leg)",
+			[5] = Material("radialmenu/broken.png", "smooth mips")
 			}
 			hg.radialOptions[#hg.radialOptions + 1] = tbl
 		end
@@ -223,7 +224,7 @@ hook.Add("radialOptions", "DislocatedJoint2", function()
         local tbl = {
             function()
 				lply.tried_fixing_limb = CurTime() + 0.5
-				RunConsoleCommand("hg_fixdislocation", 2, 0)
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(2) else RunConsoleCommand("hg_fixdislocation", 2, 0) end
             end,
             "Fix dislocation (arm)"
         }
@@ -234,10 +235,11 @@ hook.Add("radialOptions", "DislocatedJoint2", function()
 		if ent.organism and (ent.organism.larmdislocation or ent.organism.rarmdislocation) then
 			local tbl = {
 				function()
-					lply.tried_fixing_limb = CurTime() + 0.5
-					RunConsoleCommand("hg_fixdislocation", 2, 1)
-				end,
-				"Fix "..ent:GetPlayerName().."'s dislocation (arm)"
+				lply.tried_fixing_limb = CurTime() + 0.5
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(2, ent.organism and ent.organism.owner or ent) else RunConsoleCommand("hg_fixdislocation", 2, 1) end
+			end,
+			"Fix "..ent:GetPlayerName().."'s dislocation (arm)",
+			[5] = Material("radialmenu/broken.png", "smooth mips")
 			}
 			hg.radialOptions[#hg.radialOptions + 1] = tbl
 		end
@@ -254,7 +256,7 @@ hook.Add("radialOptions", "DislocatedJaw", function()
         local tbl = {
             function()
 				lply.tried_fixing_limb = CurTime() + 0.5
-				RunConsoleCommand("hg_fixdislocation", 3, 0)
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(3) else RunConsoleCommand("hg_fixdislocation", 3, 0) end
             end,
             "Fix dislocation (jaw)"
         }
@@ -265,10 +267,11 @@ hook.Add("radialOptions", "DislocatedJaw", function()
 		if ent.organism and ent.organism.jawdislocation then
 			local tbl = {
 				function()
-					lply.tried_fixing_limb = CurTime() + 0.5
-					RunConsoleCommand("hg_fixdislocation", 3, 1)
-				end,
-				"Fix "..ent:GetPlayerName().."'s dislocation (jaw)"
+				lply.tried_fixing_limb = CurTime() + 0.5
+				if hg.StartDislocationMinigame then hg.StartDislocationMinigame(3, ent.organism and ent.organism.owner or ent) else RunConsoleCommand("hg_fixdislocation", 3, 1) end
+			end,
+			"Fix "..ent:GetPlayerName().."'s dislocation (jaw)",
+			[5] = Material("radialmenu/broken.png", "smooth mips")
 			}
 			hg.radialOptions[#hg.radialOptions + 1] = tbl
 		end

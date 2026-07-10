@@ -1890,67 +1890,6 @@ hg.Accessories = {
         flex = true,
         vpos = Vector(0,0,69)
     },
-["tv head"] = {
-        model = "models/player/carnage/android_head.mdl",
-        bone = "ValveBiped.Bip01_Head1",
-        malepos = {Vector(-3,-0.2,0),Angle(0,-95,-90),1.1},
-        fempos = {Vector(-3,0,0),Angle(0,-95,-90),1},
-        skin = 0,
-        norender = false,
-        placement = "head",
-        norender = true,
-        bonemerge = true,
-        bSetColor = false,
-        vpos = Vector(0,0,5),
-        -- Dynamic texture function based on organism parameters
-        -- Returns material path or submaterial index to change TV screen texture
-        GetDynamicTexture = function(ply, model)
-            if not IsValid(ply) or not ply.organism then
-                return nil -- Return nil to use default texture
-            end
-            
-            local org = ply.organism
-            local materialPath = nil -- Placeholder: change this to your material path
-            local subMaterialIndex = nil -- Placeholder: submaterial index if using SetSubMaterial
-            local skinIndex = nil -- Placeholder: skin index if using SetSkin
-            
-            -- Example: Check organism parameters and set texture accordingly
-            -- You can customize this based on your needs
-            
-            -- Check if player is dead or unconscious
-            if not ply:Alive() or (org.otrub and org.otrub == true) then
-                skinIndex = 8
-            elseif org.pain and org.pain > 60 then
-                skinIndex = 22
-            elseif org.anger and org.anger > 0.5 then
-                skinIndex = 7
-            elseif org.fear and org.fear > 0.5 then
-                skinIndex = 28
-            elseif org.happiness and org.happiness > 0.5 then
-                skinIndex = 16
-            elseif org.sorrow and org.sorrow > 0.5 then
-                skinIndex = 27
-            elseif org.rage and org.rage > 0.5 then
-                skinIndex = 4
-            elseif org.anxiety and org.anxiety > 0.5 then
-                skinIndex = 47
-            elseif org.relief and org.relief > 0.5 then
-                skinIndex = 41
-            elseif org.calm and org.calm > 0.5 then
-                skinIndex = 0
-            elseif org.hope and org.hope > 0.5 then
-                skinIndex = 0
-            end
-            
-            -- Return table with texture information
-            -- You can use SetSubMaterial(model, subMaterialIndex, materialPath) or SetSkin(skinIndex)
-            return {
-                material = materialPath,
-                subMaterialIndex = subMaterialIndex,
-                skin = skinIndex
-            }
-        end
-    },
     ["glasses fmf"] = {
         model = "models/distac/street_kid_fmf.mdl",
         bone = "ValveBiped.Bip01_Head1",

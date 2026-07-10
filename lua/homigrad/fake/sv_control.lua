@@ -1115,12 +1115,14 @@ hook.Add("Think", "Fake", function()
 				keyRight = true
 				isNeckSlitRolling = true
 			end
-		else
-			keyLeft = ply:KeyDown(IN_MOVELEFT)
-			keyRight = ply:KeyDown(IN_MOVERIGHT)
-		end
+	else
+		keyLeft = ply:KeyDown(IN_ALT1)
+		keyRight = ply:KeyDown(IN_ALT2)
+	end
 
-		if keyLeft and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
+	ply.lean = ply:KeyDown(IN_ALT1) and 1 or ply:KeyDown(IN_ALT2) and -1 or 0
+
+	if keyLeft and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
 			if org.canmove then
 				local angle = spine:GetAngles()
 				angle[3] = angle[3] - 20 * (ragdoll:IsOnFire() and 1.5 or 1)
@@ -1172,8 +1174,40 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-		if not inmove and org.canmove and ply.FakeRagdoll == ragdoll then
-			if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
+	local rollLeft = ply:KeyDown(IN_MOVELEFT)
+	local rollRight = ply:KeyDown(IN_MOVERIGHT)
+
+	if (rollLeft or rollRight) and not inmove and !ply:InVehicle() and org.canmove then
+		local onground = util.TraceLine({
+			start = spine:GetPos(),
+			endpos = spine:GetPos() - vector_up * 36,
+			filter = {ply, ragdoll},
+			mask = MASK_SOLID,
+		}).Hit
+
+		if onground then
+			local dir = rollLeft and -1 or 1
+			local axis = spine:GetAngles():Forward()
+			local rollPhys = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+
+			for _, physNum in ipairs(rollPhys) do
+				if isFloppyPhys(ragdoll, physNum, true) then continue end
+
+				local phys = ragdoll:GetPhysicsObjectNum(physNum)
+				if IsValid(phys) then
+					local cur = phys:GetAngleVelocity():Dot(axis)
+					phys:AddAngleVelocity(axis * math.Clamp(dir * 6 * (ragdoll.power or 1) - cur, -2, 2))
+				end
+			end
+
+			if hg_fake_stamina:GetBool() and ply.organism then
+				ply.organism.stamina.subadd = ply.organism.stamina.subadd + 0.04
+			end
+		end
+	end
+
+	if not inmove and org.canmove and ply.FakeRagdoll == ragdoll then
+		if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
 				local lthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 11))
 				local rthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 8))
 

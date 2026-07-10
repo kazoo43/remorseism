@@ -458,6 +458,7 @@ local function CreateRadialMenu(options_arg, bAutoClose)
 	menuPanel:SetAlpha(0)
 	menuPanel:AlphaTo(255,0.2)
 	menuPanel.bAutoClose = bAutoClose
+	menuPanel.bIsNested = options_arg ~= nil
 	radialSpinAngle = 0
 	if !options_arg then input.SetCursorPos(sizeX / 2, sizeY / 2) end
 
@@ -723,7 +724,7 @@ local function PressRadialMenu(mouseClick)
 		if isfunction(func) then needed_mouseclick = func(mouseClick, current_option_select) end
 	end
 
-	if needed_mouseclick != -1 and IsValid(menuPanel) and mouseClick != (needed_mouseclick or 2) and not menuPanel.bAutoClose then
+	if needed_mouseclick != -1 and IsValid(menuPanel) and (mouseClick != (needed_mouseclick or 2) or (menuPanel.bIsNested and needed_mouseclick == nil)) and not menuPanel.bAutoClose then
 		menuPanel:Close()
 	end
 end

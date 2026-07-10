@@ -1386,9 +1386,13 @@ local bleedSurfaces = { -- https://developer.valvesoftware.com/wiki/Material_sur
 	["glass_breakable"] = true
 }
 
+local hg_safe_landing_legmul = 0.6
+local hg_safe_landing_painmul = 0.7
+local hg_safe_landing_minspeed = 350
+
 local function velocityDamage(ent, data)
 	local speed = (data.OurOldVelocity - data.TheirOldVelocity):Length()
-	if speed < 350 then return end
+	if speed < 545 then return end
 	if data.HitEntity.Throwable then return end
 	
 	if !data.HitEntity:IsWorld() and data.HitEntity.lasttouched and data.HitEntity.lasttouched[ent] then
@@ -1439,6 +1443,16 @@ local function velocityDamage(ent, data)
 	
 	local ply = hg.RagdollOwner(ent)
 
+	-- Safe landing: holding crouch (Ctrl) while ragdolled dampens the fall.
+	-- Only kicks in on real impacts and only helps at moderate heights,
+	-- since the multipliers are constant and big falls still exceed the fracture threshold.
+	local safeLanding = false
+	local safeLegMul = hg_safe_landing_legmul
+	local safePainMul = hg_safe_landing_painmul
+	if (speed >= hg_safe_landing_minspeed) and IsValid(ply) and ply:Alive() and ply:KeyDown(IN_DUCK) then
+		safeLanding = true
+	end
+
 	local traceResult = GetTraceDamage(ent, data.HitPos, -(data.OurOldVelocity - data.TheirOldVelocity))
 	
 	if not bone then
@@ -1476,11 +1490,13 @@ local function velocityDamage(ent, data)
 	dmg = dmg * armorDmgMul
 
 
-	org.fearadd = org.fearadd + dmg * 0.5
+	org.fearadd = org.fearadd + dmg * 0.5 * (safeLanding and safePainMul or 1)
 
 	if not org.superfighter then
-		if hitgroup == HITGROUP_LEFTLEG and (dmg * 3 > 0.25) then hg.organism.input_list.llegup(org, bone, dmg * 1 * math.Rand(1, 2), dmgInfo) end--org.lleg = math.min(org.lleg + dmg, 1) end
-		if hitgroup == HITGROUP_RIGHTLEG and (dmg * 3 > 0.25) then hg.organism.input_list.rlegup(org, bone, dmg * 1 * math.Rand(1, 2), dmgInfo) end
+		local legMul = safeLanding and safeLegMul or 1
+
+		if hitgroup == HITGROUP_LEFTLEG and (dmg * 3 > 0.25) then hg.organism.input_list.llegup(org, bone, dmg * legMul * math.Rand(1, 2), dmgInfo) end--org.lleg = math.min(org.lleg + dmg, 1) end
+		if hitgroup == HITGROUP_RIGHTLEG and (dmg * 3 > 0.25) then hg.organism.input_list.rlegup(org, bone, dmg * legMul * math.Rand(1, 2), dmgInfo) end
 		if hitgroup == HITGROUP_LEFTARM and (dmg * 2 > 0.2) then hg.organism.input_list.larmup(org, bone, dmg * 1 * math.Rand(1, 2), dmgInfo) end
 		if hitgroup == HITGROUP_RIGHTARM and (dmg * 2 > 0.2) then hg.organism.input_list.rarmup(org, bone, dmg * 1 * math.Rand(1, 2), dmgInfo) end
 		if hitgroup == HITGROUP_CHEST and (dmg * 3 > 0.25) then hg.organism.input_list.chest(org, bone, dmg * 3, dmgInfo) end
@@ -1577,7 +1593,7 @@ local function velocityDamage(ent, data)
 
 	att.harm = 0
 
-	local dmghuy = dmg * 20
+	local dmghuy = dmg * 20 * (safeLanding and safePainMul or 1)
 
 	if not org.superfighter then
 		org.painadd = org.painadd + dmghuy

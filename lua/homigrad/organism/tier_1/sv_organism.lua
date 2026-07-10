@@ -136,6 +136,8 @@ end)
 local hg_unreliable_nets = ConVarExists("hg_unreliable_nets") and GetConVar("hg_unreliable_nets") or CreateConVar("hg_unreliable_nets", 0, FCVAR_ARCHIVE + FCVAR_SERVER_CAN_EXECUTE, "Toggle unreliable net messages for some of the expensive nets", 0, 1)
 util.AddNetworkString("organism_send")
 util.AddNetworkString("organism_sendply")
+util.AddNetworkString("hg_dislocation_minigame_pain")
+util.AddNetworkString("hg_dislocation_minigame_success")
 local CurTime = CurTime
 local nullTbl = {}
 local hg_developer = ConVarExists("hg_developer") and GetConVar("hg_developer") or CreateConVar("hg_developer", 0, FCVAR_SERVER_CAN_EXECUTE, "Toggle developer mode (enables damage traces)", 0, 1)
@@ -985,6 +987,81 @@ concommand.Add("hg_fixdislocation", function(ply, cmd, args)
 		end
 	end
 end)
+
+net.Receive("hg_dislocation_minigame_pain", function(len, ply)
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	local target = net.ReadEntity()
+	if IsValid(target) and target:IsPlayer() and target != ply then
+		local org = target.organism
+		if not org then return end
+
+		org.painadd = org.painadd + 5
+		org.fearadd = org.fearadd + 0.1
+		target:EmitSound("physics/body/body_medium_impact_hard1.wav", 60, 100, 1, CHAN_AUTO)
+		return
+	end
+
+	local org = ply.organism
+	if not org then return end
+
+	org.painadd = org.painadd + 5
+	org.fearadd = org.fearadd + 0.1
+	ply:EmitSound("physics/body/body_medium_impact_hard1.wav", 60, 100, 1, CHAN_AUTO)
+end)
+
+net.Receive("hg_dislocation_minigame_success", function(len, ply)
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	local target = net.ReadEntity()
+	local patient = ply
+
+	if IsValid(target) and target:IsPlayer() and target != ply then
+		patient = target
+		if ply:GetPos():Distance(patient:GetPos()) > 200 then return end
+	end
+
+	local org = patient.organism
+	if not org then return end
+
+	local limbType = net.ReadInt(4)
+	local failures = net.ReadInt(16)
+
+	local key
+	if limbType == 1 then
+		if org.llegdislocation then key = "lleg"
+		elseif org.rlegdislocation then key = "rleg" end
+	elseif limbType == 2 then
+		if org.larmdislocation then key = "larm"
+		elseif org.rarmdislocation then key = "rarm" end
+	elseif limbType == 3 then
+		if org.jawdislocation then key = "jaw" end
+	end
+
+	if key then
+		org[key.."dislocation"] = false
+		if hg.fakeBoneFlop and hg.fakeBoneFlop.ClearStoredLimb(org, key) then
+			hg.fakeBoneFlop.ScheduleRebuild(org.owner)
+		end
+
+		org.painadd = org.painadd + 5
+		org.fearadd = org.fearadd + 0.1
+
+		if failures > 0 then
+			org.painadd = org.painadd + (failures * 2)
+		end
+
+		patient:EmitSound("physics/body/body_medium_impact_soft1.wav", 60, 100, 1, CHAN_AUTO)
+
+		if patient == ply then
+			ply:Notify("You fixed your dislocation.", 3, "fix", 2)
+		else
+			ply:Notify("You fixed " .. patient:GetName() .. "'s dislocation.", 3, "fix", 2)
+			patient:Notify(ply:GetName() .. " fixed your dislocation.", 3, "fix", 2)
+		end
+	end
+end)
+
 hook.Add("OnEntityWaterLevelChanged", "ClearBlood", function(ent, old, new)
 	if new >= 2 then
 		if ent:IsOnFire() then ent:Extinguish() end
