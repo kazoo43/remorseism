@@ -249,8 +249,39 @@ else
 	util.AddNetworkString("zChatGlobalMessage")
 	util.AddNetworkString("zChatTyping")
 
+	local function zChatSpamBlocked(ply, text)
+		local now = CurTime()
+		ply._zchat_msg_next = ply._zchat_msg_next or 0
+		ply._zchat_msg_window = ply._zchat_msg_window or now
+		ply._zchat_msg_count = ply._zchat_msg_count or 0
+		ply._zchat_msg_dupes = ply._zchat_msg_dupes or 0
+
+		if now < ply._zchat_msg_next then return true end
+
+		if now - ply._zchat_msg_window >= 2 then
+			ply._zchat_msg_window = now
+			ply._zchat_msg_count = 0
+		end
+
+		ply._zchat_msg_count = ply._zchat_msg_count + 1
+		ply._zchat_msg_next = now + 0.28
+
+		if ply._zchat_msg_last == text then
+			ply._zchat_msg_dupes = ply._zchat_msg_dupes + 1
+		else
+			ply._zchat_msg_dupes = 0
+		end
+
+		ply._zchat_msg_last = text
+
+		return ply._zchat_msg_count > 5 or ply._zchat_msg_dupes > 2
+	end
+
 	net.Receive("zChatMessage", function(len, ply)
 		local text = net.ReadString()
+		text = string.Trim(text or "")
+		if text == "" then return end
+		if zChatSpamBlocked(ply, text) then return end
 
 		local maxLen = maxLength:GetInt()
 
@@ -306,6 +337,10 @@ else
 	end)
 
 	net.Receive("zChatTyping", function(len, ply)
+		ply._zchat_typing_next = ply._zchat_typing_next or 0
+		if ply._zchat_typing_next > CurTime() then return end
+		ply._zchat_typing_next = CurTime() + 0.1
+
 		ply:SetNetVar("bIsTyping", net.ReadBool())
 	end)
 

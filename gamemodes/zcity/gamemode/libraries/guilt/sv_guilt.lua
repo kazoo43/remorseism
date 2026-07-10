@@ -373,9 +373,12 @@ concommand.Add("hg_setkarma",function(ply,cmd,args)
     
     local lenargs = #args
     local newply = player.GetListByName(lenargs > 1 and args[1] or ply:Name())[1]
+	if not IsValid(newply) then return end
+	local karma = tonumber(lenargs > 1 and args[2] or args[1])
+	if not karma then return end
 
-    newply.Karma = tonumber(lenargs > 1 and args[2] or args[1])
-    newply:SetNetVar("Karma",ply.Karma)
+	newply.Karma = math.Clamp(karma, 0, zb.MaxKarma or 100)
+	newply:SetNetVar("Karma",newply.Karma)
     //newply:guilt_SetValue( ply.Karma or 100 )
 end)
 

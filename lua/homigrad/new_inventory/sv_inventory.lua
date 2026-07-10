@@ -4,8 +4,8 @@ net.Receive("NI_SelectWeapon", function(len, ply)
 	if not GetGlobalBool("RadialInventory", false) then return end
 
 	local wep = net.ReadEntity()
-	if IsValid(wep) and ply:HasWeapon(wep:GetClass()) and wep:GetOwner() == ply and ply:GetActiveWeapon() ~= wep:GetClass() then
-		ply:SelectWeapon(wep)
+	if IsValid(wep) and wep:GetOwner() == ply and ply:HasWeapon(wep:GetClass()) and ply:GetActiveWeapon() ~= wep then
+		ply:SelectWeapon(wep:GetClass())
 	end
 end)
 
