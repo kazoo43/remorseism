@@ -196,10 +196,10 @@ SWEP.SwingForwardBoostMinSpeed = 20
 SWEP.RagdollHitForceMul = 0.5
 
 SWEP.SwingDamageEnabled = true
-SWEP.SwingDamageMinSpeed = 150
-SWEP.SwingDamageMaxSpeed = 900
-SWEP.SwingDamageMaxMul = 1.5
-SWEP.SwingDamageDebug = false
+SWEP.SwingDamageMinSpeed = 120
+SWEP.SwingDamageMaxSpeed = 600
+SWEP.SwingDamageMaxMul = 1.4
+SWEP.SwingDamageDebug = true
 SWEP.SwingDecayHalfLife = 0.5
 
 if CLIENT then
@@ -2743,7 +2743,7 @@ function SWEP:CustomThink()
                     self:PlaySoftHitSounds(owner, ent, trace, false)
                 end
                 
-                local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
+                local hitForce = trace.Normal * math.min(dmg, 35) * 400 * (self.RagdollHitForceMul or 1)
                 if self:IsHeadHit(ent, trace) then
                     hitForce.x = hitForce.x * (self.HeadRagdollForceMul or 1.35)
                     hitForce.y = hitForce.y * (self.HeadRagdollForceMul or 1.35)
@@ -2894,7 +2894,7 @@ function SWEP:CustomThink()
                 end
 
                 local phys = ent:GetPhysicsObjectNum(trace.PhysicsBone or 0)
-                local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
+                local hitForce = trace.Normal * math.min(dmg, 35) * 400 * (self.RagdollHitForceMul or 1)
                 if self:IsHeadHit(ent, trace) then
                     hitForce.x = hitForce.x * (self.HeadRagdollForceMul or 1.35)
                     hitForce.y = hitForce.y * (self.HeadRagdollForceMul or 1.35)
@@ -3054,7 +3054,7 @@ function SWEP:CustomThink()
                     self:PlaySoftHitSounds(owner, ent, trace, 3)
                 end
                 
-                local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
+                local hitForce = trace.Normal * math.min(dmg, 35) * 400 * (self.RagdollHitForceMul or 1)
                 if self:IsHeadHit(ent, trace) then
                     hitForce.x = hitForce.x * (self.HeadRagdollForceMul or 1.35)
                     hitForce.y = hitForce.y * (self.HeadRagdollForceMul or 1.35)
@@ -3103,16 +3103,12 @@ function SWEP:CustomThink()
                 self.AttackHitPlayed = false
                 self.SoftHitPlayed = false
                 self.ComboAppliedThisAttack = nil
-                self.ChargeReleasedAt = nil
-                self.ReleasedChargeDamageMul = nil
-                self.ReleasedChargeBoneMul = nil
-                self.ChargeStaminaMul = nil
             end
+        else
+            self.attackedOnce = nil
+            self.SoftHitPlayed = false
+            self.ComboAppliedThisAttack = nil
         end
-    else
-        self.attackedOnce = nil
-        self.SoftHitPlayed = false
-        self.ComboAppliedThisAttack = nil
     end
 
 end
@@ -3801,7 +3797,7 @@ function SWEP:NPCThink()
                     end
 
 					if trEnt:IsPlayer() then
-						local hitForce = trace.Normal * math.min(dmg, 25) * 400 * (self.RagdollHitForceMul or 1)
+						local hitForce = trace.Normal * math.min(dmg, 35) * 400 * (self.RagdollHitForceMul or 1)
 						if self:IsHeadHit(trEnt, trace) then
 							hitForce.x = hitForce.x * (self.HeadRagdollForceMul or 1.35)
 							hitForce.y = hitForce.y * (self.HeadRagdollForceMul or 1.35)
