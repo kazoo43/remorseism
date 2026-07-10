@@ -86,6 +86,8 @@ hook.Add("Org Clear", "Main", function(org)
 	org.CantCheckPulse = nil
 	org.HEV = nil
 	org.bleedingmul = 1
+	org.neckslitSoundName = nil
+	org.neckslitSoundEnt = nil
 	org.last_heartbeat = CurTime()
 	org.bulletwounds = 0
 	org.stabwounds = 0
@@ -507,6 +509,16 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		module.liver[2](owner, org, timeValue)
 	end
 	module.blood[2](owner, org, timeValue)
+	local neckslit = false
+	if org.arterialwounds then
+		for i, wound in pairs(org.arterialwounds) do
+			if wound[7] == "arteria" and wound[1] > 0 then
+				neckslit = true
+				break
+			end
+		end
+	end
+	org.neckslit = neckslit
 	module.pain[2](owner, org, timeValue)
 	if isPly then
 		module.metabolism[2](owner, org, timeValue)
@@ -648,6 +660,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 	org.canmovehead = (org.spine3 < hg.organism.fake_spine3) and not org.otrub
 	if not (org.canmove and org.canmovehead and (org.stun - CurTime()) < 0) then org.needfake = true end
 	if (org.blood < 2700) then org.needfake = true end
+	if org.neckslit and not org.otrub then org.needfake = true end
 	local just_went_uncon = not org.otrub and org.needotrub
 	if org.posturing then
 		local ent = hg.GetCurrentCharacter(org.owner)
@@ -678,6 +691,16 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 	if org.otrub and isPly and org.owner:Alive() then
 	end
 	if not org.otrub and isPly and org.owner:Alive() then
+	end
+	if org.neckslitSoundName and (org.otrub or org.needotrub) then
+		if IsValid(org.neckslitSoundEnt) then
+			org.neckslitSoundEnt:StopSound(org.neckslitSoundName)
+		end
+		if IsValid(owner) then
+			owner:StopSound(org.neckslitSoundName)
+		end
+		org.neckslitSoundName = nil
+		org.neckslitSoundEnt = nil
 	end
 	if just_went_uncon then
 		org.owner.fullsend = true

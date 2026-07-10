@@ -443,31 +443,6 @@ hook.Add("Think", "Fake", function()
 		power = power * org.consciousness
 		ragdoll.power = power
 
-		if org.neckslit and not org.otrub and org.arterialwounds and not table.IsEmpty(org.arterialwounds) then
-			local neckwound
-			for i, wound in pairs(org.arterialwounds) do
-				if wound[7] == "arteria" then
-					neckwound = wound
-					break
-				end
-			end
-
-			if neckwound and ragdoll:LookupBone(neckwound[4]) then
-				local bone = ragdoll:LookupBone(neckwound[4])
-				local neckpos, neckang = ragdoll:GetBonePosition(bone)
-				if neckpos and neckang then
-					local right = neckang:Right()
-					local forward = neckang:Forward()
-					local up = neckang:Up()
-					local leftpos = neckpos + right * -3 + forward * 2 + up * -1
-					local rightpos = neckpos + right * 3 + forward * 2 + up * -1
-					shadowControl(ragdoll, 5, 0.001, nil, nil, nil, leftpos, 100, 20)
-					shadowControl(ragdoll, 7, 0.001, nil, nil, nil, rightpos, 100, 20)
-					shadowControl(ragdoll, 10, 0.001, nil, nil, nil, neckpos, 50, 10)
-				end
-			end
-		end
-
 		local inmove = false
 		
 		local ragdollcombat = hg.RagdollCombatInUse(ply)

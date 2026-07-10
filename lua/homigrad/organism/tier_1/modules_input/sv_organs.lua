@@ -176,14 +176,34 @@ local function getArteryChanceMul(dmgInfo)
 	return IsValid(inflictor) and inflictor.ArteryChance or 1
 end
 
+local function getStaminaMul(dmgInfo)
+	local att = dmgInfo:GetAttacker()
+	if IsValid(att) and att.organism and att.organism.stamina then
+		local stamina = att.organism.stamina
+		return math.max(stamina[1] / stamina.max, 0.1)
+	end
+	return 1
+end
+
 local function hitArtery(artery, org, dmg, dmgInfo, boneindex, dir, hit)
 	if isCrush(dmgInfo) then return 1 end
 	if dmgInfo:IsDamageType(DMG_BLAST) then return 1 end
 	if dmgInfo:IsDamageType(DMG_SLASH) and dmg < 2 then
+		local staminaMul = getStaminaMul(dmgInfo)
 		local arteryChanceMul = getArteryChanceMul(dmgInfo)
-		local arteryChance = arteryChanceMul >= 2 and 1 or math.Clamp(0.2 * arteryChanceMul, 0, 1)
+		local arteryChance = arteryChanceMul >= 2 and 1 or math.Clamp(0.45 * arteryChanceMul * staminaMul, 0, 1)
 
-		if math.Rand(0, 1) > arteryChance then return end
+		if math.Rand(0, 1) > arteryChance then
+			-- Didn't fully cut through, maybe just a scratch
+			local scratchChance = 0.2 + 0.3 * staminaMul
+			if math.Rand(0, 1) < scratchChance then
+				org.painadd = org.painadd + dmg * 0.3
+				if artery == "arteria" and org.isPly and IsValid(org.owner) then
+					org.owner:Notify("My neck got scratched!", true, "arteria", 0)
+				end
+			end
+			return
+		end
 	end
 	org.painadd = org.painadd + dmg * 1
 	if org[artery] == 1 then return 0 end
@@ -197,11 +217,36 @@ local function hitArtery(artery, org, dmg, dmgInfo, boneindex, dir, hit)
 		end
 		
 		hg.AddHarmToAttacker(dmgInfo, 15, "Carotid artery punctured harm")
+		org.neckslit = true
+		org.needfake = true
 	end
 
 	org[artery] = math.min(org[artery] + 1, 1)
 
 	local owner = org.owner
+
+	if artery == "arteria" and IsValid(owner) then
+		local ent = hg.GetCurrentCharacter(owner)
+		if IsValid(ent) and not org.otrub and not org.needotrub and (owner:IsPlayer() and owner:Alive() or not owner:IsPlayer()) then
+			ent:EmitSound("neckslit.ogg", 70, 100, 1, CHAN_AUTO)
+		end
+
+		local snd = (ThatPlyIsFemale and ThatPlyIsFemale(owner)) and "femaleneck.mp3" or "maleneck.mp3"
+		timer.Simple(0, function()
+			if IsValid(owner) then
+				if owner:IsPlayer() and owner:Alive() then
+					hg.Fake(owner, nil, true, true)
+				end
+				local rag = hg.GetCurrentCharacter(owner)
+				if IsValid(rag) and not org.otrub and not org.needotrub and (owner:IsPlayer() and owner:Alive() or not owner:IsPlayer()) then
+					rag:EmitSound(snd, 70, 100, 1, CHAN_VOICE)
+					org.neckslitSoundName = snd
+					org.neckslitSoundEnt = rag
+				end
+			end
+		end)
+	end
+
 	local bonea = owner:LookupBone(boneindex)
 	local localPos, localAng, dir2 = getlocalshit(owner, bonea, dmgInfo, dir, hit)
 	table.insert(org.arterialwounds, {arterySize[artery], localPos, localAng, boneindex, CurTime(), dir2 * 100, artery})
