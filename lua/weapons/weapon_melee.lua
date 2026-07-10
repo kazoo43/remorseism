@@ -834,8 +834,21 @@ function SWEP:Camera(eyePos, eyeAng, view, vellen)
     local lpos = self.lastAddPos or vector_origin
     //view.angles[1] = view.angles[1] + lpos.z * 1
     //view.angles[2] = view.angles[2] + lpos.y * 1
-    
+
+    self.meleeFovKick = LerpFT(0.08, self.meleeFovKick or 0, 0)
+    if math.abs(self.meleeFovKick) > 0.01 then
+        view.fov = (view.fov or 70) + self.meleeFovKick
+    end
+
     return view
+end
+
+function SWEP:Blur(x, y, w, z)
+    local blur = self.meleeMotionBlur or 0
+    self.meleeMotionBlur = LerpFT(0.06, blur, 0)
+    if blur < 0.001 then return nil end
+    w = w - blur
+    return {x, y, w, z}
 end
 
 local ang180, ang1 = Angle(0,180,0), Angle(-135,-90,0)
@@ -1979,6 +1992,16 @@ function SWEP:ShouldStopAttackOnWorldHit(attacktype)
     return self.StopOnWorldHit ~= false and not self.noreverse
 end
 
+function SWEP:FindNearbySoftEntity(hitPos, owner)
+    local nearby = ents.FindInSphere(hitPos, 24)
+    for _, e in ipairs(nearby) do
+        if IsValid(e) and e ~= owner and self:IsEntSoft(e) and IsValid(e.FakeRagdoll) then
+            return e
+        end
+    end
+    return nil
+end
+
 function SWEP:HandleChargeWorldHit(trace, attacktype)
     if not self:IsChargeAttackType(attacktype) then return false end
     if self.HitWorld then return true end
@@ -1986,6 +2009,15 @@ function SWEP:HandleChargeWorldHit(trace, attacktype)
     self.HitWorld = true
     self:PlayEffects(trace, attacktype)
     self:SendMeleeHitStop(attacktype, trace.HitNormal)
+
+    local owner = self:GetOwner()
+    if IsValid(owner) then
+        local nearSoft = self:FindNearbySoftEntity(trace.HitPos, owner)
+        if IsValid(nearSoft) then
+            local dmg = math.random(self.DamagePrimary - 3, self.DamagePrimary + 3) * (self.ReleasedChargeDamageMul or 1)
+            self:SendMeleeSoftHitStop(attacktype, trace.HitNormal, dmg)
+        end
+    end
 
     return true
 end
@@ -2003,6 +2035,28 @@ function SWEP:SendMeleeHitStop(attacktype, normal, shakeState)
     net.WriteFloat(stopanim or 0)
     net.WriteVector(normal and normal:GetNormalized() or vector_up)
     net.WriteString(shakeState or "")
+    net.SendPVS(self:GetPos())
+end
+
+function SWEP:SendMeleeSoftHitStop(attacktype, normal, dmg)
+    if not SERVER then return end
+
+    local speedMul = self.HitStopSoftSpeedMul or 1.9
+    local pause = self.HitStopSoftPause or 0.05
+    local stopanim = self.HitStopSoftStop or 0.1
+
+    local dmgScale = math.Clamp((dmg or 15) / 25, 0.6, 1.8)
+    pause = pause * dmgScale
+    stopanim = stopanim * dmgScale
+
+    net.Start("hg_melee_hit_stop")
+    net.WriteEntity(self)
+    net.WriteFloat(speedMul)
+    net.WriteFloat(pause)
+    net.WriteBool(false)
+    net.WriteFloat(stopanim)
+    net.WriteVector(normal and normal:GetNormalized() or vector_up)
+    net.WriteString("")
     net.SendPVS(self:GetPos())
 end
 
@@ -2685,6 +2739,12 @@ function SWEP:CustomThink()
             if not soft and self:ShouldStopAttackOnWorldHit(1) then
                 self:PlayEffects(trace, false)
                 self:SendMeleeHitStop(1, trace.HitNormal)
+
+                local nearSoft = self:FindNearbySoftEntity(trace.HitPos, owner)
+                if IsValid(nearSoft) then
+                    self:SendMeleeSoftHitStop(1, trace.HitNormal, dmg)
+                end
+
                 self:AbortBlockedAttack()
                 return
             end
@@ -2771,6 +2831,15 @@ function SWEP:CustomThink()
                 self:PrimaryAttackAdd(ent, trace)
             end
 
+            if blockState == "none" and soft then
+                self:SendMeleeSoftHitStop(1, trace.HitNormal, dmg)
+
+                if owner:IsPlayer() then
+                    owner:ViewPunch((self:GetAttackConfigValue(self.ViewPunch1, self.ViewPunch2, self.ChargeViewPunch, false) or self.ViewPunch1) * 0.4)
+                    util.ScreenShake(owner:GetPos(), 15, 5, 0.15, 60)
+                end
+            end
+
             if self:ShouldStopAttackOnBlockState(blockState) then
                 self:SendMeleeHitStop(1, trace.HitNormal, blockState)
                 self:AbortBlockedAttack()
@@ -2829,6 +2898,12 @@ function SWEP:CustomThink()
             if not soft and self:ShouldStopAttackOnWorldHit(2) then
                 self:PlayEffects(trace, true)
                 self:SendMeleeHitStop(2, trace.HitNormal)
+
+                local nearSoft = self:FindNearbySoftEntity(trace.HitPos, owner)
+                if IsValid(nearSoft) then
+                    self:SendMeleeSoftHitStop(2, trace.HitNormal, dmg)
+                end
+
                 self:AbortBlockedAttack()
                 return
             end
@@ -2921,6 +2996,15 @@ function SWEP:CustomThink()
                 self:SecondaryAttackAdd(ent, trace)
             end
 
+            if blockState == "none" and soft then
+                self:SendMeleeSoftHitStop(2, trace.HitNormal, dmg)
+
+                if owner:IsPlayer() then
+                    owner:ViewPunch((self:GetAttackConfigValue(self.ViewPunch1, self.ViewPunch2, self.ChargeViewPunch, true) or self.ViewPunch2) * 0.4)
+                    util.ScreenShake(owner:GetPos(), 15, 5, 0.15, 60)
+                end
+            end
+
             if self:ShouldStopAttackOnBlockState(blockState) then
                 self:SendMeleeHitStop(2, trace.HitNormal, blockState)
                 self:AbortBlockedAttack()
@@ -2996,6 +3080,13 @@ function SWEP:CustomThink()
                 if self:ShouldStopAttackOnWorldHit(3) then
                     self:PlayEffects(trace, 3)
                     self:SendMeleeHitStop(3, trace.HitNormal)
+
+                    local nearSoft = self:FindNearbySoftEntity(trace.HitPos, owner)
+                    if IsValid(nearSoft) then
+                        local dmg = math.random(self.DamagePrimary - 3, self.DamagePrimary + 3) * (self.ReleasedChargeDamageMul or 1)
+                        self:SendMeleeSoftHitStop(3, trace.HitNormal, dmg)
+                    end
+
                     self:AbortBlockedAttack()
                     return
                 end
@@ -3082,6 +3173,15 @@ function SWEP:CustomThink()
                 self:ChargeAttackAdd(ent, trace)
             end
 
+            if blockState == "none" and soft then
+                self:SendMeleeSoftHitStop(3, trace.HitNormal, dmg)
+
+                if owner:IsPlayer() then
+                    owner:ViewPunch((self:GetAttackConfigValue(self.ViewPunch1, self.ViewPunch2, self.ChargeViewPunch, 3) or self.ViewPunch1) * 0.4)
+                    util.ScreenShake(owner:GetPos(), 15, 5, 0.15, 60)
+                end
+            end
+
             if self:ShouldStopAttackOnBlockState(blockState) then
                 self:SendMeleeHitStop(3, trace.HitNormal, blockState)
                 self:AbortBlockedAttack()
@@ -3126,12 +3226,12 @@ SWEP.AttackTimeLength = 0.15
 SWEP.Attack2TimeLength = 0.1
 SWEP.HitStopWorldSpeedMul = 2.35
 SWEP.HitStopWorldResumeMul = 0.6
-SWEP.HitStopWorldPause = 0.12
-SWEP.HitStopWorldStop = 0.12
+SWEP.HitStopWorldPause = 0.25
+SWEP.HitStopWorldStop = 0.3
 SWEP.HitStopSoftSpeedMul = 1.9
 SWEP.HitStopSoftResumeMul = 0.72
-SWEP.HitStopSoftPause = 0.05
-SWEP.HitStopSoftStop = 0.1
+SWEP.HitStopSoftPause = 0.1
+SWEP.HitStopSoftStop = 0.095
 SWEP.HitPunchMul = 0.75
 SWEP.HitPunchDiv = 40
 SWEP.HitScreenShakeAmp = 22
@@ -3607,6 +3707,13 @@ elseif CLIENT then
         local owner = wep.GetOwner and wep:GetOwner()
         if IsValid(owner) and owner == LocalPlayer() then
             util.ScreenShake(wep:GetPos(), 35, 1, 1, 100)
+
+            local weightScale = math.Clamp((wep.weight or 0.4) / 4, 0, 1)
+            local dmgScale = math.Clamp((wep.DamagePrimary or 15) / 50, 0, 1)
+            local impact = weightScale * 0.5 + dmgScale * 0.5
+
+            wep.meleeFovKick = (wep.meleeFovKick or 0) - (2 + impact * 3)
+            wep.meleeMotionBlur = math.max(wep.meleeMotionBlur or 0, 0.005 + impact * 0.025)
         end
     end)
 
