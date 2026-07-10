@@ -1369,17 +1369,157 @@ end
 	end)
 
 	hook.Add("PostEntityTakeDamage", "GlassShards", function(ent, dmginfo)
-		if IsValid(ent) and math.random(4) == 2 then
-			if ent:GetClass() == "func_breakable_surf" or (ent:GetClass() == "func_breakable" and ent:GetMaterialType() == MAT_GLASS) then
-				local glass = ents.Create("weapon_hg_glassshard")
-				local inf = dmginfo:GetInflictor()
-				glass:SetPos(IsValid(inf) and inf:GetPos() or dmginfo:GetAttacker():GetPos())
-				glass:SetAngles(AngleRand(-180, 180))
-				glass:Spawn()
-				glass.IsSpawned = true
-				glass.init = true
-				--Player(2):SetPos(IsValid(inf) and inf:GetPos() or dmginfo:GetAttacker():GetPos())
-				--print(ent, glass) -- bro im spawned and etc.
+		if not IsValid(ent) then return end
+
+		local isGlass = ent:GetClass() == "func_breakable_surf" or (ent:GetClass() == "func_breakable" and ent:GetMaterialType() == MAT_GLASS)
+		if not isGlass then return end
+
+		if math.random(4) == 2 then
+			local glass = ents.Create("weapon_hg_glassshard")
+			local inf = dmginfo:GetInflictor()
+			local att = dmginfo:GetAttacker()
+			glass:SetPos(IsValid(inf) and inf:GetPos() or (IsValid(att) and att:GetPos() or ent:GetPos()))
+			glass:SetAngles(AngleRand(-180, 180))
+			glass:Spawn()
+			glass.IsSpawned = true
+			glass.init = true
+		end
+
+		local att = dmginfo:GetAttacker()
+		local ply = (IsValid(att) and att:IsPlayer() and att)
+			or (IsValid(att) and hg.RagdollOwner(att))
+			or (IsValid(dmginfo:GetInflictor()) and hg.RagdollOwner(dmginfo:GetInflictor()))
+
+		if not IsValid(ply) or not ply.organism then return end
+		if ply.glassLodgeCD and ply.glassLodgeCD > CurTime() then return end
+		if dmginfo:IsDamageType(DMG_BULLET) or dmginfo:IsDamageType(DMG_SLASH) then return end
+
+		local speed = ply:GetVelocity():Length()
+		if IsValid(att) and not att:IsPlayer() and IsValid(att:GetPhysicsObject()) then
+			speed = math.max(speed, att:GetPhysicsObject():GetVelocity():Length())
+		end
+
+		if speed < 250 then return end
+
+		ply.glassLodgeCD = CurTime() + 0.5
+		hg.LodgeGlassShards(ply, math.random(1, 2))
+	end)
+
+	function hg.LodgeGlassShards(ply, count)
+		local org = ply.organism
+		if not IsValid(ply) or not org then return end
+
+		local body = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
+		if not IsValid(body) then return end
+
+		local physCount = body:GetPhysicsObjectCount()
+		if physCount <= 0 then return end
+
+		org.LodgedEntities = org.LodgedEntities or {}
+
+		local maxShards = 6
+		if #org.LodgedEntities >= maxShards then return end
+		count = math.min(count, maxShards - #org.LodgedEntities)
+
+		for i = 1, count do
+			local bone = math.random(0, physCount - 1)
+			local animBone = body:TranslatePhysBoneToBone(bone)
+			local mat = body:GetBoneMatrix(animBone)
+			if not mat then continue end
+
+			local lpos = WorldToLocal(mat:GetTranslation() + VectorRand() * 4, angle_zero, mat:GetTranslation(), mat:GetAngles())
+			local lang = AngleRand(-180, 180)
+
+			org.LodgedEntities[#org.LodgedEntities + 1] = {
+				PhysBoneID = bone,
+				OffsetPos = lpos,
+				OffsetAng = lang,
+				model = "models/z_city/wep_glass_shard.mdl",
+				takeent = "weapon_hg_glassshard",
+				BoneName = body:GetBoneName(animBone)
+			}
+
+			hg.organism.AddWoundManual(ply, 6, lpos, angle_zero, body:GetBoneName(animBone), CurTime() + math.Rand(0, 2))
+		end
+
+
+		net.Start("organism_send")
+		local tbl = {}
+		tbl.LodgedEntities = org.LodgedEntities
+		tbl.owner = ply
+		net.WriteTable(tbl)
+		net.WriteBool(true)
+		net.WriteBool(false)
+		net.WriteBool(false)
+		net.WriteBool(true)
+		net.Broadcast()
+
+		ply:EmitSound("physics/glass/glass_pottery_break" .. math.random(1, 4) .. ".wav", 65)
+	end
+
+	local glassCutPhrases = {
+		"Fuck, the glass in me is cutting!",
+		"Ow, the shards are digging into me!",
+		"Agh, it's slicing me as I move!",
+		"Shit, it won't stop cutting me open!",
+		"Ah, the glass stuck in me keeps cutting!",
+		"Fuck, it hurts so bad while I run!"
+	}
+
+	local nextGlassCheck = 0
+	hook.Add("Think", "GlassShardsBleed", function()
+		if nextGlassCheck > CurTime() then return end
+		nextGlassCheck = CurTime() + 0.5
+
+		for _, ply in ipairs(player.GetAll()) do
+			if not IsValid(ply) or not ply.organism or ply.organism.otrub then continue end
+			local org = ply.organism
+
+			local shards = 0
+			if org.LodgedEntities then
+				for i, v in ipairs(org.LodgedEntities) do
+					if v.takeent == "weapon_hg_glassshard" then shards = shards + 1 end
+				end
+			end
+			if shards == 0 then continue end
+
+			local speed = ply:GetVelocity():Length()
+			if IsValid(ply.FakeRagdoll) and IsValid(ply.FakeRagdoll:GetPhysicsObject()) then
+				speed = math.max(speed, ply.FakeRagdoll:GetPhysicsObject():GetVelocity():Length())
+			end
+
+			if speed < 120 then
+				ply.glassBleedCD = nil
+				ply.glassWasMoving = false
+				ply.glassTalkCD = nil
+				continue
+			end
+
+			if not ply.glassWasMoving then
+				ply.glassWasMoving = true
+				ply.glassTalkCD = CurTime() + math.random(3, 4)
+			end
+
+			ply.glassBleedCD = ply.glassBleedCD or 0
+			if ply.glassBleedCD < CurTime() then
+				ply.glassBleedCD = CurTime() + 1.0
+
+				local body = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or ply
+				for _, v in ipairs(org.LodgedEntities) do
+					if v.takeent ~= "weapon_hg_glassshard" then continue end
+					if #org.wounds >= 10 then break end
+
+					local animBone = body:TranslatePhysBoneToBone(v.PhysBoneID)
+					hg.organism.AddWoundManual(ply, 5, v.OffsetPos, angle_zero, body:GetBoneName(animBone), CurTime() + 6)
+				end
+
+				org.painadd = (org.painadd or 0) + shards * 0.4
+			end
+
+			ply.glassTalkCD = ply.glassTalkCD or 0
+			if ply.glassTalkCD < CurTime() then
+				ply.glassTalkCD = CurTime() + 10
+				ply:Notify(table.Random(glassCutPhrases), 5, "glass_cut", 0)
 			end
 		end
 	end)

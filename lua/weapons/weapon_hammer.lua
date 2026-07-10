@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Hammer"
-SWEP.Instructions = "A regular household hammer, which has a blunt and a sharp side. Use it to block off paths or restrict someone from moving.\n\nLMB to attack.\nR + LMB to change attack mode.\nRMB to block.\nRMB + LMB to nail."
+SWEP.Instructions = "A regular household hammer, which has a blunt and a sharp side. Use it to block off paths or restrict someone from moving.\n\nLMB to attack.\nR + LMB to change attack mode.\nRMB to block/nail.\nRMB + LMB to throw."
 SWEP.Category = "Weapons - Melee"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -316,7 +316,51 @@ function DoorIsOpen(door)
 end
 
 local vpang = Angle(3, 0, 0)
-function SWEP:SecondaryAttack()
+
+function SWEP:ThrowHammer()
+	if CLIENT then return true end
+
+	local ply = self:GetOwner()
+	if not IsValid(ply) then return true end
+
+	local ent = ents.Create("ent_throwable")
+	if not IsValid(ent) then return true end
+	ent.WorldModel = self.WorldModelExchange or self.WorldModel
+
+	ent:SetPos(select(1, hg.eye(ply, 60, hg.GetCurrentCharacter(ply))) - ply:GetAimVector() * 2)
+	ent:SetAngles(ply:EyeAngles())
+	ent:SetOwner(ply)
+	ent:Spawn()
+	ent.localshit = Vector(4, 6, 0)
+	ent.wep = self:GetClass()
+	ent.owner = ply
+	ent.damage = 35
+	ent.penetration = 5
+	ent.shouldntlodge = true
+
+	local phys = ent:GetPhysicsObject()
+	if IsValid(phys) then
+		phys:SetVelocity(ply:GetAimVector() * ent.MaxSpeed * 0.5)
+		phys:AddAngleVelocity(Vector(0, ent.MaxSpeed * 0.5, 0))
+	end
+
+	if ply.organism and ply.organism.stamina then
+		ply.organism.stamina.subadd = ply.organism.stamina.subadd + 30
+	end
+
+	ply:EmitSound("weapons/slam/throw.wav", 50, math.random(95, 105))
+	ply:SelectWeapon("weapon_hands_sh")
+	ply:ViewPunch(Angle(0, 0, -2))
+
+	self:Remove()
+
+	return true
+end
+
+function SWEP:SecondaryAttack(override)
+	if override then
+		return self:ThrowHammer()
+	end
 	if CLIENT then return end
 	if self:GetLastAttack() + 3 > CurTime() then return end
 	local Owner = self:GetOwner()

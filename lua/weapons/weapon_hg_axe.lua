@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Fire Axe"
-SWEP.Instructions = "An axe is an implement that has been used for millennia to shape, split, and cut wood. Can break down doors.\n\nLMB to attack.\nR + LMB to charge.\nRMB to block."
+SWEP.Instructions = "An axe is an implement that has been used for millennia to shape, split, and cut wood. Can break down doors.\n\nLMB to attack.\nR + LMB to charge.\nRMB to block.\n\nA fully charged hit can sever a limb or explode the head, but drains almost all of your stamina."
 SWEP.Category = "Weapons - Melee"
 
 SWEP.Spawnable = true
@@ -50,7 +50,7 @@ SWEP.ChargeAttackLen = 70
 SWEP.ChargeAttackTimeLength = 0.24
 SWEP.ChargeAttackRads = 85
 SWEP.ChargeSwingAng = -78
-SWEP.ChargeStamina = 48
+SWEP.ChargeStamina = 112
 SWEP.ChargePenetration = 8
 SWEP.ChargePenetrationSize = 6.5
 SWEP.ChargeDamageMul = 2.05
@@ -125,10 +125,10 @@ SWEP.ChargeAttackHitFlesh = "snd_jack_hmcd_axehit.wav"
 SWEP.DeploySnd = "physics/wood/wood_plank_impact_soft2.wav"
 
 SWEP.hitsoundbrutalize = {
-    {"axe/AxeChopNEW-01.wav", 95, {95, 105}},
-    {"axe/AxeChopNEW-02.wav", 95, {95, 105}},
-    {"axe/AxeChopNEW-03.wav", 95, {95, 105}},
-    {"axe/AxeChopNEW-04.wav", 95, {95, 105}},
+    {"axe/axehit1.wav", 95, {95, 105}},
+    {"axe/axehit2.wav", 95, {95, 105}},
+    {"axe/axehit3.wav", 95, {95, 105}},
+    {"axe/axehit4.wav", 95, {95, 105}},
 }
 
 SWEP.hitsoundextra = {
@@ -158,10 +158,7 @@ SWEP.hitsoundplus = {
 }
 
 SWEP.swingsoundextra = {
-    {"bat/baseball_swing_1st_layer_01.wav", 60, {85, 95}},
-    {"bat/baseball_swing_1st_layer_02.wav", 60, {85, 95}},
-    {"bat/baseball_swing_1st_layer_03.wav", 60, {85, 95}},
-    {"bat/baseball_swing_1st_layer_04.wav", 60, {85, 95}},
+    {"baseballbat/swing.ogg", 60, {85, 95}},
 }
 
 SWEP.AttackPos = Vector(0,0,0)
@@ -212,8 +209,65 @@ function SWEP:PrimaryAttackAdd(ent)
     end
 end
 
-function SWEP:ChargeAttackAdd(ent)
+SWEP.ChargeDismemberChance = 0.45
+SWEP.ChargeHeadExplodeChance = 0.35
+
+local chargeHitGroupToLimb = {
+    [HITGROUP_LEFTLEG] = "lleg",
+    [HITGROUP_RIGHTLEG] = "rleg",
+    [HITGROUP_LEFTARM] = "larm",
+    [HITGROUP_RIGHTARM] = "rarm",
+}
+
+local function GetChargeHitBoneName(ent, trace)
+    if not IsValid(ent) or not trace then return end
+
+    if trace.PhysicsBone ~= nil and ent.TranslatePhysBoneToBone and ent.GetBoneName then
+        local bone = ent:TranslatePhysBoneToBone(trace.PhysicsBone)
+        if bone and bone >= 0 then
+            local name = ent:GetBoneName(bone)
+            if name then return name end
+        end
+    end
+
+    if trace.HitBoxBone ~= nil and ent.GetBoneName then
+        return ent:GetBoneName(trace.HitBoxBone)
+    end
+end
+
+function SWEP:ChargeAttackAdd(ent, trace)
     self:PrimaryAttackAdd(ent)
+
+    if CLIENT then return end
+    if not IsValid(ent) then return end
+
+    local org = ent.organism
+    if not org or org.superfighter then return end
+
+    -- Head hit: a chance to explode the head outright.
+    if self:IsHeadHit(ent, trace) then
+        if not org.headamputated and not ent.headexploded and math.Rand(0, 1) <= (self.ChargeHeadExplodeChance or 0.35) then
+            hg.ExplodeHead(ent)
+        end
+
+        return
+    end
+
+    -- Limb hit: a chance to sever the struck limb.
+    local bonename = GetChargeHitBoneName(ent, trace)
+    local limb
+
+    if bonename and hg.amputeetable and hg.amputeetable[bonename] then
+        limb = hg.amputeetable[bonename]
+    elseif trace and chargeHitGroupToLimb[trace.HitGroup or -1] then
+        limb = chargeHitGroupToLimb[trace.HitGroup]
+    elseif bonename and hg.bonetohitgroup then
+        limb = chargeHitGroupToLimb[hg.bonetohitgroup[bonename] or -1]
+    end
+
+    if limb and not org[limb .. "amputated"] and math.Rand(0, 1) <= (self.ChargeDismemberChance or 0.45) then
+        hg.organism.AmputateLimb(org, limb)
+    end
 end
 
 SWEP.MinSensivity = 0.7
