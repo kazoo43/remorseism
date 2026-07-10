@@ -613,6 +613,25 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	--print(dmgInfo:GetDamageType() == DMG_BULLET)
 
 	ent.armors = ent.armors or {}
+
+	if not next(ent.armors) then
+		local owner = hg.RagdollOwner(ent)
+		if not IsValid(owner) and ent:IsPlayer() then owner = ent end
+		if IsValid(owner) then
+			if istable(owner.armors) and next(owner.armors) then
+				ent.armors = table.Copy(owner.armors)
+				ent.armors_health = table.Copy(owner.armors_health or {})
+				ent.armors_broken = table.Copy(owner.armors_broken or {})
+				ent.armors_broken_mul = table.Copy(owner.armors_broken_mul or {})
+				ent.armors_shots = table.Copy(owner.armors_shots or {})
+			else
+				local deathRag = owner:GetNWEntity("RagdollDeath", NULL)
+				if IsValid(deathRag) and deathRag.armors then
+					ent.armors = deathRag.armors
+				end
+			end
+		end
+	end
 	
 	if dmgInfo:GetInflictor().poisoned2 and dmgInfo:IsDamageType(DMG_SLASH) then
 		org.poison4 = CurTime()
@@ -641,6 +660,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 	
 	local dmg_before = dmgInfo:GetDamage()
+
+	org.lastArmorMitigation = 1
 
 	local lastPos, hitBoxs, inputHole, outputHole, outputDir, distance, tracePoses = nil,{},{},{},{},nil,nil
 	if dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT+DMG_SLASH+DMG_CLUB+DMG_GENERIC) then
@@ -819,6 +840,12 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 
 	--print(dmg_before, 2)
 	local dmgBlood, dmgHurt, instaPain, immobilization = hg.organism.DamageTypeAffliction(dmg_before / 12, dmgInfo, ent, org)
+
+	local armMit = org.lastArmorMitigation or 1
+	dmgBlood = dmgBlood * armMit
+	dmgHurt = dmgHurt * armMit
+	instaPain = instaPain * armMit
+	immobilization = immobilization * armMit
 	
 	local hitbody = #inputHole > 0 or not dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT)
 	

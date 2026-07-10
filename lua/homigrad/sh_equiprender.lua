@@ -30,7 +30,7 @@ if CLIENT then
 	local PixVis
 	hook.Add("Initialize", "SetupPixVis", function() PixVis = util.GetPixelVisibleHandle() end)
 	local islply
-	
+
 	local blmodels = {
 		["models/monolithservers/kerry/swat_male_02.mdl"] = true,
 		["models/monolithservers/kerry/swat_male_04.mdl"] = true,
@@ -174,6 +174,20 @@ if CLIENT then
 						model = nil
 					end
 				end)
+
+				ply.modelArmorBroken = ply.modelArmorBroken or {}
+				if not IsValid(ply.modelArmorBroken[armor]) then
+					local omodel = ClientsideModel(armorData["model"])
+					omodel:SetNoDraw(true)
+					omodel:SetModelScale((fem and armorData.femscale or armorData.scale or 1) * 1.01)
+					omodel:SetSubMaterial(0, "armor/brokenarmor")
+					omodel:SetRenderMode(RENDERMODE_TRANSALPHA)
+					omodel:SetColor(Color(255, 255, 255, 0))
+					if not armorData.nobonemerge then
+						omodel:AddEffects(EF_BONEMERGE)
+					end
+					ply.modelArmorBroken[armor] = omodel
+				end
 			end
 			
 			local ent = hg.GetCurrentCharacter(ply)
@@ -211,6 +225,18 @@ if CLIENT then
 			if not (islply and armorData.norender) then
 				model:DrawModel()
 			end
+
+			local omodel = ply.modelArmorBroken and ply.modelArmorBroken[armor]
+			if IsValid(omodel) then
+				local wear = ply:GetNWFloat("ArmorWear" .. armor, 0)
+				if wear > 0.01 and not (islply and armorData.norender) then
+					omodel:SetRenderOrigin(pos)
+					omodel:SetRenderAngles(ang)
+					omodel:SetParent(ent, ent:LookupBone(armorData["bone"]))
+					omodel:SetColor(Color(255, 255, 255, math.Clamp(wear, 0, 1) * 255))
+					omodel:DrawModel()
+				end
+			end
 		end
 	end
 	
@@ -228,8 +254,65 @@ if CLIENT then
 					ent.modelArmor[k] = nil
 				end
 
+				if ent.modelArmorBroken then
+					for k,v in pairs(ent.modelArmorBroken) do
+						if IsValid(ent.modelArmorBroken[k]) then
+							ent.modelArmorBroken[k]:Remove()
+						end
+						ent.modelArmorBroken[k] = nil
+					end
+				end
+
 				ent.armors = var
 			end)
+		end
+	end)
+
+	local droppedBrokenOverlays = {}
+
+	local function EnsureDroppedBrokenOverlay(ent)
+		if not IsValid(ent) then return end
+		local idx = ent:EntIndex()
+		if droppedBrokenOverlays[idx] then return end
+		local mdl = ent:GetModel()
+		if not mdl or mdl == "" or mdl == "models/error.mdl" then return end
+		local omodel = ClientsideModel(mdl)
+		if not IsValid(omodel) then return end
+		omodel:SetNoDraw(true)
+		omodel:SetModelScale(1.01)
+		omodel:SetSubMaterial(0, "armor/brokenarmor")
+		omodel:SetRenderMode(RENDERMODE_TRANSALPHA)
+		omodel:SetColor(Color(255, 255, 255, 230))
+		droppedBrokenOverlays[idx] = omodel
+	end
+
+	hook.Add("OnNetVarSet", "BrokenDroppedArmorOverlay", function(index, key, var)
+		if key ~= "ArmorBroken" or not var then return end
+		EnsureDroppedBrokenOverlay(Entity(index))
+	end)
+
+	hook.Add("OnEntityCreated", "BrokenDroppedArmorCheck", function(ent)
+		if not IsValid(ent) then return end
+		local cls = ent:GetClass()
+		if not (cls and (cls:find("ent_armor") or cls == "armor_base")) then return end
+		timer.Simple(0.1, function()
+			if IsValid(ent) and ent:GetNWBool("ArmorBroken", false) then
+				EnsureDroppedBrokenOverlay(ent)
+			end
+		end)
+	end)
+
+	hook.Add("PostDrawTranslucentRenderables", "DroppedBrokenOverlayDraw", function()
+		for idx, omodel in pairs(droppedBrokenOverlays) do
+			local parent = Entity(idx)
+			if not IsValid(parent) then
+				omodel:Remove()
+				droppedBrokenOverlays[idx] = nil
+			else
+				omodel:SetRenderOrigin(parent:GetPos())
+				omodel:SetRenderAngles(parent:GetAngles())
+				omodel:DrawModel()
+			end
 		end
 	end)
 	

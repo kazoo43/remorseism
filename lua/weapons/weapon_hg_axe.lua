@@ -55,6 +55,7 @@ SWEP.ChargePenetration = 8
 SWEP.ChargePenetrationSize = 6.5
 SWEP.ChargeDamageMul = 2.05
 SWEP.ChargeBreakBoneMul = 2.1
+SWEP.RagdollHitForceMul = 0.2
 SWEP.ChargeTapCancelTime = 1
 SWEP.ChargeViewPunch = Angle(12, 0, 0)
 SWEP.ChargeHoldPos = Vector(-7, -5, -1)

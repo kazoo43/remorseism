@@ -47,7 +47,7 @@ function hg.organism.ShootMatrix(ent, organs)
 			--print(key,organ[1])
 			local additional = organ[7]
 			if additional then
-				local ent = ent:IsPlayer() and ent or ent:IsRagdoll() and IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent) or ent
+				local ent = (ent.armors and next(ent.armors) and ent) or (ent:IsRagdoll() and IsValid(hg.RagdollOwner(ent)) and hg.RagdollOwner(ent)) or ent
 				if ent and ent.armors then
 					if type(additional) == "string" then
 						if not ent.armors[additional] then continue end

@@ -116,6 +116,17 @@ hook.Add("ItemsTransfered","TransferMats",function(ply, ragdoll)
 		ply:SetNWInt("ArmorSkins" .. v, nil)
 		ragdoll.armors_shots[v] = ply.armors_shots and ply.armors_shots[v] or nil
 	end
+
+	local fakeRag = ply:GetNWEntity("FakeRagdoll", NULL)
+	if IsValid(fakeRag) and fakeRag ~= ragdoll then
+		fakeRag.armors = ragdoll.armors
+		fakeRag.armors_shots = ragdoll.armors_shots
+		fakeRag.armors_health = ragdoll.armors_health
+		fakeRag.armors_broken = ragdoll.armors_broken
+		fakeRag.armors_broken_mul = ragdoll.armors_broken_mul
+		fakeRag:SetNetVar("Armor", ragdoll:GetNetVar("Armor", {}))
+		fakeRag:SetNetVar("HideArmorRender", ply:GetNetVar("HideArmorRender", false))
+	end
 end)
 
 hook.Add("ItemTransfer", "TransferMats", function(ply, ent, placement, armor)
