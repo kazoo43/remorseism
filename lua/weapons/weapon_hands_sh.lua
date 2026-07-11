@@ -2446,7 +2446,8 @@ function SWEP:DoBFSAnimation(anim, time, slowmo, force_local)
 			if (self:GetWM():LookupSequence(animToPlay) or -1) < 0 then
 				local genericFallbacks = {"fists_draw", "draw", "idle", "idle1"}
 				for _, fallback in ipairs(genericFallbacks) do
-					if self:GetWM():LookupSequence(fallback) >= 0 then
+					local seq = self:GetWM():LookupSequence(fallback)
+					if seq and seq >= 0 then
 						animToPlay = fallback
 						break
 					end
