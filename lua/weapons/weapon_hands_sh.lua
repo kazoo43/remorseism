@@ -60,6 +60,23 @@ local SHOVE_RAGDOLL_CHANCE_MAX = 0.78
 SWEP.BlockTier = 1
 SWEP.MeleeMaterial = "none"
 SWEP.BlockImpactSound = nil
+SWEP.BlockStaminaBase = 8
+SWEP.BlockStaminaPerWeight = 6
+SWEP.BlockStaminaPerfectBase = 0
+SWEP.BlockStaminaPerfectPerWeight = 0
+SWEP.BlockRegenMul = 0.15
+SWEP.BlockParryWindow = 0.07
+SWEP.BlockParryWindowBonus = 0
+SWEP.BlockParryStaminaReward = 4
+SWEP.BlockRiposteWindow = 0.6
+SWEP.BlockRiposteSpeedMul = 0.7
+SWEP.BlockParryAttackerLockout = 0.9
+SWEP.BlockTraceDist = 10
+SWEP.BlockTraceCoverageBonus = 4
+
+function SWEP:GetBlockParryWindow()
+    return math.max((self.BlockParryWindow or 0.25) + (self.BlockParryWindowBonus or 0), 0)
+end
 
 SWEP.lefthandmodel = "models/weapons/gleb/w_firematch.mdl"
 SWEP.offsetVec2 = Vector(6,6,1)
@@ -839,9 +856,9 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Float", 1, "NextDown")
 	self:NetworkVar("Bool", 3, "Blocking")
 	self:NetworkVar("Bool", 4, "IsCarrying")
-	self:NetworkVar("Bool", 5, "Blocking")
 	self:NetworkVar("Float", 6, "LastBlocked")
 	self:NetworkVar("Float", 7, "StartedBlocking")
+	self:NetworkVar("Float", 8, "ParryLockUntil")
 end
 
 function SWEP:Deploy()
@@ -1411,6 +1428,12 @@ end
 
 SWEP.DamagePrimary = 10
 
+if SERVER then
+	if file.Exists("sound/weapons/rust_mp3/2handed-sword-strike-2.mp3", "GAME") then
+		util.PrecacheSound("weapons/rust_mp3/2handed-sword-strike-2.mp3")
+	end
+end
+
 function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 	local ent = hg.RagdollOwner(ent) or ent
     local owner = self:GetOwner()
@@ -1430,41 +1453,80 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
         local dmg = wep.DamagePrimary
         local selfdmg = self.DamagePrimary * 0.2
 
+<<<<<<< HEAD
+        local blockDist = (wep.BlockTraceDist or self.BlockTraceDist or 10) + (wep.BlockTraceCoverageBonus or self.BlockTraceCoverageBonus or 0)
+
+        if wep.GetBlocking and wep:GetBlocking() and wep.SetStartedBlocking and dist < blockDist then
+=======
         if (wep.GetFists and wep:GetFists()) and not (self.GetFists and self:GetFists()) then
             return 1
         end
 
         if wep.GetBlocking and wep:GetBlocking() and wep.SetStartedBlocking and dist < 10 then
+>>>>>>> 3a7f357a72faca2dcbd3f0a07becb4ba26c5fecd
             local defenderBlockTier = wep.BlockTier or 1
             local attackerBlockTier = self.BlockTier or 1
 
             if defenderBlockTier >= attackerBlockTier then
-                if wep.BlockImpactSound then
-                    ent:EmitSound(wep.BlockImpactSound, 60)
-                end
+                local parryWin = (wep.GetBlockParryWindow and wep:GetBlockParryWindow()) or (self.GetBlockParryWindow and self:GetBlockParryWindow()) or 0.25
+                local perfectblock = (CurTime() - wep:GetStartedBlocking()) < parryWin
+                local state = perfectblock and "parry" or "block"
 
-                if SERVER then
-                    net.Start("MeleeBlockEffect")
-                    net.WriteVector(trace.HitPos)
-                    net.WriteString(wep.MeleeMaterial or "none")
-                    net.Broadcast()
-                    
-                    net.Start("MeleeBlockPush")
-                    net.WriteVector(trace.Normal)
-                    net.Send(ent)
-                end
-
-                local perfectblock = CurTime() - wep:GetStartedBlocking() < 0.5
-                
                 if perfectblock then
-                    -- ent:EmitSound("tasty/empty.wav")
+                    -- parry with fists: body-hit impact; fall back to the known-good clash sound if the custom file is missing
+                    local snd = "weapons/rust_mp3/2handed-sword-strike-2.mp3"
+                    if not file.Exists("sound/" .. snd, "GAME") then
+                        snd = "clash/rem_clashblunt.wav"
+                    end
+                    if cvars.Number("developer", 0) >= 1 then
+                        print("[parry-sound] fists parry -> " .. snd .. " for " .. tostring(ent))
+                    end
+                    sound.Play(snd, trace.HitPos, 230, math.random(95, 105))
+                    wep.RiposteUntil = CurTime() + (self.BlockRiposteWindow or 0.6)
+
+                    -- parried attacker is staggered and cannot swing for a moment
+                    local lockout = self.BlockParryAttackerLockout or 0.5
+                    self.attacked = CurTime() + lockout
+                    self:SetParryLockUntil(CurTime() + lockout)
+                    self:SetNextPrimaryFire(CurTime() + lockout)
+                end
+
+                if wep.PlayBlockImpactEffect then
+                    wep:PlayBlockImpactEffect(trace, wep, state)
                 else
-                    if ent.organism then
-                        ent.organism.stamina.subadd = ent.organism.stamina.subadd + 15
+                    if wep.BlockImpactSound then
+                        ent:EmitSound(wep.BlockImpactSound, 60)
+                    end
+
+                    if SERVER then
+                        net.Start("MeleeBlockEffect")
+                        net.WriteVector(trace.HitPos)
+                        net.WriteString(wep.MeleeMaterial or "none")
+                        net.Broadcast()
+
+                        net.Start("MeleeBlockPush")
+                        net.WriteVector(trace.Normal)
+                        net.WriteString(state or "block")
+                        net.Send(ent)
                     end
                 end
 
-                ent.organism.stamina.subadd = ent.organism.stamina.subadd + mul * math.Clamp(selfdmg / dmg, 0.1, 1) * selfdmg * (perfectblock and 0 or 1)
+                if ent.organism and ent.organism.stamina then
+                    local w = wep.weight or 0.5
+                    local base = perfectblock and (self.BlockStaminaPerfectBase or 4) or (self.BlockStaminaBase or 8)
+                    local perW = perfectblock and (self.BlockStaminaPerfectPerWeight or 2) or (self.BlockStaminaPerWeight or 6)
+                    local blockCost = base + w * perW
+                    local dmgScale = mul * math.Clamp(selfdmg / dmg, 0.1, 1) * selfdmg
+                    ent.organism.stamina[1] = math.max(0, ent.organism.stamina[1] - (blockCost + dmgScale))
+                    if perfectblock and ent.organism.stamina.max then
+                        ent.organism.stamina[1] = math.min(ent.organism.stamina.max, ent.organism.stamina[1] + (self.BlockParryStaminaReward or 4))
+                    end
+                    ent.organism.stamina.regenMul = math.min(ent.organism.stamina.regenMul or 1, self.BlockRegenMul or 0.3)
+
+                    if cvars.Number("developer", 0) >= 1 then
+                        print("[block] defender=" .. tostring(ent) .. " weight=" .. math.Round(wep.weight or 0, 2) .. " cost=" .. math.Round(blockCost + dmgScale, 1) .. " stamina[1]=" .. math.Round(ent.organism.stamina[1], 1) .. " regenMul=" .. math.Round(ent.organism.stamina.regenMul, 2))
+                    end
+                end
 
                 if wep.SetLastBlocked then
                     -- wep:SetLastBlocked(CurTime()) -- Removing this to ensure block doesn't stop
@@ -1557,9 +1619,11 @@ function SWEP:Think()
 			self.HeavyChargeRand = nil
 			self.HeavyChargeExpire = nil
 
-			self.attacked = CurTime() + 0.2
-			self:SetNextPrimaryFire(CurTime() + HEAVY_STRIKE_RECOVERY)
-			self:SetNextSecondaryFire(CurTime() + HEAVY_STRIKE_RECOVERY)
+	self.attacked = math.max(self.attacked or 0, CurTime() + 0.2)
+			local riposteHeavy = (self.RiposteUntil or 0) > CurTime() and (self.BlockRiposteSpeedMul or 0.7) or 1
+			self:SetNextPrimaryFire(CurTime() + HEAVY_STRIKE_RECOVERY * riposteHeavy)
+			self:SetNextSecondaryFire(CurTime() + HEAVY_STRIKE_RECOVERY * riposteHeavy)
+			if riposteHeavy < 1 then self.RiposteUntil = 0 end
 
 			if self.IsLocal and self:IsLocal() then
 				ViewPunch(Angle(-10, rand and -2 or 2, rand and -5 or 5))
@@ -1588,11 +1652,17 @@ function SWEP:Think()
 		self:SetCarrying()
 	end
 
+	local wasBlocking = self:GetBlocking()
+
 	if self:GetFists() and owner:KeyDown(IN_ATTACK2) and (self:GetNextSecondaryFire() < CurTime()) and owner.PlayerClassName ~= "sc_infiltrator" and not IsZombieHandsClass(owner.PlayerClassName) then
 		self:SetNextPrimaryFire(CurTime() + .5)
 		self:SetBlocking(true)
 	else
 		self:SetBlocking(false)
+	end
+
+	if self:GetBlocking() and not wasBlocking then
+		self:SetStartedBlocking(CurTime())
 	end
 
 	local HoldType = "normal"
@@ -1754,7 +1824,7 @@ function SWEP:PrimaryAttack(forcespecial)
 	local owner = self:GetOwner()
 	if not IsValid(owner) or owner:InVehicle() then return end
 	if self.HeavyCharging then return end
-	if (self.attacked or 0) > CurTime() then return end
+	if (self.attacked or 0) > CurTime() or (self:GetParryLockUntil() or 0) > CurTime() then return end
 	local side = "fists_left"
 	local rand = math.Round(util.SharedRandom( "fist_Punching", 1, 2 ), 0) == 1
 	local twohands = (owner:GetNetVar("carrymass",0) ~= 0 and owner:GetNetVar("carrymass",0) or owner:GetNetVar("carrymass2",0)) > 15
@@ -1858,8 +1928,10 @@ function SWEP:PrimaryAttack(forcespecial)
 
 	self:UpdateNextIdle()
 
-	self:SetNextPrimaryFire(CurTime() + LIGHT_PUNCH_RECOVERY * math.Clamp((180 - owner.organism.stamina[1]) / 90,1,2) + (math.max(special_attack and 0.5 or 0, clawClasses[owner.PlayerClassName] or 0)))
-	self:SetNextSecondaryFire(CurTime() + LIGHT_PUNCH_RECOVERY + (math.max(special_attack and 0.5 or 0, clawClasses[owner.PlayerClassName] or 0)))
+	local riposte = (self.RiposteUntil or 0) > CurTime() and (self.BlockRiposteSpeedMul or 0.7) or 1
+	self:SetNextPrimaryFire(CurTime() + LIGHT_PUNCH_RECOVERY * riposte * math.Clamp((180 - owner.organism.stamina[1]) / 90,1,2) + (math.max(special_attack and 0.5 or 0, clawClasses[owner.PlayerClassName] or 0)))
+	self:SetNextSecondaryFire(CurTime() + LIGHT_PUNCH_RECOVERY * riposte + (math.max(special_attack and 0.5 or 0, clawClasses[owner.PlayerClassName] or 0)))
+	if riposte < 1 then self.RiposteUntil = 0 end
 	self:SetLastShootTime(CurTime())
 
 	local snd, pitch = GetApexMeleeSwingSound(special_attack, rand), math.random(95, 108)
@@ -2069,6 +2141,17 @@ function SWEP:AttackFront(special_attack, rand)
 		Dam:SetDamageType((clawClasses[owner.PlayerClassName] or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
 		Dam:SetDamagePosition(HitPos)
 		Ent:TakeDamageInfo(Dam)
+
+		if special_attack then
+			if Ent:IsPlayer() then
+				hg.ApplyBruiseTo(Ent, Ent, HitPos, trace.HitNormal)
+			elseif Ent:GetClass() == "prop_ragdoll" then
+				local ragOwner = hg.RagdollOwner(Ent)
+				if IsValid(ragOwner) and ragOwner:IsPlayer() then
+					hg.ApplyBruiseTo(Ent, ragOwner, HitPos, trace.HitNormal)
+				end
+			end
+		end
 
 		if glass and Ent:Health() <= 0 then
 			hg.organism.AddWoundManual(owner, math.Rand(50,75) * 0.5, vector_origin, AngleRand(), owner:LookupBone("ValveBiped.Bip01_"..(rand and "R" or "L").."_Hand"), CurTime())
@@ -2356,14 +2439,15 @@ function SWEP:DoBFSAnimation(anim, time, slowmo, force_local)
 			local list = candidates[animToPlay]
 			if list then
 				for _, candidate in ipairs(list) do
-					if self:GetWM():LookupSequence(candidate) >= 0 then
+					local seq = self:GetWM():LookupSequence(candidate)
+					if seq and seq >= 0 then
 						animToPlay = candidate
 						break
 					end
 				end
 			end
 
-			if self:GetWM():LookupSequence(animToPlay) < 0 then
+			if (self:GetWM():LookupSequence(animToPlay) or -1) < 0 then
 				local genericFallbacks = {"fists_draw", "draw", "idle", "idle1"}
 				for _, fallback in ipairs(genericFallbacks) do
 					if self:GetWM():LookupSequence(fallback) >= 0 then
