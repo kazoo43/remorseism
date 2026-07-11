@@ -330,6 +330,7 @@ if CLIENT then
 							}
 						end
 						hg.CreateRadialMenu(tbl)
+						return -1
 					end
 				end,
 				[2] = organism.pain > 60 and (organism.pain <= 100 and "Yell in pain" or "Moan in pain") or (lply.PlayerClassName == "furry" and "Meow") or "Do Phrase\nRMB - Menu"

@@ -147,7 +147,7 @@ net.Receive("bloody_decal_1", function()
 	end
 end)
 
-local bruiseSizeCvar = CreateClientConVar("hg_bruise_size", "0.5", true, false, "Bruise decal size (world units)", 0.01, 5)
+local bruiseSizeCvar = CreateClientConVar("hg_bruise_size", "0.045", true, false, "Bruise decal size (world units)", 0.01, 5)
 net.Receive("bruise_decal", function()
 	local ent = net.ReadEntity()
 	local victim = net.ReadEntity()
