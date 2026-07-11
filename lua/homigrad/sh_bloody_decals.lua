@@ -130,10 +130,6 @@ net.Receive("bloody_decal_1", function()
 	end
 end)
 
---синяки: сервер шлёт сущность, индекс текстуры, точку и нормаль удара.
---Клиент клеит декаль ЧЕРЕЗ util.DecalEx — она ставит декаль строго в точку
---(position + normal) на конкретной сущности, размер задаётся числом.
---util.DecalEx существует только на клиенте, поэтому вызываем здесь.
 local bruiseSizeCvar = CreateClientConVar("hg_bruise_size", "0.5", true, false, "Bruise decal size (world units)", 0.01, 5)
 net.Receive("bruise_decal", function()
 	local ent = net.ReadEntity()
@@ -146,15 +142,9 @@ net.Receive("bruise_decal", function()
 	local mat = Material(util.DecalMaterial("Bruise.Add" .. idx))
 	if not mat then return end
 
-	--util.DecalEx(material, entity, position, normal, color, size, depth)
-	--размер берём из консольной переменной hg_bruise_size (меняется на лету)
 	local s = bruiseSizeCvar:GetFloat()
-	--прозрачность: заметный, но не экстремальный разброс (от довольно
-	--прозрачных до плотных)
 	local alpha = math.random(140, 255)
 	local col = Color(255, 255, 255, alpha)
-	--на видимое тело (сразу видно в фейке) и на сущность игрока (чтобы
-	--перенеслось на труп RagdollDeath через ServerRagdollTransferDecals)
 	util.DecalEx(mat, ent, pos + normal, normal, col, s, s)
 	if IsValid(victim) and victim ~= ent then
 		util.DecalEx(mat, victim, pos + normal, normal, col, s, s)

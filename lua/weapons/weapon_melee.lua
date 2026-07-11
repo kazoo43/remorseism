@@ -1654,17 +1654,16 @@ function SWEP:ApplyBruise(trace)
 	local victim = self:GetHitVictim(trace.Entity)
 	if not IsValid(victim) or not victim:IsPlayer() then return end
 
-	--не каждый удар оставляет синяк (случайный шанс появления 65–75%)
 	if math.random() > math.Rand(0.65, 0.75) then return end
 
 	local ent = trace.Entity
-	local idx = math.random(#bruiseDecalNames) --все 4 текстуры (bruiseOne..Four)
+	local idx = math.random(#bruiseDecalNames)
 	local pos = trace.HitPos
 	local normal = trace.HitNormal
 
 	net.Start("bruise_decal")
-	net.WriteEntity(ent)      --видимое тело (FakeRagdoll/игрок) — синяк виден сразу
-	net.WriteEntity(victim)   --сущность игрока — перенесётся на труп (RagdollDeath)
+	net.WriteEntity(ent)
+	net.WriteEntity(victim)
 	net.WriteUInt(idx, 4)
 	net.WriteVector(pos)
 	net.WriteVector(normal)
