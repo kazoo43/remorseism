@@ -933,6 +933,25 @@ players : 1 humans, 0 bots (20 max)
 			local bool = net.ReadBool()
 			AddTinnitus(time,bool)
 		end)
+
+		net.Receive("send_custom_tinnitus",function()
+			local soundFile = net.ReadString()
+			LocalPlayer():EmitSound(soundFile, 75, 100, 1, CHAN_AUTO)
+		end)
+
+		net.Receive("stop_custom_tinnitus",function()
+			local ply = LocalPlayer()
+			if IsValid(ply) then
+				ply:StopSound("tinnitus.wav")
+				ply:StopSound("tinnituslong.wav")
+				ply:StopSound("headhit.mp3")
+			end
+		end)
+
+		net.Receive("hg_play_client_sound_file",function()
+			local snd = net.ReadString()
+			LocalPlayer():EmitSound(snd, 75, 100, 1, CHAN_AUTO)
+		end)
 	end
 --//
 

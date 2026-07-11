@@ -1,4 +1,8 @@
-if SERVER then AddCSLuaFile() end
+if SERVER then
+	AddCSLuaFile()
+	util.AddNetworkString("MeleeBlockEffect")
+	util.AddNetworkString("MeleeBlockPush")
+end
 SWEP.Base = "weapon_base"
 local function RagdollOwner(ent)
 	return hg.RagdollOwner(ent)
@@ -1425,6 +1429,10 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 
         local dmg = wep.DamagePrimary
         local selfdmg = self.DamagePrimary * 0.2
+
+        if (wep.GetFists and wep:GetFists()) and not (self.GetFists and self:GetFists()) then
+            return 1
+        end
 
         if wep.GetBlocking and wep:GetBlocking() and wep.SetStartedBlocking and dist < 10 then
             local defenderBlockTier = wep.BlockTier or 1

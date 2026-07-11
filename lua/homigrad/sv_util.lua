@@ -1976,12 +1976,28 @@ hook.Add("OnEntityCreated", "FunnySimfphys", function(ent)
 end)
 
 util.AddNetworkString("send_tinnitus")
+util.AddNetworkString("send_custom_tinnitus")
+util.AddNetworkString("stop_custom_tinnitus")
+util.AddNetworkString("hg_play_client_sound_file")
+
 function plymeta:AddTinnitus(time,needSound)
 	needSound = needSound or false
 
 	net.Start("send_tinnitus")
 		net.WriteFloat(time)
 		net.WriteBool(needSound)
+	net.Send(self)
+end
+
+function plymeta:PlayCustomTinnitus(soundFile)
+	net.Start("send_custom_tinnitus")
+		net.WriteString(soundFile)
+	net.Send(self)
+end
+
+function plymeta:StopCustomTinnitus()
+	if not IsValid(self) then return end
+	net.Start("stop_custom_tinnitus")
 	net.Send(self)
 end
 

@@ -523,20 +523,7 @@ function PANEL:CreateAppearancePreview()
     holder.TargetY = targetY
     holder.ClosedY = ScrH()
     holder:SetMouseInputEnabled(false)
-    holder.Paint = function(this, w, h)
-        local c = 180
-        local len = MenuUnit(24)
-        local gap = MenuUnit(4)
-        surface.SetDrawColor(c, c, c, 180)
-        surface.DrawRect(gap, gap, len, 2)
-        surface.DrawRect(gap, gap, 2, len)
-        surface.DrawRect(w - gap - len, gap, len, 2)
-        surface.DrawRect(w - gap - 2, gap, 2, len)
-        surface.DrawRect(gap, h - gap - 2, len, 2)
-        surface.DrawRect(gap, h - gap - len, 2, len)
-        surface.DrawRect(w - gap - len, h - gap - 2, len, 2)
-        surface.DrawRect(w - gap - 2, h - gap - len, 2, len)
-    end
+    holder.Paint = function() end
     holder.Think = function(this)
         if not this.AppearanceFollow then return end
         local x, y = this:GetPos()

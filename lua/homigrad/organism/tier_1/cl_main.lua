@@ -154,12 +154,18 @@ local function remove_imgs()
 end
 
 local disorientationLerp = 0
+local concLerp = 0
+local nauseaLerp = 0
+local tinnitusConcLerp = 0
 
 hook.Add("Player Spawn", "screenshot_game", function(ply)
 	if OverrideSpawn then return end
 
 	if ply == lply then
 		disorientationLerp = 0
+		concLerp = 0
+		nauseaLerp = 0
+		tinnitusConcLerp = 0
 
 		alivestart = CurTime()
 		lply.tried_fixing_limb = nil
@@ -202,7 +208,7 @@ hook.Add("radialOptions", "DislocatedJoint", function()
 	local ent = hg.eyeTrace(lply).Entity
 
 	if IsValid(ent) and ent.organism and ent.organism != org and (ent.organism.llegdislocation or ent.organism.rlegdislocation) then
-		local target = ent.organism.owner or ent
+		local target = (IsValid(ent:GetNWEntity("ply")) and ent:GetNWEntity("ply")) or (ent.organism and ent.organism.owner) or ent
 		local tbl = {
 			function()
 			lply.tried_fixing_limb = CurTime() + 0.5
@@ -235,7 +241,7 @@ hook.Add("radialOptions", "DislocatedJoint2", function()
 	local ent = hg.eyeTrace(lply).Entity
 
 	if IsValid(ent) and ent.organism and ent.organism != org and (ent.organism.larmdislocation or ent.organism.rarmdislocation) then
-		local target = ent.organism.owner or ent
+		local target = (IsValid(ent:GetNWEntity("ply")) and ent:GetNWEntity("ply")) or (ent.organism and ent.organism.owner) or ent
 		local tbl = {
 			function()
 			lply.tried_fixing_limb = CurTime() + 0.5
@@ -268,7 +274,7 @@ hook.Add("radialOptions", "DislocatedJaw", function()
 	local ent = hg.eyeTrace(lply).Entity
 
 	if IsValid(ent) and ent.organism and ent.organism != org and ent.organism.jawdislocation then
-		local target = ent.organism.owner or ent
+		local target = (IsValid(ent:GetNWEntity("ply")) and ent:GetNWEntity("ply")) or (ent.organism and ent.organism.owner) or ent
 		local tbl = {
 			function()
 			lply.tried_fixing_limb = CurTime() + 0.5
@@ -405,6 +411,9 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	local immobilization = org.immobilization or 0
 	local incapacitated = org.incapacitated or false
 	local critical = org.critical or false
+	local concussion = org.concussion or 0
+	local concussionNausea = org.nausea or 0
+	local concussionTinnitus = org.concussion_tinnitus or 0
 	tinnitusSoundFactor = Lerp(FrameTime()*2.5,tinnitusSoundFactor or 0, math.min(math.max( lply.tinnitus and (lply.tinnitus - CurTime()) or 0, 0)*7.5,120))
 	local tinnitusSoundFactor2 = tinnitusSoundFactor + (hook.Run("ModifyTinnitusFactor", tinnitusSoundFactor) or 0)
 
@@ -465,7 +474,7 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 
 	local amount = 1 - math.Clamp(lowpulse + disorientation / 4 + k2 * 2,0,1)
 
-	disorientationLerp = LerpFT(disorientation > disorientationLerp and 1 or 0.01, disorientationLerp, math.max(lply.suiciding and 1.5 or 0, disorientation))
+	disorientationLerp = LerpFT(disorientation > disorientationLerp and 1 or 0.15, disorientationLerp, math.max(lply.suiciding and 1.5 or 0, disorientation))
 
 	if (disorientationLerp > 1) and lply:Alive() or brain > 0 then
 		local add2 = disorientationLerp - 1
@@ -552,6 +561,51 @@ hook.Add("Post Post Pre Post Processing", "organism-effects", function()
 	//DrawColorModify(tab)
 	
 	DrawColorModify(tabblood)
+
+	if concussion > 0 and lply:Alive() then
+		concLerp = LerpFT(0.03, concLerp, concussion)
+		if concLerp > 0.3 then
+			DrawMaterialOverlay("sprites/mat_jack_hmcd_scope_aberration", concLerp * 0.15)
+		end
+		if concLerp > 1.0 then
+			local wobbleTime = CurTime() * 2.5
+			local wobbleAmt = math.Clamp((concLerp - 1.0) / 3, 0, 0.4)
+			local wobbleAng = Angle(
+				math.sin(wobbleTime) * wobbleAmt * 3,
+				math.cos(wobbleTime * 0.7) * wobbleAmt * 4,
+				math.sin(wobbleTime * 1.3) * wobbleAmt * 2
+			)
+			ViewPunch(wobbleAng)
+		end
+		if concLerp > 2.0 then
+			local blurAmt = math.Clamp((concLerp - 2.0) / 3, 0, 0.15)
+			DrawToyTown(2, blurAmt * ScrH())
+		end
+	else
+		concLerp = LerpFT(0.08, concLerp, 0)
+	end
+
+	if concussionNausea > 0 and lply:Alive() then
+		nauseaLerp = LerpFT(0.02, nauseaLerp, concussionNausea)
+		if nauseaLerp > 1.0 then
+			local swayTime = CurTime() * 1.8
+			local swayAmt = math.Clamp((nauseaLerp - 1.0) / 4, 0, 0.3)
+			local swayAng = Angle(
+				math.sin(swayTime) * swayAmt * 2,
+				math.cos(swayTime * 0.6) * swayAmt * 3,
+				0
+			)
+			ViewPunch(swayAng)
+		end
+	else
+		nauseaLerp = LerpFT(0.08, nauseaLerp, 0)
+	end
+
+	if concussionTinnitus > 0.1 and lply:Alive() then
+		tinnitusConcLerp = LerpFT(0.02, tinnitusConcLerp, concussionTinnitus)
+	else
+		tinnitusConcLerp = LerpFT(0.08, tinnitusConcLerp, 0)
+	end
 
 	local ent = IsValid(lply.FakeRagdoll) and lply.FakeRagdoll or lply
 
@@ -1254,3 +1308,25 @@ end)
 
 hook.Add("LocalPlayerDeath", "hg_exhausted_sound_death", StopExhaustedSound)
 hook.Add("ShutDown", "hg_exhausted_sound_shutdown", StopExhaustedSound)
+
+net.Receive("headtrauma_concussion_update", function()
+	local severity = net.ReadFloat()
+	local concussionLevel = net.ReadFloat()
+	if not lply or not lply:Alive() then return end
+
+	local flashAlpha = math.Clamp(severity * 22, 0, 130)
+	if flashAlpha > 1 then
+		lply:ScreenFade(SCREENFADE.IN, Color(220, 180, 180, flashAlpha), 0.35, 0.45)
+	end
+
+	if severity > 0.4 then
+		local punch = math.Clamp(severity * 3.5, 1, 22)
+		lply:ViewPunch(AngleRand(-punch, punch))
+		lply:ViewPunch(Angle(math.Rand(-1, 1) * punch * 0.4, math.Rand(-1, 1) * punch * 0.4, math.Rand(-1, 1) * punch * 0.5))
+	end
+
+	if severity > 1.2 then
+		local shake = math.Clamp(severity * 2, 2, 16)
+		util.ScreenShake(lply:EyePos(), shake, 6, 0.4, 120)
+	end
+end)

@@ -44,6 +44,8 @@ hook.Add("Org Clear", "Main", function(org)
 	module.liver[1](org)
 	module.metabolism[1](org)
 	module.random_events[1](org)
+	module.concussion[1](org)
+	module.trauma_combo[1](org)
 	org.brain = 0
 	org.eyeL = 0
 	org.eyeR = 0
@@ -210,6 +212,9 @@ local function send_organism(org, ply)
 	sendtable.berserkActive2 = org.berserkActive2
 	sendtable.noradrenalineActive = org.noradrenalineActive
 	sendtable.superfighter = org.superfighter
+	sendtable.concussion = org.concussion
+	sendtable.nausea = org.nausea
+	sendtable.concussion_tinnitus = org.concussion_tinnitus
 	net.Start("organism_send", hg_unreliable_nets:GetBool())
 	net.WriteTable(not hg_developer:GetBool() and sendtable or org)
 	net.WriteBool(org.owner.fullsend)
@@ -527,6 +532,8 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		module.random_events[2](owner, org, timeValue)
 	end
 	module.pulse[2](owner, org, timeValue)
+	module.concussion[2](owner, org, timeValue)
+	module.trauma_combo[2](owner, org, timeValue)
 	if org.owner.PlayerClassName == "furry" then
 		org.assimilated = 0
 	end
@@ -988,17 +995,28 @@ concommand.Add("hg_fixdislocation", function(ply, cmd, args)
 	end
 end)
 
+local function hg_ResolveDislocationPatient(target, fixer)
+	if not IsValid(target) then return nil end
+	if target:IsPlayer() then return target end
+	if IsValid(target.organism) and IsValid(target.organism.owner) then return target.organism.owner end
+	local plyref = target:GetNWEntity("ply")
+	if IsValid(plyref) then return plyref end
+	return nil
+end
+
 net.Receive("hg_dislocation_minigame_pain", function(len, ply)
 	if not IsValid(ply) or not ply:Alive() then return end
 
 	local target = net.ReadEntity()
-	if IsValid(target) and target:IsPlayer() and target != ply then
-		local org = target.organism
+	local patient = hg_ResolveDislocationPatient(target, ply)
+
+	if IsValid(patient) and patient:IsPlayer() and patient != ply then
+		local org = patient.organism
 		if not org then return end
 
 		org.painadd = org.painadd + 5
 		org.fearadd = org.fearadd + 0.1
-		target:EmitSound("physics/body/body_medium_impact_hard1.wav", 60, 100, 1, CHAN_AUTO)
+		patient:EmitSound("physics/body/body_medium_impact_hard1.wav", 60, 100, 1, CHAN_AUTO)
 		return
 	end
 
@@ -1014,11 +1032,10 @@ net.Receive("hg_dislocation_minigame_success", function(len, ply)
 	if not IsValid(ply) or not ply:Alive() then return end
 
 	local target = net.ReadEntity()
-	local patient = ply
+	local patient = hg_ResolveDislocationPatient(target, ply) or ply
 
-	if IsValid(target) and target:IsPlayer() and target != ply then
-		patient = target
-		if ply:GetPos():Distance(patient:GetPos()) > 200 then return end
+	if patient != ply and (not IsValid(patient) or not patient:IsPlayer() or patient == ply or ply:GetPos():Distance(patient:GetPos()) > 200) then
+		patient = ply
 	end
 
 	local org = patient.organism

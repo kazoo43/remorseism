@@ -156,7 +156,7 @@ hg.armor.torso = {
 		surfaceprop = 67,
 		mass = 8,
 		ScrappersSlot = "Armor",
-		nobonemerge = true
+		nobonemerge = false
 	},
 	["vest5"] = {
 		"torso",
@@ -492,7 +492,7 @@ hg.armor.torso = {
 		surfaceprop = 77,
 		mass = 5,
 		ScrappersSlot = "Armor",
-		nobonemerge = true
+		nobonemerge = false
 	},
 	["vest26"] = {
 		"torso",
@@ -513,7 +513,7 @@ hg.armor.torso = {
 		surfaceprop = 67,
 		mass = 8,
 		ScrappersSlot = "Armor",
-		nobonemerge = true
+		nobonemerge = false
 	},
 	["vest28"] = {
 		"torso",

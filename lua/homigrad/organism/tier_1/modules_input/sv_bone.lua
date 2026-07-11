@@ -314,6 +314,56 @@ local jaw_dislocated_msg = {
 	//"I CANT EVEN SPEAK, I NEED TO PUNCH IT BACK IN PLACE... BUT IT HURTS REAL BAD",
 }
 
+local function shouldTriggerTinnitus(dmgInfo, damage, hasHelmet)
+	if damage < 0.1 then return false end
+	local chance = 30
+	if dmgInfo:IsDamageType(DMG_CLUB) then
+		chance = hasHelmet and 12 or 50
+	elseif dmgInfo:IsDamageType(DMG_SLASH) then
+		chance = hasHelmet and 8 or 20
+	end
+	return math.random(100) <= chance
+end
+
+local function manageTinnitusSound(org, targetPlayer)
+	if not IsValid(targetPlayer) or not targetPlayer:IsPlayer() then return end
+	local hasHelmet = org.owner.armors and org.owner.armors["head"] != nil
+	if org.skull >= 0.6 then
+		if not org.tinnitusLongPlaying then
+			org.tinnitusLongPlaying = true
+			targetPlayer:PlayCustomTinnitus("tinnituslong.wav")
+			local timerName = "TinnitusCheck_" .. targetPlayer:SteamID64()
+			timer.Create(timerName, 8.0, 0, function()
+				if not IsValid(targetPlayer) or not targetPlayer:Alive() or org.skull < 0.6 then
+					timer.Remove(timerName)
+					org.tinnitusLongPlaying = false
+					targetPlayer:StopCustomTinnitus()
+					return
+				end
+				targetPlayer:PlayCustomTinnitus("tinnituslong.wav")
+			end)
+			local disorientTimerName = "TinnitusDisorient_" .. targetPlayer:SteamID64()
+			timer.Create(disorientTimerName, 0.1, 0, function()
+				if not IsValid(targetPlayer) or not targetPlayer:Alive() or org.skull < 0.6 then
+					timer.Remove(disorientTimerName)
+					return
+				end
+				local rate = hasHelmet and 0.02 or 0.06
+				org.disorientation = math.min(org.disorientation + rate, 1.5)
+			end)
+		end
+	else
+		if org.tinnitusLongPlaying then
+			org.tinnitusLongPlaying = false
+			local timerName = "TinnitusCheck_" .. targetPlayer:SteamID64()
+			timer.Remove(timerName)
+			local disorientTimerName = "TinnitusDisorient_" .. targetPlayer:SteamID64()
+			timer.Remove(disorientTimerName)
+			targetPlayer:StopCustomTinnitus()
+		end
+	end
+end
+
 local input_list = hg.organism.input_list
 input_list.jaw = function(org, bone, dmg, dmgInfo, boneindex, dir, hit, ricochet)
 	local oldDmg = org.jaw
@@ -354,6 +404,22 @@ input_list.jaw = function(org, bone, dmg, dmgInfo, boneindex, dir, hit, ricochet
 
 	if dmg > 0.2 then
 		if org.isPly then timer.Simple(0, function() hg.LightStunPlayer(org.owner,1 + dmg) end) end
+	end
+
+	if (org.jaw - oldDmg) > 0.15 then
+		local disorientationAdd = dmg * 0.5
+		org.disorientation = math.min(org.disorientation + disorientationAdd, 1.5)
+
+		if org.isPly and disorientationAdd > 0.1 and shouldTriggerTinnitus(dmgInfo, dmg, false) then
+			local targetPlayer = org.owner
+			if IsValid(org.owner.FakeRagdoll) then
+				local ragdoll = org.owner.FakeRagdoll
+				if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+			end
+			if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+				targetPlayer:PlayCustomTinnitus("tinnitus.wav")
+			end
+		end
 	end
 
 	return result, vecrand
@@ -442,7 +508,130 @@ input_list.skull = function(org, bone, dmg, dmgInfo, boneindex, dir, hit, ricoch
 		end--]]
 	end
 
-	org.disorientation = org.disorientation + (isCrush(dmgInfo) and dmg * 1 or dmg * 1)
+	org.disorientation = math.min(org.disorientation + (isCrush(dmgInfo) and dmg * 1 or dmg * 1), 1.5)
+
+	-- Realistic head trauma:
+	--  - A helmet diffuses the blow: most of a weak/glancing hit is soaked up, so it
+	--    mostly just rings (tinnitus) and barely concusses. You need a really solid
+	--    impact to get through it.
+	--  - A bare head is the dangerous case: the same hit reaches the skull directly and
+	--    concusses far more easily and severely.
+	--  - A light tap on the head (weak melee) is not a concussion either way.
+	local hasHelmet = org.owner.armors and org.owner.armors["head"] != nil
+	local effectiveDmg = hasHelmet and dmg * 0.3 or dmg
+
+	if effectiveDmg > 7 then
+		-- chance + severity grow with how hard the (post-helmet) impact is
+		local baseChance = math.Clamp((effectiveDmg - 7) / 55, 0.05, 0.9)
+		local intensity = math.Clamp(effectiveDmg * 0.32, 0.5, hasHelmet and 1.2 or 4.0)
+
+		if math.random() < baseChance then
+			hg.organism.module.concussion.AddConcussion(org, intensity, math.Clamp(intensity * 6, 6, 50))
+
+			if org.isPly then
+				local targetPlayer = org.owner
+				if IsValid(org.owner.FakeRagdoll) then
+					local ragdoll = org.owner.FakeRagdoll
+					if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+				end
+				if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+					targetPlayer:PlayCustomTinnitus("headhit.mp3")
+
+					net.Start("headtrauma_concussion_update")
+						net.WriteFloat(math.Clamp(intensity * 1.5, 1, 6))
+						net.WriteFloat(org.concussion or 0)
+					net.Send(targetPlayer)
+				end
+			end
+		end
+	else
+		-- Light blow: no real concussion. Helmet just rings, bare head a tiny daze.
+		if org.isPly then
+			local targetPlayer = org.owner
+			if IsValid(org.owner.FakeRagdoll) then
+				local ragdoll = org.owner.FakeRagdoll
+				if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+			end
+			if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+				if hasHelmet then
+					targetPlayer:PlayCustomTinnitus("headhit.mp3")
+				else
+					org.disorientation = math.min(org.disorientation + math.Clamp(effectiveDmg * 0.08, 0, 0.25), 1.5)
+				end
+			end
+		end
+	end
+
+	if org.isPly and dmg > 0.3 then
+		local targetPlayer = org.owner
+		if IsValid(org.owner.FakeRagdoll) then
+			local ragdoll = org.owner.FakeRagdoll
+			if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+		end
+		if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+			local impactSeverity = math.Clamp(dmg * 1.5, 0.5, 6)
+			net.Start("headtrauma_concussion_update")
+				net.WriteFloat(impactSeverity)
+				net.WriteFloat(org.concussion or 0)
+			net.Send(targetPlayer)
+		end
+	end
+
+	if (org.skull - oldDmg) > 0.02 then
+		local disorientationAdd = math.min(dmg * 1.5, 2.0)
+		local hasHelmet = org.owner.armors and org.owner.armors["head"] != nil
+		local effectiveDisorient = hasHelmet and disorientationAdd * 0.3 or disorientationAdd
+		org.disorientation = math.min(org.disorientation + effectiveDisorient, 1.5)
+
+		if org.isPly and effectiveDisorient > 0.05 then
+			local targetPlayer = org.owner
+			if IsValid(org.owner.FakeRagdoll) then
+				local ragdoll = org.owner.FakeRagdoll
+				if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+			end
+			if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+				targetPlayer:PlayCustomTinnitus("headhit.mp3")
+				if not hasHelmet or (org.skull - oldDmg) > 0.15 then
+					manageTinnitusSound(org, targetPlayer)
+				end
+			end
+		end
+
+		if org.isPly and effectiveDisorient > 0.05 and shouldTriggerTinnitus(dmgInfo, dmg, hasHelmet) then
+			local targetPlayer = org.owner
+			if IsValid(org.owner.FakeRagdoll) then
+				local ragdoll = org.owner.FakeRagdoll
+				if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+			end
+			if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+				targetPlayer:PlayCustomTinnitus("tinnitus.wav")
+			end
+		end
+	elseif org.isPly then
+		local targetPlayer = org.owner
+		if IsValid(org.owner.FakeRagdoll) then
+			local ragdoll = org.owner.FakeRagdoll
+			if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+		end
+		if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+			manageTinnitusSound(org, targetPlayer)
+		end
+	end
+
+	if org.isPly and (org.brain - 0) > 0 and dmg > 0.5 then
+		local targetPlayer = org.owner
+		if IsValid(org.owner.FakeRagdoll) then
+			local ragdoll = org.owner.FakeRagdoll
+			if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+		end
+		if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+			local idx = math.random(1, 4)
+			local snd = "concussion" .. idx .. ".mp3"
+			net.Start("hg_play_client_sound_file")
+				net.WriteString(snd)
+			net.Send(targetPlayer)
+		end
+	end
 
 	return result,vecrand
 end
@@ -543,6 +732,30 @@ hook.Add("Org Think", "homigrad_bone_stabilization", function(owner, org, timeVa
 			org.immobilization = math.Approach(org.immobilization, 0, timeValue * 10)
 
 			org._zsh_stab_prev[key] = true
+		end
+	end
+end)
+
+hook.Add("PlayerDisconnected", "CleanupTinnitusSounds", function(ply)
+	if IsValid(ply) then
+		local timerName = "TinnitusCheck_" .. ply:SteamID64()
+		local disorientTimerName = "TinnitusDisorient_" .. ply:SteamID64()
+		timer.Remove(timerName)
+		timer.Remove(disorientTimerName)
+		if ply.organism then
+			ply.organism.tinnitusLongPlaying = false
+		end
+	end
+end)
+
+hook.Add("PlayerDeath", "CleanupTinnitusOnDeath", function(ply)
+	if IsValid(ply) then
+		local timerName = "TinnitusCheck_" .. ply:SteamID64()
+		local disorientTimerName = "TinnitusDisorient_" .. ply:SteamID64()
+		timer.Remove(timerName)
+		timer.Remove(disorientTimerName)
+		if ply.organism then
+			ply.organism.tinnitusLongPlaying = false
 		end
 	end
 end)

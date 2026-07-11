@@ -140,6 +140,10 @@ function ENT:ActivateExplosive()
 		local dist = ply:GetPos():Distance(selfPos)
 		local tinnitusDuration = math.Clamp(10 * (1 - dist/self.ConcussionDis), 2, 10)
 		ply:AddTinnitus(math.max(tinnitusDuration,1.5), true)
+		if ply.organism then
+			local clayConc = math.Clamp(tinnitusDuration * 0.18, 0.15, 1.5)
+			hg.organism.module.concussion.AddConcussion(ply.organism, clayConc, tinnitusDuration)
+		end
 	end
 	   
 	--util.BlastDamage(self, attacker, selfPos, self.ShrapnelDis, self.BlastDamage)

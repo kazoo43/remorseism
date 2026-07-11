@@ -118,6 +118,10 @@ game.AddDecal("Arterial.Blood1", {
 
 game.AddDecal("Water.Blood", "effects/smoke_b")
 
+game.AddDecal("Concussion.VomitSmall", "decals/vomit_small")
+game.AddDecal("Concussion.VomitMedium", "decals/vomit_medium")
+game.AddDecal("Concussion.VomitLarge", "decals/vomit_large")
+
 if CLIENT then
     local func = function()
 		for i = 1, 5 do

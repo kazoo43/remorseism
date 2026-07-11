@@ -341,6 +341,7 @@ module[2] = function(owner, org, mulTime)
 	updateHoldWound(org)
 end
 util.AddNetworkString("bloodsquirt2")
+util.AddNetworkString("vomitConcussionMouth")
 function hg.organism.Vomit(owner, snd)
 	if !hg.IsValidPlayer(owner) then return end
 	local org = owner.organism
@@ -369,6 +370,36 @@ function hg.organism.Vomit(owner, snd)
 			net.WriteVector(mat:GetAngles():Right() * 2 * math.Clamp(org.pulse / 70, 0.4, 1))
 			net.Broadcast()
 		end
+	end
+end
+function hg.organism.VomitConcussion(owner)
+	if not hg.IsValidPlayer(owner) then return end
+	local org = owner.organism
+	local ent = hg.GetCurrentCharacter(owner)
+	if not IsValid(ent) then return end
+	local bon = "ValveBiped.Bip01_Head1"
+	local bone = ent:LookupBone(bon)
+	if not bone then return end
+	local mat = ent:GetBoneMatrix(bone)
+	if not mat then return end
+	local on_spine = mat:GetAngles():Right()[3] > 0.25
+	if on_spine then
+		org.vomitInThroat = true
+		return
+	end
+	owner:SetNetVar("vomiting", CurTime() + 1.5)
+	ent:EmitSound("zcitysnd/real_sonar/"..(ThatPlyIsFemale(ent) and "female" or "male").."_cough"..math.random(4)..".mp3")
+	if !on_spine then ent:EmitSound("vomit/vomit5.mp3") end
+	if owner.armors and owner.armors.face and hg.armor.face[owner.armors.face].voice_change then
+		owner:SetNetVar("zableval_masku", true)
+	else
+		net.Start("vomitConcussionMouth")
+			net.WriteEntity(ent)
+			net.WriteString(bon)
+			net.WriteMatrix(mat)
+			net.WriteVector(mat:GetTranslation() + mat:GetAngles():Right() * 6 + mat:GetAngles():Forward() * 1)
+			net.WriteVector(mat:GetAngles():Right() * 2 * math.Clamp(org.pulse / 70, 0.4, 1))
+		net.Broadcast()
 	end
 end
 function hg.organism.CoughBlood(org)

@@ -2,18 +2,18 @@
 SWEP.Base = "weapon_mxlr"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
-SWEP.PrintName = "SVT-40"
+SWEP.PrintName = "AVT-40"
 SWEP.Author = "Russia"
 SWEP.Instructions = "Sniper rifle chambered in 7.62x54R"
 SWEP.Category = "Weapons - Sniper Rifles"
 SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
-SWEP.WorldModel = "models/weapons/w_shotgun.mdl" 
+SWEP.WorldModel = "models/weapons/w_shotgun.mdl" -- РќРµРѕР±С…РѕРґРёРјРѕ Р·Р°РјРµРЅРёС‚СЊ WM
 SWEP.WorldModelFake = "models/weapons/c_svt.mdl"
 
 
-SWEP.FakePos = Vector(-16, 1, 4)
+SWEP.FakePos = Vector(-15, 1, 4)
 SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.FakeAttachment = "1"
 SWEP.AttachmentPos = Vector(3.5,-0.2,-0.05)
@@ -30,6 +30,9 @@ SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
 SWEP.ViewPunchDiv = 30
 
+
+
+SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
 SWEP.FakeReloadEvents = {}
 
 SWEP.FakeVPShouldUseHand = false
@@ -42,6 +45,7 @@ SWEP.LocalMuzzleAng = Angle(0,0,0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
 SWEP.CustomShell = "762x54"
+
 SWEP.weight = 3.5
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
@@ -51,18 +55,18 @@ SWEP.UseCustomWorldModel = true
 SWEP.ViewPunchDiv = 115
 
 -- РҐР°СЂР°РєС‚РµСЂРёСЃС‚РёРєРё
-SWEP.Primary.ClipSize = 10
-SWEP.Primary.DefaultClip = 10
-SWEP.Primary.Automatic = false
+SWEP.Primary.ClipSize = 15
+SWEP.Primary.DefaultClip = 15
+SWEP.Primary.Automatic = true
 SWEP.Primary.Ammo = "7.62x51 mm"
-SWEP.Primary.Damage = 88
-SWEP.Primary.Force = 88
+SWEP.Primary.Damage = 55
+SWEP.Primary.Force = 55
 SWEP.Primary.Cone = 0
 SWEP.Primary.Spread = 0
 -- Р—РІСѓРєРё РІС‹СЃС‚СЂРµР»Р° (SVD, С‚Р°Рє РєР°Рє Сѓ SVT РјРѕРіСѓС‚ Р±С‹С‚СЊ РїСЂРѕР±Р»РµРјС‹ СЃ РїСѓС‚СЏРјРё)
 SWEP.Primary.Sound = {"weapons/darsu_eft/svt/fire/avt_outdoor_distant_loop2.wav", 85, 100, 100}
 SWEP.SupressedSound = {"weapons/darsu_eft/svt/fire/avt_outdoor_distant_loop2.wav", 65, 100, 100}
-SWEP.Primary.Wait = 0.25 
+SWEP.Primary.Wait = 0.075
 SWEP.NumBullet = 1
 
 SWEP.availableAttachments = {
@@ -80,7 +84,7 @@ SWEP.AnimShootHandMul = 10
 SWEP.DeploySnd = {"homigrad/weapons/draw_hmg.mp3", 55, 100, 110}
 SWEP.HolsterSnd = {"homigrad/weapons/hmg_holster.mp3", 55, 100, 110}
 SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(-3, -3.3, 2.65)
+SWEP.ZoomPos = Vector(-3, -3.3, 3.126)
 SWEP.RHandPos = Vector(-8, -2, 6)
 SWEP.LHandPos = Vector(6, -3, 1)
 SWEP.Ergonomics = 0.85
@@ -119,13 +123,13 @@ SWEP.AnimList = {
 
 -- РџРЈРўР¬ Рљ Р—Р’РЈРљРђРњ (AVT40/SKS)
 local path = "weapons/darsu_eft/svt/"
-local pathsks = "weapons/darsu_eft/svt/"
+local pathsks = "weapons/darsu_eft/sks/"
 
 SWEP.AnimsSounds = {
     ["ready0"] = {
         [0.05] = function(self) self:EmitSound(path .. "mr133_draw.ogg") end,
-        [0.57] = function(self) self:EmitSound(pathsks .. "svd_slider_check_in.ogg") end,
-        [0.83] = function(self) self:EmitSound(pathsks .. "svd_slider_check_out.ogg") end,
+        [0.57] = function(self) self:EmitSound(pathsks .. "sks_slider_up.ogg") end,
+        [0.83] = function(self) self:EmitSound(pathsks .. "sks_slider_down.ogg") end,
         [1.14] = function(self) self:EmitSound(path .. "m203_flip_2.ogg") end,
     },
     ["draw"] = {
@@ -219,8 +223,8 @@ function SWEP:Reload(time)
                 end, false, true)
                 
                            -- Р—РІСѓРєРё Р±РѕР»С‚Р° (Р·Р°РїСѓСЃРєР°СЋС‚СЃСЏ СЃСЂР°Р·Сѓ РїРѕСЃР»Рµ РЅР°С‡Р°Р»Р° Р°РЅРёРјР°С†РёРё ready)
-                timer.Simple(0.2, function() if IsValid(wep) then wep:EmitSound(pathsks .. "svd_slider_check_in.ogg") end end)
-                timer.Simple(0.6, function() if IsValid(wep) then wep:EmitSound(pathsks .. "svd_slider_check_out.ogg") end end)
+                timer.Simple(0.2, function() if IsValid(wep) then wep:EmitSound(pathsks .. "sks_slider_up.ogg") end end)
+                timer.Simple(0.6, function() if IsValid(wep) then wep:EmitSound(pathsks .. "sks_slider_down.ogg") end end)
                 
             else
                 local currentClip = wep:Clip1()
@@ -250,4 +254,5 @@ end
 function SWEP:CanPrimaryAttack()
     return not (self:GetNetVar("shootgunReload", 0) > CurTime())
 end
+
 

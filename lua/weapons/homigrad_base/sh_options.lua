@@ -1,4 +1,15 @@
 if CLIENT then
+	hook.Add("PlayerButtonDown", "hg_inspect_key", function(ply, button)
+		if button ~= KEY_R then return end
+		local wep = ply:GetActiveWeapon()
+		if not IsValid(wep) then return end
+		local canInspect = wep.AllowedInspect
+		if not isfunction(canInspect) then return end
+		if not canInspect(wep) then return end
+		wep:PlayAnim("inspect", 5, false)
+		RunConsoleCommand("hg_inspect")
+	end)
+
 	concommand.Add("hg_unload_ammo", function(ply, cmd, args)
 		local wep = ply:GetActiveWeapon()
 		if wep and ishgweapon(wep) and wep:Clip1() > 0 and wep:CanUse() then
@@ -144,8 +155,12 @@ if SERVER then
 
 	concommand.Add("hg_inspect", function(ply, cmd, args)
 		local gun = ply:GetActiveWeapon()
-		if not IsValid(gun) or not gun or not gun.AllowedInspect then return end
+		if not IsValid(gun) or not gun then return end
+		local canInspect = gun.AllowedInspect
+		if not isfunction(canInspect) then return end
+		if not canInspect(gun) then return end
 		gun.inspect = CurTime() + 5
+		gun:PlayAnim("inspect", 5, false)
 		net.Start("hg_viewgun")
 		net.WriteEntity(gun)
 		net.WriteFloat(gun.inspect)
@@ -336,13 +351,16 @@ if CLIENT then
 			end
         end
 
-        if wep.AllowedInspect then
-            tbl[#tbl + 1] = {
-                [1] = function()
-                    RunConsoleCommand("hg_inspect")
-                end,
-                [2] = "Inspect" 
-            }
+        do
+            local canInspect = wep.AllowedInspect
+            if isfunction(canInspect) and canInspect(wep) then
+                tbl[#tbl + 1] = {
+                    [1] = function()
+                        RunConsoleCommand("hg_inspect")
+                    end,
+                    [2] = "Inspect" 
+                }
+            end
         end
 
         if wep:Clip1() > 0 then

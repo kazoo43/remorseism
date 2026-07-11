@@ -13,7 +13,7 @@ SWEP.WorldModel = "models/weapons/w_shotgun.mdl"
 SWEP.WorldModelFake = "models/weapons/c_svt.mdl"
 
 
-SWEP.FakePos = Vector(-15, 1, 4)
+SWEP.FakePos = Vector(-16, 1, 4)
 SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.FakeAttachment = "1"
 SWEP.AttachmentPos = Vector(3.5,-0.2,-0.05)
@@ -30,15 +30,7 @@ SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
 SWEP.ViewPunchDiv = 30
 
--- Фейковые звуки
-SWEP.FakeReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.85] = "weapons/ak74/ak74_magin.wav",
-}
-SWEP.FakeEmptyReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.65] = "weapons/ak74/ak74_magin.wav",
-}
+
 
 SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
 SWEP.FakeReloadEvents = {}
@@ -53,8 +45,7 @@ SWEP.LocalMuzzleAng = Angle(0,0,0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
 SWEP.CustomShell = "762x54"
-SWEP.ReloadSound = "weapons/remington_870/870_shell_in_1.wav"
-SWEP.CockSound = "pwb2/weapons/ithaca37stakeout/pump.wav"
+
 SWEP.weight = 3.5
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
@@ -93,7 +84,7 @@ SWEP.AnimShootHandMul = 10
 SWEP.DeploySnd = {"homigrad/weapons/draw_hmg.mp3", 55, 100, 110}
 SWEP.HolsterSnd = {"homigrad/weapons/hmg_holster.mp3", 55, 100, 110}
 SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(-3, -3.3, 3.126)
+SWEP.ZoomPos = Vector(-3, -3.3, 2.65)
 SWEP.RHandPos = Vector(-8, -2, 6)
 SWEP.LHandPos = Vector(6, -3, 1)
 SWEP.Ergonomics = 0.85
@@ -154,6 +145,10 @@ SWEP.AnimsSounds = {
 }
 
 SWEP.stupidgun = true
+
+function SWEP:AllowedInspect()
+	return self:Clip1() >= self.Primary.ClipSize
+end
 
 function SWEP:AnimHoldPost() end
 function SWEP:ModelCreated(model) model:SetBodyGroups(self:GetRandomBodygroups() or "000000000") end
@@ -260,22 +255,3 @@ function SWEP:CanPrimaryAttack()
     return not (self:GetNetVar("shootgunReload", 0) > CurTime())
 end
 
-SWEP.InspectAnimLH = { Vector(0, 0, 0) }
-SWEP.InspectAnimLHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimRH = { Vector(0, 0, 0) }
-SWEP.InspectAnimRHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimWepAng = {
-    Angle(0, 0, 0),
-    Angle(-5, 9, 5),
-    Angle(-5, 9, 14),
-    Angle(-5, 9, 16),
-    Angle(-6, 10, 15),
-    Angle(-5, 9, 16),
-    Angle(-10, 15, -15),
-    Angle(-2, 22, -15),
-    Angle(0, 25, -32),
-    Angle(0, 24, -45),
-    Angle(0, 22, -55),
-    Angle(0, 20, -56),
-    Angle(0, 0, 0)
-}

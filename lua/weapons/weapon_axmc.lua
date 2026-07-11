@@ -30,16 +30,6 @@ SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
 SWEP.ViewPunchDiv = 30
 
 -- Фейковые звуки
-SWEP.FakeReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.85] = "weapons/ak74/ak74_magin.wav",
-}
-
-SWEP.FakeEmptyReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.65] = "weapons/ak74/ak74_magin.wav",
-}
-
 SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
 SWEP.FakeReloadEvents = {}
 
@@ -53,8 +43,6 @@ SWEP.LocalMuzzleAng = Angle(1, -0.2, 0)
 SWEP.WeaponEyeAngles = Angle(-0.7, 0.1, 0)
 
 SWEP.CustomShell = "762x51"
-SWEP.ReloadSound = "weapons/remington_870/870_shell_in_1.wav"
-SWEP.CockSound = "pwb2/weapons/ithaca37stakeout/pump.wav"
 SWEP.weight = 4
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
@@ -126,8 +114,8 @@ SWEP.AnimList = {
     ["cycle"] = "bolt0",
     ["reload"] = "reload",
     ["reload_empty"] = "reload_empty",
-    ["inspect"] = "look",
-    ["inspect_empty"] = "look_empty",
+    ["inspect"] = "inspect0",
+    ["inspect_empty"] = "inspect0",
     ["toggle"] = "mod_switch",
     ["toggle_empty"] = "mod_switch_empty",
 }
@@ -156,6 +144,10 @@ SWEP.AnimsSounds = {
 }
 
 SWEP.stupidgun = true
+
+function SWEP:AllowedInspect()
+	return self:Clip1() >= self.Primary.ClipSize and self.drawBullet == true
+end
 
 function SWEP:AnimHoldPost() end
 function SWEP:ModelCreated(model) model:SetBodyGroups(self:GetRandomBodygroups() or "011111111111") end
@@ -288,22 +280,3 @@ function SWEP:CanPrimaryAttack()
     return not (self:GetNetVar("shootgunReload", 0) > CurTime())
 end
 
-SWEP.InspectAnimLH = { Vector(0, 0, 0) }
-SWEP.InspectAnimLHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimRH = { Vector(0, 0, 0) }
-SWEP.InspectAnimRHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimWepAng = {
-    Angle(0, 0, 0),
-    Angle(-5, 9, 5),
-    Angle(-5, 9, 14),
-    Angle(-5, 9, 16),
-    Angle(-6, 10, 15),
-    Angle(-5, 9, 16),
-    Angle(-10, 15, -15),
-    Angle(-2, 22, -15),
-    Angle(0, 25, -32),
-    Angle(0, 24, -45),
-    Angle(0, 22, -55),
-    Angle(0, 20, -56),
-    Angle(0, 0, 0)
-}

@@ -3,34 +3,122 @@ if SERVER then
 end
 hg.organism.module.concussion = {}
 local module = hg.organism.module.concussion
+
+local concussion_phrases = {
+    "My head is ringing...",
+    "Everything is spinning...",
+    "I can't focus...",
+    "I feel sick...",
+    "What happened...?",
+    "Everything is so loud...",
+    "My ears are ringing...",
+    "I can't think straight...",
+    "The world is tilting...",
+    "I'm so dizzy...",
+    "My head hurts so much...",
+    "Something's wrong with me...",
+    "I can't hear properly...",
+    "Everything's a blur...",
+    "My skull is pounding...",
+    "I feel like I'm gonna throw up...",
+    "Where am I...?",
+    "I can't keep my balance...",
+    "My vision is shaking...",
+    "It feels like my brain's rattling...",
+    "I'm seeing double...",
+    "The noise is killing me...",
+    "I can't stand the light...",
+    "My head's about to explode...",
+    "Everything's muffled..."
+}
+local concussion_phrases_severe = {
+    "I think I'm going to pass out...",
+    "I can't see properly...",
+    "Everything is blurred...",
+    "I'm going to be sick...",
+    "Make it stop...",
+    "I can't breathe right...",
+    "My head's splitting open...",
+    "I'm falling... I'm falling...",
+    "Everything's going black...",
+    "I can't feel my legs...",
+    "Please... somebody help...",
+    "It hurts... it hurts so much...",
+    "I'm losing consciousness...",
+    "The ground won't stop moving...",
+    "I can't tell up from down...",
+    "My eyes won't focus...",
+    "I think I'm dying...",
+    "Everything's spinning too fast...",
+    "I can't move my arms...",
+    "Get this noise out of my head..."
+}
+
 module[1] = function(org)
     org.concussion = 0
+    org.nausea = 0
+    org.nextConcussionVomit = 0
+    org.nextConcussionPhrase = 0
+    org.concussion_tinnitus = 0
     org.concussion_effects = {
         severity = 0,
         duration = 0,
         last_impact = 0
     }
 end
+
 module[2] = function(ply, org, timeValue)
+    if not org.concussion then org.concussion = 0 end
+    if not org.nausea then org.nausea = 0 end
+    if not org.concussion_tinnitus then org.concussion_tinnitus = 0 end
+    if not org.concussion_effects then
+        org.concussion_effects = {severity = 0, duration = 0, last_impact = 0}
+    end
+    if org.concussion <= 0 and org.nausea <= 0 then return end
+
     if org.concussion > 0 then
-        org.concussion = math.max(org.concussion - timeValue * 0.1, 0)
+        local decayRate = 0.08 + (org.concussion > 3 and 0.04 or 0)
+        org.concussion = math.max(org.concussion - timeValue * decayRate, 0)
+
         if org.consciousness then
             local drainRate = 0.032 + (org.concussion_effects.severity * 0.02)
             org.consciousness = math.max(org.consciousness - (org.concussion * drainRate) * timeValue, 0)
         end
-        if org.concussion > 1.5 then
-            org.disorientation = math.max(org.disorientation or 0, org.concussion * 0.8)
+
+        if org.concussion > 1.0 then
+            org.disorientation = math.max(org.disorientation or 0, org.concussion * 0.6)
         end
-        if org.concussion > 2.5 then
+
+        if org.concussion > 2.0 then
             org.needfake = true
-            org.immobilization = math.max(org.immobilization or 0, org.concussion * 10)
-            if math.random() < org.concussion * 0.05 then
-                org.nausea = math.max(org.nausea or 0, org.concussion * 2)
-            end
+            org.immobilization = math.max(org.immobilization or 0, org.concussion * 8)
         end
+
+        if org.concussion > 1.5 then
+            org.shock = math.min((org.shock or 0) + timeValue * 2 * org.concussion, 50)
+            org.fearadd = math.min((org.fearadd or 0) + timeValue * 0.15 * org.concussion, 2)
+        end
+
+        if org.concussion > 0.5 and math.random() < org.concussion * 0.03 then
+            org.nausea = math.max(org.nausea or 0, org.concussion * 1.5)
+        end
+
+        if org.concussion > 0.3 then
+            org.concussion_tinnitus = math.max(org.concussion_tinnitus or 0, org.concussion * 0.4)
+        end
+
+        if org.concussion > 1.0 and org.isPly and not org.otrub and IsValid(ply) and ply:IsPlayer() and (org.nextConcussionPhrase or 0) < CurTime() then
+            if org.concussion > 2.5 then
+                ply:Notify(concussion_phrases_severe[math.random(#concussion_phrases_severe)], 5, "concussion_phrase", 0)
+            else
+                ply:Notify(concussion_phrases[math.random(#concussion_phrases)], 5, "concussion_phrase", 0)
+            end
+            org.nextConcussionPhrase = CurTime() + math.random(8, 18)
+        end
+
         if org.concussion_effects.duration > 0 then
             org.concussion_effects.duration = math.max(org.concussion_effects.duration - timeValue, 0)
-            if org.concussion_effects.severity > 0.3 and (org.concussion_effects.last_impact or 0) < CurTime() - 2 then
+            if org.concussion_effects.severity > 0.3 and IsValid(ply) and ply:IsPlayer() and (org.concussion_effects.last_impact or 0) < CurTime() - 1.5 then
                 net.Start("headtrauma_concussion_update")
                     net.WriteFloat(org.concussion_effects.severity)
                     net.WriteFloat(org.concussion)
@@ -39,20 +127,69 @@ module[2] = function(ply, org, timeValue)
             end
         end
     end
-end
-function module.AddConcussion(org, intensity, duration)
-    if not org or not org.concussion then return end
-    org.concussion = math.min(org.concussion + intensity, 5.0)
-    org.concussion_effects.severity = math.max(org.concussion_effects.severity, intensity)
-    org.concussion_effects.duration = math.max(org.concussion_effects.duration, duration or 10)
-    if intensity > 2.0 then
-        org.disorientation = math.max(org.disorientation or 0, intensity * 0.5)
-        org.panic = math.max(org.panic or 0, intensity * 0.3)
+
+    org.concussion_tinnitus = math.Approach(org.concussion_tinnitus or 0, 0, timeValue * 0.15)
+
+    if (org.nausea or 0) > 0 then
+        org.nausea = math.max(org.nausea - timeValue * 0.06, 0)
+
+        if org.nausea > 1.5 and not org.otrub then
+            local now = CurTime()
+            if now > (org.nextConcussionVomit or 0) then
+                local vomitDelay = math.Rand(6, 16) / math.Clamp(org.nausea, 0.5, 5)
+                -- floor the interval so a maxed-out nausea can't trigger vomiting every second
+                vomitDelay = math.max(vomitDelay, 4)
+                org.nextConcussionVomit = now + vomitDelay
+                hg.organism.VomitConcussion(ply)
+            end
+        end
+
+        if org.nausea > 2.0 and not org.otrub then
+            org.disorientation = math.max(org.disorientation or 0, org.nausea * 0.4)
+        end
     end
 end
+
+function module.AddConcussion(org, intensity, duration)
+    if not org then return end
+    if not org.concussion then org.concussion = 0 end
+    if not org.nausea then org.nausea = 0 end
+    if not org.concussion_tinnitus then org.concussion_tinnitus = 0 end
+    if not org.concussion_effects then
+        org.concussion_effects = {severity = 0, duration = 0, last_impact = 0}
+    end
+
+    -- Prevent a flurry of weak hits (e.g. melee on a helmet) from linearly stacking
+    -- into a maxed-out concussion + endless vomiting. Successive impacts that land
+    -- very close together count far less, and the closer the brain already is to
+    -- being fully rattled, the less each additional blow adds (diminishing returns).
+    local now = CurTime()
+    org.concussion_lastImpact = org.concussion_lastImpact or 0
+    local sinceLast = now - org.concussion_lastImpact
+    local rapidScale = math.Clamp(sinceLast / 1.5, 0.15, 1)
+    org.concussion_lastImpact = now
+
+    local headroom = math.Clamp((5.0 - org.concussion) / 5.0, 0, 1)
+    local add = intensity * rapidScale * (0.35 + 0.65 * headroom)
+
+    org.concussion = math.min(org.concussion + add, 5.0)
+    org.concussion_effects.severity = math.max(org.concussion_effects.severity or 0, add)
+    org.concussion_effects.duration = math.max(org.concussion_effects.duration or 0, duration or math.Clamp(intensity * 5, 5, 60))
+    org.concussion_tinnitus = math.max(org.concussion_tinnitus or 0, add * 0.6)
+    org.nausea = math.max(org.nausea or 0, add * 0.5)
+    if add > 1.5 then
+        org.disorientation = math.max(org.disorientation or 0, add * 0.5)
+    end
+    if add > 2.0 then
+        org.panic = math.max(org.panic or 0, add * 0.3)
+        org.needfake = true
+    end
+end
+
 function module.HasConcussionSymptoms(org)
     return org and org.concussion and org.concussion > 0.5
 end
+
 function module.GetConcussionSeverity(org)
     if not org or not org.concussion then return 0 end
     if org.concussion < 1.0 then return "mild"
@@ -119,4 +256,15 @@ module[2] = function(owner, org, timeValue)
 			owner:Notify(combo_painhypovolemia_phrases[math.random(#combo_painhypovolemia_phrases)], 6, "combo_painhypovolemia", 0)
 		end
 	end
+end
+
+if SERVER then
+    concommand.Add("hg_concussion_test", function(ply, cmd, args)
+        if not IsValid(ply) or not ply:IsAdmin() then return end
+        local intensity = tonumber(args[1]) or 1.5
+        local duration = tonumber(args[2]) or 15
+        if not ply.organism then return end
+        hg.organism.module.concussion.AddConcussion(ply.organism, intensity, duration)
+        ply:Notify("Concussion: " .. math.Round(intensity, 2) .. " / " .. math.Round(duration, 1) .. "s", 5, "conc_test", 0)
+    end)
 end

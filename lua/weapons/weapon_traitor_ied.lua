@@ -213,6 +213,7 @@ end
 function hg.ExplosionDisorientation(enta, tinnitus, disorientation)
 	enta.organism.owner:AddTinnitus(tinnitus)
 	enta.organism.disorientation = enta.organism.disorientation + (disorientation)
+	hg.organism.module.concussion.AddConcussion(enta.organism, math.Clamp(tinnitus * 0.1, 0.1, 2.0), tinnitus)
 
 	net.Start("organism_send") // отправляем только дизориентацию (чтобы не нагружать нет), и сразу
 	local tbl = {}
