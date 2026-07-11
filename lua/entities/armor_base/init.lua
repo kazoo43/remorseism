@@ -75,37 +75,46 @@ function ENT:TakeByPlayer(activator)
 	end
 end
 
-function ENT:ApplyData(ply,equipment)
-	ply:SetNWString("ArmorMaterials" .. equipment, self.mat)
-	ply:SetNWInt("ArmorSkins" .. equipment, self.skin or 0)
-	ply.armors_shots = ply.armors_shots or {}
-	ply.armors_broken = ply.armors_broken or {}
-	ply.armors_broken_mul = ply.armors_broken_mul or {}
-	ply.armors_broken[equipment] = self.broken or self:GetNWBool("ArmorBroken", false) or nil
-	ply.armors_broken_mul[equipment] = self.brokenProtectionMul or nil
-	ply.armors_shots[equipment] = ply.armors_broken[equipment] and nil or self.shotsLeft or hg.GetArmorBreakShotCount(equipment)
-end
-
-function ENT:ReciveData(ply,equipment)
-	--print(ply,equipment, ply:GetNWString("ArmorMaterials" .. equipment, self.mat))
-	self.mat = ply:GetNWString("ArmorMaterials" .. equipment, self.mat)
-	self:SetSubMaterial(0,self.mat)
-
-	self.skin = ply:GetNWInt("ArmorSkins" .. equipment, self.skin or 0)
-	self:SetSkin(self.skin)
-	self.shotsLeft = ply.armors_shots and ply.armors_shots[equipment] or self.shotsLeft
-	self.brokenProtectionMul = ply.armors_broken_mul and ply.armors_broken_mul[equipment] or self.brokenProtectionMul
-	if ply.armors_broken and ply.armors_broken[equipment] then
-		hg.SetArmorBrokenEntity(self)
-		self.shotsLeft = nil
+	function ENT:ApplyData(ply,equipment)
+		ply:SetNWString("ArmorMaterials" .. equipment, self.mat)
+		ply:SetNWInt("ArmorSkins" .. equipment, self.skin or 0)
+		ply.armors_shots = ply.armors_shots or {}
+		ply.armors_broken = ply.armors_broken or {}
+		ply.armors_broken_mul = ply.armors_broken_mul or {}
+		ply.armors_health = ply.armors_health or {}
+		ply.armors_durability = ply.armors_durability or {}
+		ply.armors_broken[equipment] = self.broken or self:GetNWBool("ArmorBroken", false) or nil
+		ply.armors_broken_mul[equipment] = self.brokenProtectionMul or nil
+		ply.armors_shots[equipment] = ply.armors_broken[equipment] and nil or self.shotsLeft or hg.GetArmorBreakShotCount(equipment)
+		ply.armors_health[equipment] = self.armorHealth or ply.armors_health[equipment] or 1
+		local placement = hg.GetArmorPlacement(equipment)
+		local armorData = placement and hg.armor[placement] and hg.armor[placement][equipment]
+		ply.armors_durability[equipment] = self.armorDurability or (armorData and armorData.durability) or 450
 	end
-end
+
+	function ENT:ReciveData(ply,equipment)
+		--print(ply,equipment, ply:GetNWString("ArmorMaterials" .. equipment, self.mat))
+		self.mat = ply:GetNWString("ArmorMaterials" .. equipment, self.mat)
+		self:SetSubMaterial(0,self.mat)
+		
+		self.skin = ply:GetNWInt("ArmorSkins" .. equipment, self.skin or 0)
+		self:SetSkin(self.skin)
+		self.shotsLeft = ply.armors_shots and ply.armors_shots[equipment] or self.shotsLeft
+		self.brokenProtectionMul = ply.armors_broken_mul and ply.armors_broken_mul[equipment] or self.brokenProtectionMul
+		self.armorHealth = ply.armors_health and ply.armors_health[equipment]
+		self.armorDurability = ply.armors_durability and ply.armors_durability[equipment]
+		if ply.armors_broken and ply.armors_broken[equipment] then
+			hg.SetArmorBrokenEntity(self)
+			self.shotsLeft = nil
+		end
+	end
 
 hook.Add("ItemsTransfered","TransferMats",function(ply, ragdoll)
 	local armors = ply:GetNetVar("Armor",{})
 	ragdoll.armors = ply.armors
 	ragdoll.armors_shots = ragdoll.armors_shots or {}
 	ragdoll.armors_health = ply.armors_health
+	ragdoll.armors_durability = ply.armors_durability
 	ragdoll.armors_broken = ply.armors_broken
 	ragdoll.armors_broken_mul = ply.armors_broken_mul
 	for k,v in pairs(armors) do
@@ -115,6 +124,14 @@ hook.Add("ItemsTransfered","TransferMats",function(ply, ragdoll)
 		ragdoll:SetNWInt("ArmorSkins" .. v, ply:GetNWInt("ArmorSkins" .. v))
 		ply:SetNWInt("ArmorSkins" .. v, nil)
 		ragdoll.armors_shots[v] = ply.armors_shots and ply.armors_shots[v] or nil
+
+		-- Give the corpse its own wear value. The player entity's ArmorWear NWVar
+		-- gets reset when the player respawns (hg.AddArmor), so the body would
+		-- otherwise render its armor as freshly healed.
+		local placement = hg.GetArmorPlacement and hg.GetArmorPlacement(v)
+		if hg.SyncArmorWear and placement then
+			hg.SyncArmorWear(ragdoll, v, placement)
+		end
 	end
 
 	local fakeRag = ply:GetNWEntity("FakeRagdoll", NULL)
@@ -122,6 +139,7 @@ hook.Add("ItemsTransfered","TransferMats",function(ply, ragdoll)
 		fakeRag.armors = ragdoll.armors
 		fakeRag.armors_shots = ragdoll.armors_shots
 		fakeRag.armors_health = ragdoll.armors_health
+		fakeRag.armors_durability = ragdoll.armors_durability
 		fakeRag.armors_broken = ragdoll.armors_broken
 		fakeRag.armors_broken_mul = ragdoll.armors_broken_mul
 		fakeRag:SetNetVar("Armor", ragdoll:GetNetVar("Armor", {}))
@@ -141,4 +159,10 @@ hook.Add("ItemTransfer", "TransferMats", function(ply, ent, placement, armor)
 	ply.armors_broken_mul = ply.armors_broken_mul or {}
 	ply.armors_broken[armor] = ent.armors_broken and ent.armors_broken[armor] or ply.armors_broken[armor]
 	ply.armors_broken_mul[armor] = ent.armors_broken_mul and ent.armors_broken_mul[armor] or ply.armors_broken_mul[armor]
+	ply.armors_health = ply.armors_health or {}
+	ply.armors_durability = ply.armors_durability or {}
+	ply.armors_health[armor] = ent.armors_health and ent.armors_health[armor] or ply.armors_health[armor]
+	ply.armors_durability[armor] = ent.armors_durability and ent.armors_durability[armor] or ply.armors_durability[armor]
+
+	if hg.SyncArmorWear then hg.SyncArmorWear(ply, armor, placement) end
 end)

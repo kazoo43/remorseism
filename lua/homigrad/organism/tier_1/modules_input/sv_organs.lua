@@ -123,10 +123,49 @@ input_list.brain = function(org, bone, dmg, dmgInfo)
 	end
 
 	org.consciousness = math.Approach(org.consciousness, 0, dmg * 3)
-	
+
 	org.disorientation = org.disorientation + dmg * 1
 	org.shock = org.shock + dmg * 3
 	org.painadd = org.painadd + dmg * 10
+
+	if org.isPly then
+		local targetPlayer = org.owner
+		if IsValid(org.owner.FakeRagdoll) then
+			local ragdoll = org.owner.FakeRagdoll
+			if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+		end
+		if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+			targetPlayer:PlayCustomTinnitus("headhit.mp3")
+
+			if dmg > 0.5 then
+				local idx = math.random(1, 4)
+				local snd = "concussion" .. idx .. ".mp3"
+				net.Start("hg_play_client_sound_file")
+					net.WriteString(snd)
+				net.Send(targetPlayer)
+			end
+		end
+	end
+
+	local concIntensity = math.Clamp(dmg * 0.8, 0.1, 3.0)
+	local concDuration = math.Clamp(dmg * 5, 5, 60)
+	hg.organism.module.concussion.AddConcussion(org, concIntensity, concDuration)
+
+	if org.isPly and dmg > 0.3 then
+		local targetPlayer = org.owner
+		if IsValid(org.owner.FakeRagdoll) then
+			local ragdoll = org.owner.FakeRagdoll
+			if IsValid(ragdoll.ply) then targetPlayer = ragdoll.ply end
+		end
+		if IsValid(targetPlayer) and targetPlayer:IsPlayer() then
+			local impactSeverity = math.Clamp(dmg * 2, 0.5, 6)
+			net.Start("headtrauma_concussion_update")
+				net.WriteFloat(impactSeverity)
+				net.WriteFloat(org.concussion or 0)
+			net.Send(targetPlayer)
+		end
+	end
+
 	return result
 end
 
@@ -285,7 +324,7 @@ input_list.eyeL = function(org, bone, dmg, dmgInfo)
 	hg.AddHarmToAttacker(dmgInfo, dmg * 5, "Left eye damage harm")
 	org.painadd = org.painadd + dmg * 20
 	org.shock = org.shock + dmg * 10
-	
+
 	dmgInfo:ScaleDamage(0.8)
 	return 0
 end
@@ -298,7 +337,7 @@ input_list.eyeR = function(org, bone, dmg, dmgInfo)
 	hg.AddHarmToAttacker(dmgInfo, dmg * 5, "Right eye damage harm")
 	org.painadd = org.painadd + dmg * 20
 	org.shock = org.shock + dmg * 10
-	
+
 	dmgInfo:ScaleDamage(0.8)
 	return 0
 end

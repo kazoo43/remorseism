@@ -755,6 +755,13 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 				effectdata1:SetEntity(inf)
 				effectdata1:SetMagnitude(2)
 				util.Effect("eff_tracer", effectdata1)
+
+				local effdata = EffectData()
+				effdata:SetOrigin(outputHole[#outputHole])
+				effdata:SetRadius(dmg / 10)
+				effdata:SetMagnitude(dmg / 10)
+				effdata:SetScale(1)
+				util.Effect("BloodImpact", effdata)
 			end
 
 			--[[local ent = ents.Create("prop_physics")
@@ -821,6 +828,17 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	--end
 
 	if inputHole and #inputHole > 0 and dmgInfo:IsDamageType(DMG_BULLET+DMG_BUCKSHOT) then
+		local effdata = EffectData()
+		effdata:SetOrigin(inputHole[1])
+		effdata:SetRadius(dmg / 10)
+		effdata:SetMagnitude(dmg / 10)
+		effdata:SetScale(1)
+		util.Effect("BloodImpact", effdata)
+
+		if IsValid(ply) and ply:IsPlayer() and ply:Alive() then
+			ply:ViewPunch(AngleRand(-3, 3))
+		end
+
 		ent.bloodamt2 = ent.bloodamt2 or 0
 		ent.bloodamt2 = ent.bloodamt2 + 1
 
@@ -990,7 +1008,8 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 	end
 
 	local lend = math.max(0.1, (ent:GetPos() - dmgInfo:GetDamagePosition()):Length())
-	local damageStack = dmg_before / (dmgInfo:IsDamageType(DMG_BULLET) and RagdollDamageBoneMul[hitgroup] or 1)
+	local headMit = (hitgroup == HITGROUP_HEAD) and (org.lastHeadArmorMitigation or 1) or 1
+	local damageStack = (dmg_before * headMit) / (dmgInfo:IsDamageType(DMG_BULLET) and RagdollDamageBoneMul[hitgroup] or 1)
 	--print(damageStack, 3)
 	damageStack = damageStack * (dmgInfo:IsDamageType(DMG_BLAST) and 200 / lend or 1) * (!dmgInfo:IsDamageType(DMG_CLUB+DMG_SLASH+DMG_BULLET+DMG_BLAST+DMG_SNIPER) and 0 or 1) * (ent:IsNPC() and 3 or 1)
 	--damageStack = damageStack * (bullet and bullet.AmmoType and hg.ammotypeshuy[bullet.AmmoType] and hg.ammotypeshuy[bullet.AmmoType].BulletSettings and hg.ammotypeshuy[bullet.AmmoType].BulletSettings.Mass or 1) / 8
@@ -1280,6 +1299,19 @@ function hg.organism.DamageTypeAffliction(dmg, dmgInfo, ply, org)
 		dmgBlood = dmg * 5
 		dmgHurt = dmg * 4
 		instaPain = dmg * 3
+
+		local blastConc = math.Clamp(dmg * 0.6, 0.3, 4.0)
+		hg.organism.module.concussion.AddConcussion(org, blastConc, math.Clamp(dmg * 4, 8, 90))
+	end
+
+	if dmgInfo:IsDamageType(DMG_VEHICLE) then
+		local vehConc = math.Clamp(dmg * 0.4, 0.2, 2.5)
+		hg.organism.module.concussion.AddConcussion(org, vehConc, math.Clamp(dmg * 3, 5, 45))
+	end
+
+	if dmgInfo:IsDamageType(DMG_FALL) and dmg >= 25 then
+		local fallConc = math.Clamp((dmg - 25) * 0.12, 0.1, 2.0)
+		hg.organism.module.concussion.AddConcussion(org, fallConc, math.Clamp(fallConc * 5, 5, 30))
 	end
 	
 	if dmgInfo:IsDamageType(DMG_NERVEGAS) then

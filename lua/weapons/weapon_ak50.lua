@@ -13,7 +13,7 @@ SWEP.WorldModel = "models/weapons/w_shotgun.mdl" -- Оставил как ест
 SWEP.WorldModelFake = "models/weapons/c_ak50.mdl"
 SWEP.WorldModelReal = "models/weapons/c_ak50.mdl"
 
-SWEP.FakePos = Vector(-23, 1, 8)
+SWEP.FakePos = Vector(-24, 1, 8)
 SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.FakeAttachment = "1"
 SWEP.AttachmentPos = Vector(3.5,-0.2,-0.05)
@@ -30,15 +30,6 @@ SWEP.FakeViewBobBone = "ValveBiped.Bip01_L_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
 SWEP.ViewPunchDiv = 30
 
--- Фейковые звуки
-SWEP.FakeReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.85] = "weapons/ak74/ak74_magin.wav",
-}
-SWEP.FakeEmptyReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.65] = "weapons/ak74/ak74_magin.wav",
-}
 
 SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
 SWEP.FakeReloadEvents = {}
@@ -53,8 +44,6 @@ SWEP.LocalMuzzleAng = Angle(0,-0.029,0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
 SWEP.CustomShell = ".338Lapua"
-SWEP.ReloadSound = "weapons/remington_870/870_shell_in_1.wav"
-SWEP.CockSound = "pwb2/weapons/ithaca37stakeout/pump.wav"
 SWEP.weight = 5
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
@@ -67,7 +56,7 @@ SWEP.ViewPunchDiv = 115
 SWEP.Primary.ClipSize = 5
 SWEP.Primary.DefaultClip = 5
 SWEP.Primary.Automatic = false
-SWEP.Primary.Ammo = ".338 Lapua Magnum" -- Или .50 BMG
+SWEP.Primary.Ammo = ".338 Lapua Magnum" 
 SWEP.Primary.Damage = 180
 SWEP.Primary.Force = 60
 SWEP.Primary.Cone = 0
@@ -81,7 +70,7 @@ SWEP.NumBullet = 1
 SWEP.availableAttachments = {
    sight = {
 		["mountType"] = {"picatinny", "ironsight"},
-		["mount"] = {ironsight = Vector(-38.5, 0.9, 0.05), picatinny = Vector(-22, 1.4, 0.05)}
+		["mount"] = {ironsight = Vector(-35.5, 0.7, 0.05), picatinny = Vector(-22, 1.4, 0.05)}
 	},
 }
 
@@ -123,8 +112,8 @@ SWEP.AnimList = {
     ["cycle"] = "bolt0", -- Если нужно, но тут полуавтомат
     ["reload"] = "reload", 
     ["reload_empty"] = "reload_empty", 
-    ["inspect"] = "inspect1", -- В конфиге inspect1
-    ["inspect_empty"] = "inspect1",
+    ["inspect"] = "inspect0", -- В конфиге inspect1
+    ["inspect_empty"] = "inspect0",
     ["toggle"] = "mod_switch",
 }
 
@@ -147,6 +136,10 @@ SWEP.AnimsSounds = {
 }
 
 SWEP.stupidgun = true
+
+function SWEP:AllowedInspect()
+	return self:Clip1() >= self.Primary.ClipSize
+end
 
 function SWEP:AnimHoldPost() end
 function SWEP:ModelCreated(model) model:SetBodyGroups(self:GetRandomBodygroups() or "0111111") end
@@ -249,22 +242,3 @@ function SWEP:CanPrimaryAttack()
     return not (self:GetNetVar("shootgunReload", 0) > CurTime())
 end
 
-SWEP.InspectAnimLH = { Vector(0, 0, 0) }
-SWEP.InspectAnimLHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimRH = { Vector(0, 0, 0) }
-SWEP.InspectAnimRHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimWepAng = {
-    Angle(0, 0, 0),
-    Angle(-5, 9, 5),
-    Angle(-5, 9, 14),
-    Angle(-5, 9, 16),
-    Angle(-6, 10, 15),
-    Angle(-5, 9, 16),
-    Angle(-10, 15, -15),
-    Angle(-2, 22, -15),
-    Angle(0, 25, -32),
-    Angle(0, 24, -45),
-    Angle(0, 22, -55),
-    Angle(0, 20, -56),
-    Angle(0, 0, 0)
-}

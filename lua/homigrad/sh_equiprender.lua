@@ -228,12 +228,17 @@ if CLIENT then
 
 			local omodel = ply.modelArmorBroken and ply.modelArmorBroken[armor]
 			if IsValid(omodel) then
-				local wear = ply:GetNWFloat("ArmorWear" .. armor, 0)
-				if wear > 0.01 and not (islply and armorData.norender) then
+				-- Prefer the ragdoll/corpse's own wear value so it doesn't "heal"
+				-- when the player respawns and hg.AddArmor resets the player's NWVar.
+				local wear = (ent ~= ply and ent:GetNWFloat("ArmorWear" .. armor, -1) or -1)
+				if wear < 0 then wear = ply:GetNWFloat("ArmorWear" .. armor, 0) end
+				if wear > 0.005 and not (islply and armorData.norender) then
 					omodel:SetRenderOrigin(pos)
 					omodel:SetRenderAngles(ang)
 					omodel:SetParent(ent, ent:LookupBone(armorData["bone"]))
-					omodel:SetColor(Color(255, 255, 255, math.Clamp(wear, 0, 1) * 255))
+					local a = math.Clamp(wear, 0, 1)
+					a = a * a * (3 - 2 * a)
+					omodel:SetColor(Color(255, 255, 255, a * 255))
 					omodel:DrawModel()
 				end
 			end
@@ -305,8 +310,8 @@ if CLIENT then
 	hook.Add("PostDrawTranslucentRenderables", "DroppedBrokenOverlayDraw", function()
 		for idx, omodel in pairs(droppedBrokenOverlays) do
 			local parent = Entity(idx)
-			if not IsValid(parent) then
-				omodel:Remove()
+			if not IsValid(parent) or not IsValid(omodel) then
+				if IsValid(omodel) then omodel:Remove() end
 				droppedBrokenOverlays[idx] = nil
 			else
 				omodel:SetRenderOrigin(parent:GetPos())

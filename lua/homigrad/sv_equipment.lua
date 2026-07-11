@@ -14,13 +14,13 @@ local armorBreakSound = "rem_armorbreak.mp3"
 local armorBreakSoundLevel = 160
 local armorBreakSoundVolume = 2
 
-local DEFAULT_HELMET_DURABILITY = 110
-local DEFAULT_HELMET_BREAK_THRESHOLD = 150
+local DEFAULT_HELMET_DURABILITY = 75
+local DEFAULT_HELMET_BREAK_THRESHOLD = 110
 local DEFAULT_HELMET_ABSORB_MULTIPLIER = 0.2
 local DEFAULT_HELMET_DURABILITY_DAMAGE_MUL = 5
 local RAGDOLL_HEAD_IMPACT_SPEED_THRESHOLD = 170
-local DEFAULT_VEST_HEALTH = 1
-local DEFAULT_VEST_HEALTH_DAMAGE_MUL = 0.0026
+local DEFAULT_VEST_HEALTH = 1.5
+local DEFAULT_VEST_HEALTH_DAMAGE_MUL = 0.01
 local DEFAULT_VEST_WORN_THRESHOLD = 0.25
 local ARMOR_WEAR_STAGES = 3
 
@@ -38,7 +38,8 @@ function hg.GetArmorBreakShotCount(equipment)
 end
 
 local function getBrokenArmorProtectionMul()
-	return math.Rand(armorBrokenProtectionRange[1], armorBrokenProtectionRange[2])
+	-- A fully broken plate carrier (plates destroyed) stops protecting entirely.
+	return 0
 end
 
 local function GetArmorWear(owner, armor, placement)
@@ -49,8 +50,10 @@ local function GetArmorWear(owner, armor, placement)
 		local current = (owner.armors_durability and owner.armors_durability[armor]) or baseDurability
 		return 1 - math.Clamp(current / baseDurability, 0, 1)
 	else
-		local current = (owner.armors_health and owner.armors_health[armor]) or 1
-		return 1 - math.Clamp(current, 0, 1)
+		local armorData = (hg.armor[placement] and hg.armor[placement][armor]) or {}
+		local maxHealth = armorData.health or DEFAULT_VEST_HEALTH
+		local current = (owner.armors_health and owner.armors_health[armor]) or maxHealth
+		return 1 - math.Clamp(current / maxHealth, 0, 1)
 	end
 end
 
@@ -67,6 +70,7 @@ local function SyncArmorWear(owner, armor, placement)
 		rag:SetNWFloat("ArmorWear" .. armor, wear)
 	end
 end
+hg.SyncArmorWear = SyncArmorWear
 
 local function PlayArmorWearStageSound(owner, armor, placement)
 	if not IsValid(owner) then return end
@@ -416,6 +420,8 @@ function hg.DropArmorForce(ent, equipment, pos, ang, vel, brokenMul)
         equipmentEnt:SetAngles(ang or dropAng)
 		equipmentEnt:ReciveData(ent,equipment)
 		equipmentEnt.shotsLeft = ent.armors_shots and ent.armors_shots[equipment] or nil
+		equipmentEnt.armorHealth = ent.armors_health and ent.armors_health[equipment]
+		equipmentEnt.armorDurability = ent.armors_durability and ent.armors_durability[equipment]
 		if brokenMul or ent.armors_broken and ent.armors_broken[equipment] then
 			equipmentEnt.brokenProtectionMul = brokenMul or ent.armors_broken_mul and ent.armors_broken_mul[equipment]
 			hg.SetArmorBrokenEntity(equipmentEnt)
@@ -443,6 +449,9 @@ function hg.DropArmorForce(ent, equipment, pos, ang, vel, brokenMul)
 		end
 		if ent.armors_durability then
 			ent.armors_durability[equipment] = nil
+		end
+		if ent.armors_health then
+			ent.armors_health[equipment] = nil
 		end
         
         if hg.armor[placement][equipment].voice_change then
@@ -576,12 +585,38 @@ local function DamageArmor(org, placement, armor, dmgInfo, rawDmg)
 
 		local wornThreshold = armorData.wornThreshold or DEFAULT_VEST_WORN_THRESHOLD
 	if currentHealth <= wornThreshold then
-		owner.armors_health[armor] = 1
+		owner.armors_health[armor] = DEFAULT_VEST_HEALTH
 		hg.BreakArmor(owner, armor, dmgInfo and dmgInfo:GetDamagePosition(), dmgInfo)
 		return true
 	end
 
 	return false
+end
+
+-- Tarkov-style plate fragmentation: a fully shattered plate carrier still
+-- throws fragments into the wearer's chest on every hit that reaches it.
+local function ApplyArmorShrapnel(org, dmgInfo, dmg, bone, boneindex)
+	if not IsValid(org) or not org.owner then return end
+	if not (dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT)) then return end
+
+	local frag = dmg * 0.5
+
+	-- Fragments tear into the lungs -> internal bleeding.
+	org.lungsL = org.lungsL or {0, 0}
+	org.lungsR = org.lungsR or {0, 0}
+	org.lungsL[1] = math.min(org.lungsL[1] + frag / 10, 1)
+	org.lungsR[1] = math.min(org.lungsR[1] + frag / 10, 1)
+	org.internalBleed = (org.internalBleed or 0) + frag * 0.5
+
+	-- Blunt trauma / pain from the impact.
+	org.shock = (org.shock or 0) + frag * 15
+	org.painadd = (org.painadd or 0) + frag * 20
+
+	-- Visible fragment wounds on the chest.
+	local ent = hg.GetCurrentCharacter(org.owner)
+	if IsValid(ent) then
+		hg.organism.AddWoundManual(ent, frag * 6, vector_origin, angle_zero, boneindex or 0, CurTime() + math.Rand(0, 1))
+	end
 end
 
 local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scaleprot, punch, boneindex, dir, hit, ricochet)
@@ -610,25 +645,26 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 	org.owner.armors_health = org.owner.armors_health or {}
 	org.owner.armors_broken_mul = org.owner.armors_broken_mul or {}
 
-	prot = prot * (org.owner.armors_health[armor] or 1)
+	local maxHealth = (armorData and armorData.health) or DEFAULT_VEST_HEALTH
+	prot = prot * ((org.owner.armors_health[armor] or maxHealth) / maxHealth)
 	prot = prot * (org.owner.armors_broken_mul[armor] or 1)
 
 	if punch then
-		if org.owner:IsPlayer() and org.alive and dmgInfo:IsDamageType(DMG_BUCKSHOT + DMG_BULLET) then
-			org.owner:ViewPunch(AngleRand(-30, 30))
-			
-			org.owner:EmitSound("homigrad/physics/shield/bullet_hit_shield_0"..math.random(7)..".wav", 80, math.random(95, 105))
+		if org.alive and org.organism and dmgInfo:IsDamageType(DMG_BUCKSHOT + DMG_BULLET) then
+			org.owner:ViewPunch(AngleRand(-5, 5))
 
-			org.owner:AddTinnitus(3, true)
+			org.owner:EmitSound("homigrad/physics/shield/bullet_hit_shield_0"..math.random(7)..".wav", 80, math.random(95,105))
+
+			org.owner:AddTinnitus(0.8, true)
 			net.Start("AddFlash")
 				net.WriteVector(hg.eye(org.owner) + org.owner:GetForward() * 3)
-				net.WriteFloat(3)
-				net.WriteInt(100, 20)
+				net.WriteFloat(0.8)
+				net.WriteInt(25, 20)
 			net.Send(org.owner)
 
-			hg.ExplosionDisorientation(org.owner, 6, 6)
+			hg.ExplosionDisorientation(org.owner, 1.5, 1.5)
 
-			hg.organism.input_list.spine3(org, bone, (dmg/100) * math.Rand(0,0.1), dmgInfo)
+			org.organism.input_list.spine3(org, bone, (dmg/100) * math.Rand(0,0.1), dmgInfo)
 			--org.spine3 = org.spine3 + math.Rand(0.05,1) * dmg / 5
 		end
 	end
@@ -658,17 +694,62 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 		if broken and placement == "head" then
 			local absorbMul = armorData.absorbMultiplier or DEFAULT_HELMET_ABSORB_MULTIPLIER
 			dmgInfo:ScaleDamage(math.Clamp(1 - absorbMul, 0, 1))
-			dmgInfo:SetDamageType(DMG_CLUB)
+			-- Keep the damage as a bullet wound so a punched-through helmet still
+			-- opens a bleeding hole in the head instead of a harmless club hit.
 			dmgInfo:SetDamageForce(dmgInfo:GetDamageForce() * 0.4)
 			org.lastArmorMitigation = 1
+			org.lastHeadArmorMitigation = 1
+			return 0
+		end
+
+		-- A fully broken plate carrier / mask offers no protection: let the bullet
+		-- pass straight through to the body at full damage (no penetration block,
+		-- no damage scaling, no ricochet). Returning before the ScaleDamage below
+		-- is what actually makes the round reach (and wound) the chest.
+		if placement ~= "head" and (broken or (org.owner.armors_broken and org.owner.armors_broken[armor])) then
+			-- Shattered plate still throws fragments into the wearer (Tarkov-style).
+			if placement == "torso" then
+				ApplyArmorShrapnel(org, dmgInfo, dmg, bone, boneindex)
+			end
 			return 0
 		end
 
 		-- Disorientation on strong impact to head
-		if not broken and isImpact and placement == "head" and org.owner:IsPlayer() then
-			org.owner:ViewPunch(AngleRand(-20, 20))
-			org.owner:AddTinnitus(2, true)
-			hg.ExplosionDisorientation(org.owner, armorData.crushFallDisorientPower or 6, armorData.crushFallDisorientTime or 6)
+		if not broken and isImpact and placement == "head" and org.organism then
+			local meleeConcMul = 1
+			if isClub and meleeProt > 0 then
+				meleeConcMul = math.Clamp(1 - meleeProt / 22, 0.1, 1)
+			end
+			org.owner:ViewPunch(AngleRand(-4, 4) * meleeConcMul)
+			org.owner:AddTinnitus(0.5 * meleeConcMul, true)
+			hg.ExplosionDisorientation(org.owner, 1 * meleeConcMul, 1 * meleeConcMul)
+		end
+
+		-- Ricochet: a stopped bullet pings off and deflects from the helmet/visor
+		if isBullet and not broken and prot > 0 and (placement == "head" or placement == "face") then
+			local hitPos = (isvector(hit) and hit) or dmgInfo:GetDamagePosition()
+			local bdir = (isvector(dir) and dir:GetNormalized()) or dmgInfo:GetDamageForce():GetNormalized()
+			local headBone = org.owner:LookupBone("ValveBiped.Bip01_Head1")
+			local headPos = headBone and org.owner:GetBonePosition(headBone) or hitPos
+			local normal = hitPos - headPos
+			if normal:LengthSqr() < 0.01 then normal = bdir:Angle():Up() end
+			normal:Normalize()
+
+			local reflect = bdir - 2 * bdir:Dot(normal) * normal
+			reflect:Normalize()
+
+			local effdata = EffectData()
+			effdata:SetOrigin(hitPos)
+			effdata:SetNormal(reflect)
+			effdata:SetStart(hitPos - bdir * 8)
+			util.Effect("Ricochet", effdata)
+
+			local trdata = EffectData()
+			trdata:SetStart(hitPos)
+			trdata:SetOrigin(hitPos + reflect * 160)
+			util.Effect("Tracer", trdata)
+
+			EmitSound("physics/metal/metal_solid_impact_bullet" .. math.random(4) .. ".wav", hitPos, 0, CHAN_AUTO, 1, 80, nil, 100)
 		end
 	end
 
@@ -696,22 +777,32 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 	dmgInfo:SetDamageForce(dmgInfo:GetDamageForce() * 0.4)
 
 	if placement ~= "head" then
-		local health = org.owner.armors_health[armor] or 1
+		local maxHealth = (armorData and armorData.health) or DEFAULT_VEST_HEALTH
+		local health = org.owner.armors_health[armor] or maxHealth
 		local brokenMul = org.owner.armors_broken_mul[armor] or 1
-		local wearMul = math.Clamp(health * brokenMul, 0, 1)
+		local wearMul = math.Clamp((health / maxHealth) * brokenMul, 0, 1)
 		if wearMul < 1 then
 			dmgScale = 1 - (1 - dmgScale) * wearMul
 		end
 	end
 
 	org.lastArmorMitigation = dmgScale
+	if placement == "head" then org.lastHeadArmorMitigation = dmgScale end
 
 	dmgInfo:ScaleDamage(dmgScale)
 
-	-- Non-bullet damage (melee/fall) is still reduced by the armor's scale even if "penetrated"
-	if not isBullet then return dmgScale end
+	-- Penetration consumed by this armor layer. A broken plate carrier no longer
+	-- stops the bullet, so let it pass straight through to the body — otherwise the
+	-- trace ends at the armor box and the chest is never hit (no wound / no bleed / no impact).
+	local penReturn = dmgScale
+	if org.owner.armors_broken and org.owner.armors_broken[armor] then
+		penReturn = 0
+	end
 
-	return dmgScale
+	-- Non-bullet damage (melee/fall) is still reduced by the armor's scale even if "penetrated"
+	if not isBullet then return penReturn end
+
+	return penReturn
 end
 
 ArmorEffect = function(placement, armor, dmgInfo, org, hit, prot)
