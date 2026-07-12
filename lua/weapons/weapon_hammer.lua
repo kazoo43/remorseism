@@ -89,6 +89,8 @@ SWEP.AttackHitFlesh = "Flesh.ImpactHard"
 SWEP.Attack2HitFlesh = "Flesh.ImpactHard"
 SWEP.DeploySnd = "physics/metal/metal_solid_impact_soft1.wav"
 SWEP.BlockDirectionalPrimary = "overhead"
+
+
 SWEP.AttackTimeLength = 0.155
 SWEP.Attack2TimeLength = 0.1
 SWEP.AttackRads = 55
@@ -336,12 +338,13 @@ function SWEP:ThrowHammer()
 	ent.owner = ply
 	ent.damage = 35
 	ent.penetration = 5
-	ent.shouldntlodge = true
+	ent.LodgeChance = 0
+	ent.StickInWorld = false
 
 	local phys = ent:GetPhysicsObject()
 	if IsValid(phys) then
-		phys:SetVelocity(ply:GetAimVector() * ent.MaxSpeed * 0.5)
-		phys:AddAngleVelocity(Vector(0, ent.MaxSpeed * 0.5, 0))
+		phys:SetVelocity(ply:GetAimVector() * ent.MaxSpeed)
+		phys:AddAngleVelocity(Vector(0, ent.MaxSpeed, 0))
 	end
 
 	if ply.organism and ply.organism.stamina then
@@ -350,7 +353,7 @@ function SWEP:ThrowHammer()
 
 	ply:EmitSound("weapons/slam/throw.wav", 50, math.random(95, 105))
 	ply:SelectWeapon("weapon_hands_sh")
-	ply:ViewPunch(Angle(0, 0, -2))
+	ply:ViewPunch(Angle(0, 0, -8))
 
 	self:Remove()
 

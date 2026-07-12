@@ -45,6 +45,8 @@ SWEP.TwoHanded = false
 
 SWEP.NoHolster = true
 
+
+
 SWEP.DamagePrimary = 7
 
 SWEP.PenetrationPrimary = 1.1
@@ -102,7 +104,9 @@ function SWEP:CustomAttack2()
     ent.DamageType = self.DamageType
     ent.AttackHitFlesh = "snd_jack_hmcd_knifestab.wav"
 	ent.AttackHit = "snd_jack_hmcd_knifehit.wav"
-    ent.shouldntlodge = true
+    ent.LodgeChance = 0
+    ent.penetration = 5
+    ent.PenetrationSize = 5
     ent.modelscale = self.modelscale
     ent:PrecacheGibs()
 

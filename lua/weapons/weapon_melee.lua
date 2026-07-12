@@ -737,6 +737,7 @@ function SWEP:ModelAnim(model, pos, ang)
         addAng.r = addAng.r - veldot * 5 + math.cos(CurTime() * 5) * walk * 2 - angle_difference.y * 2
 
         //addAng.p = addAng.p + math.cos(CurTime() * 2) * 1
+
     end
 
     self.lastAddPos = addPos

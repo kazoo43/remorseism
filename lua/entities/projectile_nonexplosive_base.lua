@@ -220,22 +220,21 @@ if SERVER then
 
 		local tbl = table.remove(org.LodgedEntities, i)
 
-		local mat = ent:GetBoneMatrix(ent:TranslatePhysBoneToBone(org.LodgedEntities.PhysBoneID or 0))
+		local bone = ent:TranslatePhysBoneToBone(tbl.PhysBoneID or 0)
+		local mat = ent:GetBoneMatrix(bone)
 		
 		if mat then
-			local lpos, lang = org.LodgedEntities.OffsetPos, org.LodgedEntities.OffsetAng
-			
-			for i = 1, 5 do
-				hg.organism.AddWoundManual(org.owner, 50, vector_origin, AngleRand(-180, 180), ent:GetBoneName(ent:TranslatePhysBoneToBone(org.LodgedEntities.PhysBoneID or 0)), CurTime() + math.Rand(0, 2))
+			for j = 1, 5 do
+				hg.organism.AddWoundManual(org.owner, 50, vector_origin, AngleRand(-180, 180), ent:GetBoneName(bone), CurTime() + math.Rand(0, 2))
 			end
 		end
 
 		if tbl.takeent then
 			if ply:HasWeapon(tbl.takeent) then
-				local ent = ents.Create(tbl.takeent)
-				ent:SetPos(ply:EyePos())
-				ent.IsSpawned = true
-				ent:Spawn()
+				local wep = ents.Create(tbl.takeent)
+				wep:SetPos(ply:EyePos())
+				wep.IsSpawned = true
+				wep:Spawn()
 			else
 				ply:Give(tbl.takeent)
 			end
@@ -246,11 +245,11 @@ if SERVER then
 
 		net.Start("organism_send")
 
-		local tbl = {}
-		tbl.LodgedEntities = org.LodgedEntities
-		tbl.owner = org.owner
+		local netTbl = {}
+		netTbl.LodgedEntities = org.LodgedEntities
+		netTbl.owner = org.owner
 	
-		net.WriteTable(tbl)
+		net.WriteTable(netTbl)
 		net.WriteBool(true)
 		net.WriteBool(false)
 		net.WriteBool(false)
@@ -271,6 +270,17 @@ if SERVER then
 			local tr = hg.eyeTrace(ply)
 
 			local ent = tr.Entity
+
+			if not IsValid(ent) then return end
+
+			if not ent.organism then
+				local owner = ent:GetNWEntity("ply")
+				if IsValid(owner) and owner.organism then
+					ent = owner
+				else
+					return
+				end
+			end
 
 			hg.TakeArrow(ent, ply)
 		end

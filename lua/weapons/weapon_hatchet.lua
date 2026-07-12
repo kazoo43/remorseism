@@ -47,6 +47,8 @@ SWEP.WaitTime2 = 0.85
 SWEP.AttackLen2 = 30
 SWEP.ViewPunch2 = Angle(0,0,-2)
 
+
+
 SWEP.HitCooldownEnabled = true
 SWEP.HitCooldown = 0.8
 SWEP.ComboEnabled = true
@@ -154,13 +156,21 @@ function SWEP:CustomAttack2()
     ent.owner = ply
     ent.damage = 35
     ent.penetration = 5
-    ent.shouldntlodge = true
+    ent.PenetrationSize = 10
+    ent.LodgeChance = 0.7
+    ent.StickInWorld = true
+    ent.StickPhysics = false
+    ent.UnstickSnd = "physics/metal/metal_solid_impact_hard3.wav"
+    ent.ArteryChance = 1.45
+    ent.StickDepth = -1
+    ent.returndamage = 20
+    ent.returnblood = 50
 
     local phys = ent:GetPhysicsObject()
 
     if IsValid(phys) then
         phys:SetVelocity(ply:GetAimVector() * ent.MaxSpeed)
-        phys:AddAngleVelocity(Vector(0,ent.MaxSpeed,0) )
+        phys:AddAngleVelocity(Vector(0,ent.MaxSpeed,0))
     end
     
     ply:EmitSound("hatchet/rem_axethrow.wav",50,math.random(95,105))

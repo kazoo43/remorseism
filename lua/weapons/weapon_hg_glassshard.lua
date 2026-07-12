@@ -75,6 +75,8 @@ SWEP.TwoHanded = false
 
 SWEP.NoHolster = true
 
+
+
 SWEP.DamagePrimary = 7
 
 SWEP.PenetrationPrimary = 1.1
@@ -138,6 +140,8 @@ function SWEP:CustomAttack2()
     ent.returnblood = 15
     ent.penetration = 5
     ent.PenetrationSize = 5
+    ent.LodgeChance = 0.7
+    ent.ArteryChance = 1.2
     ent:PrecacheGibs()
 
     ent.func = function(data)

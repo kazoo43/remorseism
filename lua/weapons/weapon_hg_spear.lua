@@ -29,6 +29,8 @@ SWEP.AnimTime2 = 2.1
 SWEP.WaitTime2 = 1.4
 SWEP.ViewPunch2 = Angle(0,0,-2)
 
+
+
 SWEP.attack_ang = Angle(0,0,0)
 SWEP.sprint_ang = Angle(15,0,0)
 
@@ -114,6 +116,10 @@ if SERVER then
         ent.returnblood = 100
         ent.PenetrationSize = 15
         ent.penetration = 10
+        ent.LodgeChance = 0.9
+        ent.StickInWorld = true
+        ent.StickDepth = -6
+        ent.ArteryChance = 1.4
 
         local phys = ent:GetPhysicsObject()
 

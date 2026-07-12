@@ -42,6 +42,8 @@ SWEP.offsetVec = Vector(4,-3,1)
 SWEP.offsetAng = Angle(90, 0, 0)
 SWEP.ModelScale = 1
 
+
+
 function SWEP:DrawWorldModel()
 	self.model = IsValid(self.model) and self.model or ClientsideModel(self.WorldModel)
 	local WorldModel = self.model
@@ -145,13 +147,23 @@ function SWEP:SetHold(value)
 end
 
 local veczero = Vector(0, 0, 0)
-function SWEP:PrimaryAttack()
+
+function SWEP:Think()
+end
+
+function SWEP:ThrowShuriken()
+	if self.Thrown then return end
+	self.Thrown = true
+
+	local CLIENT = CLIENT
 	if CLIENT then return end
-	if self.cooldowndeploy and self.cooldowndeploy > CurTime() then return end
+
 	local time = CurTime()
 	local ent = ents.Create("ent_throwable")
 
 	local ply = self:GetOwner()
+	if not IsValid(ply) then return end
+
 	if not ply:IsNPC() then
 		ent:SetPos(select(1, hg.eye(ply,60,hg.GetCurrentCharacter(ply))) - ply:GetAimVector() * 2)
 	else
@@ -174,10 +186,20 @@ function SWEP:PrimaryAttack()
 	ent.AttackHitFlesh = "snd_jack_hmcd_knifestab.wav"
 	ent.AttackHit = "snd_jack_hmcd_knifehit.wav"
 	ent.dont_account_for_placement = true
+	ent.LodgeChance = 0.95
+	ent.StickInWorld = true
+	ent.StickDepth = -2
+	ent.StickAnywhere = true
+	ent.StickPhysics = false
+	ent.UnstickSnd = "physics/metal/metal_grenade_impact_soft1.wav"
+	ent.ArteryChance = 1.6
+	ent.penetration = 8
+	ent.PenetrationSize = 3
+
 	local phys = ent:GetPhysicsObject()
 	if IsValid(phys) then
 		phys:SetVelocity(ply:GetAimVector() * ent.MaxSpeed)
-		phys:AddAngleVelocity(Vector(0,0, -ent.MaxSpeed) )
+		phys:AddAngleVelocity(Vector(0,0, -ent.MaxSpeed))
 	end
 	ply:EmitSound("weapons/slam/throw.wav",50,math.random(95,105))
 
@@ -185,6 +207,18 @@ function SWEP:PrimaryAttack()
 		ply:SelectWeapon("weapon_hands_sh")
 		self:Remove()
 	end
+end
+
+function SWEP:PrimaryAttack()
+	if CLIENT then return end
+	if self.cooldowndeploy and self.cooldowndeploy > CurTime() then return end
+
+	local ply = self:GetOwner()
+	if not IsValid(ply) then return end
+
+	self.Thrown = nil
+	self:ThrowShuriken()
+	self:SetNextPrimaryFire(CurTime() + self.Primary.Wait)
 end
 
 function SWEP:Deploy()
