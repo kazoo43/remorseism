@@ -8,7 +8,7 @@ SWEP.Category = "Weapons - Machine-Pistols"
 SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
-SWEP.WorldModel = "models/tfa_ins2_wpns/steyrmp40/w_mp40.mdl"
+SWEP.WorldModel = "models/weapons/w_smg_tmp.mdl"
 SWEP.WorldModelFake = "models/weapons/c_tarkov_mp7.mdl"
 //SWEP.FakeScale = 1.2
 SWEP.FakePos = Vector(-9.5, 2.05, 5.77)
@@ -168,7 +168,7 @@ end
 
 SWEP.Ergonomics = 1.1
 SWEP.Penetration = 9
-SWEP.WorldPos = Vector(-2, 0, -2.5)
+SWEP.WorldPos = Vector(4, -1.5, -2)
 SWEP.WorldAng = Angle(0, 0, 0)
 SWEP.UseCustomWorldModel = true
 SWEP.lengthSub = 30

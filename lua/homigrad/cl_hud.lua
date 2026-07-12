@@ -900,6 +900,7 @@ hook.Add("radialOptions", "7", function()
 				end
 
 				CreateRadialMenu(commands)
+				return -1
 			end
 		end, "Do Gesture\nRMB - Menu"}
         hg.radialOptions[#hg.radialOptions + 1] = tbl

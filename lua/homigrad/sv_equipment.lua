@@ -165,8 +165,16 @@ local function DropDependentArmorRecursive(ply, basePlacement, baseArmor, visite
 	end
 end
 
+local function IsArmorBreakProtected(ent)
+	if not IsValid(ent) then return false end
+	if ent:IsNPC() and ent:GetClass() == "npc_combine_s" then return true end
+	if ent:IsPlayer() and ent.PlayerClassName == "Gordon" then return true end
+	return false
+end
+
 function hg.BreakArmor(ent, equipment, pos, dmgInfo)
 	if not IsValid(ent) then return false end
+	if IsArmorBreakProtected(ent) then return false end
 	if not ent.armors or not table.HasValue(ent.armors, equipment) then return false end
 
 	local placement = hg.GetArmorPlacement(equipment)
@@ -225,6 +233,7 @@ function hg.HandleArmorShot(org, placement, armor, dmgInfo, hit)
 	local owner = org and org.owner
 
 	if not IsValid(owner) then return end
+	if IsArmorBreakProtected(owner) then return end
 	if not owner.armors or owner.armors[placement] ~= armor then return end
 	if not dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) then return end
 	if owner.armors_broken and owner.armors_broken[armor] then return end
@@ -546,6 +555,7 @@ end
 local function DamageArmor(org, placement, armor, dmgInfo, rawDmg)
 	local owner = org.owner
 	if not IsValid(owner) then return false end
+	if IsArmorBreakProtected(owner) then return false end
 	if not owner.armors or owner.armors[placement] ~= armor then return false end
 	if owner.armors_broken and owner.armors_broken[armor] then return false end
 
