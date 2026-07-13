@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_tpik_base"
-SWEP.PrintName = "Painkillers"
-SWEP.Instructions = "Can be used to relieve pain (thanks Mr. Obvious). RMB to use on someone else."
+SWEP.PrintName = "Thiamine"
+SWEP.Instructions = "A water-soluble vitamin (B1) that plays a big part in the organism's metabolism of carbohydrates, fats and proteins."
 SWEP.Category = "ZCity Medicine"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -9,8 +9,8 @@ SWEP.AdminOnly = false
 SWEP.WorldModel = "models/weapons/nmrih/items/phalanx/w_phalanx.mdl"
 SWEP.WorldModelReal = "models/weapons/nmrih/items/phalanx/v_item_phalanx.mdl"
 SWEP.WorldModelExchange = false
-SWEP.WMSkin = 2
-SWEP.WMSkinV = 2
+SWEP.WMSkin = 0
+SWEP.WMSkinV = 0
 
 SWEP.HideMeshBonesIdle = {
 	"phalanx bottle",
@@ -37,8 +37,8 @@ SWEP.HideMeshBonesUse = {
 SWEP.HideMeshBones = SWEP.HideMeshBonesIdle
 
 if CLIENT then
-	SWEP.WepSelectIcon = Material("vgui/hud/item_pills_custom2")
-	SWEP.IconOverride = "vgui/hud/item_pills_custom2"
+	SWEP.WepSelectIcon = Material("vgui/hud/item_pills")
+	SWEP.IconOverride = "vgui/hud/item_pills"
 	SWEP.BounceWeaponIcon = false
 end
 
@@ -70,7 +70,7 @@ SWEP.handPosOffset = Vector(0, 0, 0)
 SWEP.handAngOffset = Angle(0, 0, 0)
 
 SWEP.modeNames = {
-	[1] = "painkiller"
+	[1] = "thiamine"
 }
 
 SWEP.UseSpeed = 4
@@ -373,9 +373,7 @@ if SERVER then
 			entOwner:EmitSound(snd, 60, math.random(95, 105))
 		end)
 
-		local mode = self.modeValues and self.modeValues[1] or self.modeValuesdef[1]
-
-		org.analgesiaAdd = math.min(org.analgesiaAdd + mode * 0.3, 4)
+		org.thiamine = math.min(org.thiamine + 1, 1)
 
 		self.healing = false
 

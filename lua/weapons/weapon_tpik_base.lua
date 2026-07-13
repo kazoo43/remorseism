@@ -146,7 +146,7 @@ if CLIENT then
 			local ang = owner:EyeAngles()
             if not tr then return end
 
-            if WorldModel:GetModel() ~= self.WorldModelReal then WorldModel:SetModel(self.WorldModelReal) end
+            if WorldModel:GetModel() ~= self.WorldModelReal then WorldModel:SetModel(self.WorldModelReal); WorldModel:SetSkin(self.WMSkinV or self.WMSkin or 0) end
 
 			local pos = tr.StartPos + ang:Forward() * (self.HoldPos[1] - 4) + ang:Right() * self.HoldPos[2] + ang:Up() * self.HoldPos[3]
 			--pos = pos + ang:Forward() * self.AttackPos[1] * self.attackanim + ang:Right() * self.AttackPos[2] * self.attackanim + ang:Up() * self.AttackPos[3] * self.attackanim
@@ -163,7 +163,7 @@ if CLIENT then
 			WorldModel:SetRenderOrigin(pos)
 			WorldModel:SetRenderAngles(ang)
 		else
-            if WorldModel:GetModel() ~= self.WorldModel then WorldModel:SetModel(self.WorldModel) end
+            if WorldModel:GetModel() ~= self.WorldModel then WorldModel:SetModel(self.WorldModel); WorldModel:SetSkin(self.WMSkin or 0) end
 			
             WorldModel:SetRenderOrigin(self:GetPos())
 			WorldModel:SetRenderAngles(self:GetAngles())
@@ -234,11 +234,16 @@ if CLIENT then
         if self:IsLocal() and self.isTPIKBase then
             local camBone = WorldModel:LookupBone(self.ViewBobCamBone or "Camera_animated") or WorldModel:LookupBone("ValveBiped.Bip01_R_Hand")
             if camBone then
-                local gAngles = WorldModel:GetBoneMatrix(camBone):GetAngles()
-                local _,gAngles = WorldToLocal(vector_origin,gAngles, WorldModel:GetPos(), WorldModel:GetBoneMatrix(WorldModel:LookupBone(self.ViewBobCamBase or "") or 0):GetAngles())
-                self.OldAngPunch = self.OldAngPunch or gAngles
-                ViewPunch( ( self.OldAngPunch - gAngles )/(self.ViewPunchDiv or 100) )
-                self.OldAngPunch = gAngles
+                local camMat = WorldModel:GetBoneMatrix(camBone)
+                local camBase = WorldModel:LookupBone(self.ViewBobCamBase or "") or 0
+                local baseMat = camBase and WorldModel:GetBoneMatrix(camBase)
+                if camMat and baseMat then
+                    local gAngles = camMat:GetAngles()
+                    local _,gAngles = WorldToLocal(vector_origin,gAngles, WorldModel:GetPos(), baseMat:GetAngles())
+                    self.OldAngPunch = self.OldAngPunch or gAngles
+                    ViewPunch( ( self.OldAngPunch - gAngles )/(self.ViewPunchDiv or 100) )
+                    self.OldAngPunch = gAngles
+                end
             end
         end
 		

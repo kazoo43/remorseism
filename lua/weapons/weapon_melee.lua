@@ -3438,7 +3438,10 @@ function SWEP:PrimaryAttack()
 
     if !hg.KeyDown(self:GetOwner(), IN_ATTACK2) and not self:CanPrimaryAttack() then return end
 
-    local mul = 1 / math.Clamp((180 - self:GetOwner().organism.stamina[1]) / 90, 1, 2)
+    local owner = self:GetOwner()
+    local organism = owner and owner.organism
+    local stamina = organism and organism.stamina and organism.stamina[1] or 0
+    local mul = 1 / math.Clamp((180 - stamina) / 90, 1, 2)
 
     
     self.HitEnts = nil

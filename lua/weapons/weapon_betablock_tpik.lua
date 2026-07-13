@@ -1,7 +1,7 @@
 if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_tpik_base"
-SWEP.PrintName = "Painkillers"
-SWEP.Instructions = "Can be used to relieve pain (thanks Mr. Obvious). RMB to use on someone else."
+SWEP.PrintName = "Beta-Blocker"
+SWEP.Instructions = "Beta blockers can help in stressful situations, will reduce your panic and adrenaline. Very useful in combat at certain doses."
 SWEP.Category = "ZCity Medicine"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
@@ -9,8 +9,8 @@ SWEP.AdminOnly = false
 SWEP.WorldModel = "models/weapons/nmrih/items/phalanx/w_phalanx.mdl"
 SWEP.WorldModelReal = "models/weapons/nmrih/items/phalanx/v_item_phalanx.mdl"
 SWEP.WorldModelExchange = false
-SWEP.WMSkin = 2
-SWEP.WMSkinV = 2
+SWEP.WMSkin = 1
+SWEP.WMSkinV = 1
 
 SWEP.HideMeshBonesIdle = {
 	"phalanx bottle",
@@ -37,12 +37,12 @@ SWEP.HideMeshBonesUse = {
 SWEP.HideMeshBones = SWEP.HideMeshBonesIdle
 
 if CLIENT then
-	SWEP.WepSelectIcon = Material("vgui/hud/item_pills_custom2")
-	SWEP.IconOverride = "vgui/hud/item_pills_custom2"
+	SWEP.WepSelectIcon = Material("vgui/hud/item_pills_custom")
+	SWEP.IconOverride = "vgui/hud/item_pills_custom"
 	SWEP.BounceWeaponIcon = false
 end
 
-SWEP.Slot = 3
+SWEP.Slot = 5
 SWEP.SlotPos = 1
 SWEP.WorkWithFake = true
 
@@ -70,7 +70,7 @@ SWEP.handPosOffset = Vector(0, 0, 0)
 SWEP.handAngOffset = Angle(0, 0, 0)
 
 SWEP.modeNames = {
-	[1] = "painkiller"
+	[1] = "beta-blocker"
 }
 
 SWEP.UseSpeed = 4
@@ -375,7 +375,9 @@ if SERVER then
 
 		local mode = self.modeValues and self.modeValues[1] or self.modeValuesdef[1]
 
-		org.analgesiaAdd = math.min(org.analgesiaAdd + mode * 0.3, 4)
+		org.adrenalineAdd = math.Approach(org.adrenalineAdd, -4, mode * 2)
+		org.panicattackadd = math.max((org.panicattackadd or 0) - mode * 0.65, 0)
+		org.panicattack = math.max((org.panicattack or 0) - mode * 0.2, 0)
 
 		self.healing = false
 

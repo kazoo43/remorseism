@@ -254,7 +254,7 @@ function SWEP:Throw(mul, time, nosound, throwPosAdjust, throwAngAdjust)
 	throwAngAdjust = throwAngAdjust or Angle(0,0,0)
 	--throwPosAdjust[2] = throwPosAdjust[2] + 2
 	local _,_,headm = self:GetEyeTrace()
-	local eyepos = headm:GetTranslation() or false
+	local eyepos = headm and headm:GetTranslation() or false
 	local ang = IsValid(entOwner) and owner:EyeAngles() or self:GetAngles()
 	local hand = eyepos and eyepos + ang:Forward() * throwPosAdjust[1] + ang:Right() * (throwPosAdjust[2] + 2) + ang:Up() * throwPosAdjust[3] or self:GetPos()
 
