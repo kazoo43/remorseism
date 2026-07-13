@@ -17,6 +17,7 @@ local mapsize = 7500
 
 util.AddNetworkString("dm_start")
 util.AddNetworkString("dm_end")
+util.AddNetworkString("dm_zone_burst")
 
 function MODE:CanLaunch()
     return true//(zb.GetWorldSize() >= ZBATTLE_BIGMAP)
@@ -86,6 +87,8 @@ local loadouts = {
 	{primary = "weapon_doublebarrel_short", attachments = "", armor = {"vest3","helmet1","mask1"}, ammo = 6},
 	{primary = "weapon_akm", attachments = {{"holo6","supressor1"},{"holo4","laser1"},{"supressor1"}}, armor = {"vest1","helmet1","nightvision1"}, ammo = 3},
 	{primary = "weapon_remington870", attachments = "", armor = {"vest3","helmet1"}, ammo = 3},
+        {primary = "weapon_remington870_long", attachments = "", armor = {"vest3","helmet1"}, ammo = 3},
+        {primary = "weapon_remington870_sawed_off", attachments = "", armor = {"vest3","helmet1"}, ammo = 4},
 	{primary = "weapon_m4a1", attachments = {{"holo1","grip1","supressor2"},{"holo5","grip3","supressor2"},{"laser4","grip2"},{"laser4","supressor2"}}, armor = {"vest1","helmet1"}, ammo = 3},
 	{primary = "weapon_mac11", attachments = "", armor = {"vest3","helmet1"}, ammo = 3},
 	{primary = "weapon_mp5", attachments = {{"supressor4"}}, armor = {"vest3","helmet1"}, ammo = 3},
@@ -132,6 +135,40 @@ local randomGrenades = {"weapon_hg_rgd_tpik", "weapon_hg_pipebomb_tpik", "weapon
 local randomMedicine = {"weapon_bandage_sh", "weapon_bigbandage_sh", "weapon_medkit_sh", "weapon_fentanyl", "weapon_morphine", "weapon_adrenaline", "weapon_tourniquet"}
 local randomMelees = {"weapon_combatknife", "weapon_pocketknife"}
 
+local function getZoneBurstTarget(ply)
+        if not IsValid(ply) then return end
+        return IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or IsValid(ply:GetNWEntity("RagdollDeath")) and ply:GetNWEntity("RagdollDeath") or ply
+end
+
+local function clearZoneBurst(ply)
+        if not IsValid(ply) then return end
+        ply.dmZoneBurst = nil
+        timer.Remove("dm_zone_burst_" .. ply:EntIndex())
+end
+
+local function startZoneBurst(ply)
+        if not IsValid(ply) or ply.dmZoneBurst then return end
+
+        local ent = getZoneBurstTarget(ply)
+        if not IsValid(ent) then return end
+
+        ply.dmZoneBurst = CurTime() + 1.65
+
+        net.Start("dm_zone_burst")
+                net.WriteEntity(ply)
+        net.Broadcast()
+
+        timer.Create("dm_zone_burst_" .. ply:EntIndex(), 1.65, 1, function()
+                if not IsValid(ply) then return end
+
+                local target = getZoneBurstTarget(ply)
+                clearZoneBurst(ply)
+
+                if not IsValid(target) then return end
+                hg.ExplodeHead(target)
+        end)
+end
+
 local function MakeDissolver(ent, position, dissolveType)
     local Dissolver = ents.Create("env_entity_dissolver")
     timer.Simple(5, function()
@@ -152,6 +189,10 @@ local function MakeDissolver(ent, position, dissolveType)
 end
 
 function MODE:RoundStart()
+        for _, ply in player.Iterator() do
+                clearZoneBurst(ply)
+        end
+
 	local loadout = loadouts[math.random(#loadouts)]
 	local selectedAttachments = istable(loadout.attachments) and table.Random(loadout.attachments) or loadout.attachments
 
@@ -231,15 +272,22 @@ hook.Add("Think","bober",function(ply)
 	local pos = zonepoint
 	local radius = MODE.GetZoneRadius()
 	local radiussqr = radius * radius
+
+        for _, ply in player.Iterator() do
+                if ply:Team() == TEAM_SPECTATOR then continue end
+                if not ply:Alive() then continue end
+
+                local ent = getZoneBurstTarget(ply)
+                if not IsValid(ent) then continue end
+                if pos:DistToSqr(ent:GetPos()) <= radiussqr then continue end
+
+                startZoneBurst(ply)
+        end
 	
 	for i, ent in ents.Iterator() do
+                if ent:IsPlayer() then continue end
+                if ent:IsRagdoll() then continue end
 		if pos:DistToSqr(ent:GetPos()) > radiussqr then
-			if ent:IsPlayer() then
-				hg.LightStunPlayer(ent)
-				
-				continue
-			end
-
 			if hgIsDoor(ent) then
 				if !ent:GetNoDraw() then
 					hgBlastThatDoor(ent)
@@ -274,6 +322,10 @@ function MODE:CanSpawn()
 end
 
 function MODE:EndRound()
+        for _, ply in player.Iterator() do
+                clearZoneBurst(ply)
+        end
+
 	local playersharm = {}
 	for ply, tbl in pairs(zb.HarmDone) do
 		for attacker, harm in pairs(tbl) do

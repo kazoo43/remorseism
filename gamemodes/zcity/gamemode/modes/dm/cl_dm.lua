@@ -7,6 +7,8 @@ local radius = nil
 local mapsize = 7500
 
 local roundend = false
+local DM_ScreenDuration = 10
+local dmZoneBursts = {}
 
 local snds = {
 	"https://kappa.vgmsite.com/soundtracks/superfighters-deluxe-original-soundtrack-2018/ujuwzquyre/01.%20A%20Grim%20Feeling.mp3",
@@ -42,14 +44,30 @@ end
 net.Receive("dm_start",function()
 	roundend = false
 
-	hg.DynaMusic:Start( "mirrors_edge" )
-
 	zb.RemoveFade()
 	
 	ZonePos = net.ReadVector()
 	zonedistance = net.ReadFloat()
 
-    surface.PlaySound("snd_jack_hmcd_deathmatch.mp3")
+        StartTime = CurTime()
+        MODE.DynamicFadeScreenEndTime = CurTime() + DM_ScreenDuration
+        MODE.RoundTextTilts = {}
+
+        for i = 1, 64 do
+                MODE.RoundTextTilts[i] = (math.random() < 0.5) and 3 or -3
+        end
+
+        MODE.CursorLerpX = 0
+        MODE.CursorLerpY = 0
+
+        if MODE.RoundBeginSound then
+                MODE.RoundBeginSound:Stop()
+                MODE.RoundBeginSound = nil
+        end
+
+        MODE.RoundBeginSound = CreateSound(LocalPlayer(), "rem_dmround.mp3")
+        MODE.RoundBeginSound:PlayEx(1, 100)
+
 	sound.PlayFile( "sound/ambient/energy/force_field_loop1.wav", "noblock", function( station, errCode, errStr )
 		if ( IsValid( station ) ) then
 			zb.SoundStation = station
@@ -59,6 +77,20 @@ net.Receive("dm_start",function()
 			station:SetVolume(0)
 		end
 	end )
+end)
+
+net.Receive("dm_zone_burst", function()
+        local ply = net.ReadEntity()
+        if not IsValid(ply) then return end
+
+        local burst = dmZoneBursts[ply]
+        if burst and burst.station then
+                burst.station:Stop()
+        end
+
+        dmZoneBursts[ply] = {
+                endTime = CurTime() + 1.65
+        }
 end)
 
 hook.Add("Think", "ZoneSoundThink", function()
@@ -71,89 +103,180 @@ hook.Add("Think", "ZoneSoundThink", function()
 	station:SetVolume(volume)
 end)
 
+hook.Add("Think", "DMZoneBurstSound", function()
+        for ply, burst in pairs(dmZoneBursts) do
+                if not IsValid(ply) or CurTime() >= burst.endTime then
+                        if burst.station then
+                                burst.station:Stop()
+                        end
+
+                        dmZoneBursts[ply] = nil
+                        continue
+                end
+
+                local target = IsValid(ply.FakeRagdoll) and ply.FakeRagdoll or IsValid(ply:GetNWEntity("RagdollDeath")) and ply:GetNWEntity("RagdollDeath") or ply
+
+                if burst.target ~= target then
+                        if burst.station then
+                                burst.station:Stop()
+                        end
+
+                        burst.target = target
+                        burst.station = nil
+
+                        if IsValid(target) then
+                                burst.station = CreateSound(target, "rem_intracranialied.mp3")
+                                burst.station:PlayEx(1, 100)
+                        end
+                end
+        end
+end)
+
 local fighter = {
     objective = "Kill everyone.",
     name = "Fighter",
     color1 = Color(0,120,190)
 }
 
+local function dm_ease_out(x)
+        return 1 - (1 - x) ^ 3
+end
+
+local function dm_draw_text(text, fontname, x, y, r, g, b, a, ang, xalign, yalign)
+        local m = Matrix()
+        m:Translate(Vector(x, y, 0))
+        m:Rotate(Angle(0, ang, 0))
+        m:Translate(Vector(-x, -y, 0))
+
+        cam.PushModelMatrix(m)
+                draw.SimpleText(text, fontname, x, y, Color(r, g, b, a), xalign, yalign)
+        cam.PopModelMatrix()
+end
+
 --local zonemodel = ClientsideModel("models/hunter/misc/sphere375x375.mdl",RENDERGROUP_TRANSLUCENT)
 --zonemodel:SetNoDraw(true)
 --zonemodel:SetMaterial("hmcd_dmzone")
 
 local mat = Material("hmcd_dmzone")
-
 local mapsize = 7500
 
 function MODE:PostDrawTranslucentRenderables(bDepth, bSkybox, isDraw3DSkybox)
 	if(!bSkybox and !isDraw3DSkybox) and !deathmatch_nozone:GetBool() then
 		local radius = MODE.GetZoneRadius()
 		render.SetMaterial(mat)
-		render.DrawSphere( ZonePos, -radius, 60, 60, color_white )
+          render.SetColorModulation(1, 0.15, 0.15)
+          render.SetBlend(0.45)
+                render.DrawSphere( ZonePos, -radius, 60, 60, color_white )
+          render.SetBlend(1)
+          render.SetColorModulation(1, 1, 1)
 	end
 	--zonemodel:DrawModel()
 end
 
 function MODE:RenderScreenspaceEffects()
-    if zb.ROUND_START + 7.5 < CurTime() then return end
-	
-    local fade = math.Clamp(zb.ROUND_START + 7.5 - CurTime(),0,1)
+        local fade_end_time = MODE.DynamicFadeScreenEndTime or 0
+        local time_diff = fade_end_time - CurTime()
 
-    surface.SetDrawColor(0,0,0,255 * fade)
-    surface.DrawRect(-1,-1,ScrW() + 1,ScrH() + 1)
+        if time_diff > 0 then
+                zb.RemoveFade()
+
+                local fade = math.min(time_diff / 2.5, 1)
+
+                surface.SetDrawColor(0, 0, 0, 255 * fade)
+                surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
+        end
 end
 
 function MODE:HUDPaint()
-	if zb.ROUND_START + 20 > CurTime() then
-		draw.SimpleText( string.FormattedTime(zb.ROUND_START + 20 - CurTime(), "%02i:%02i:%02i"	), "ZB_HomicideMedium", sw * 0.5, sh * 0.75, Color(255,55,55), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	else
-		local ply = LocalPlayer()
-		--if IsValid(dmmusic) then
-		--	if dmmusic:GetTime() >= (dmmusic:GetLength() - 1) then
-		--		restartMusic()
---
-		--		return
-		--	end
---
-		--	if dmmusic:GetState() != GMOD_CHANNEL_PLAYING then
-		--		dmmusic:Play()
-		--		
-		--		return
-		--	end
---
-		--	local vol = math.Clamp((CurTime() - (zb.ROUND_START + 22)),0.1, ply:Alive() and ply.organism.otrub and 0.1 or 0.2 + math.min((ply.organism.adrenaline or 0) * 25,2))
-		--	if roundend then
-		--		vol =  math.Clamp((roundend - CurTime() + 1) / 2,0.1, ply:Alive() and ply.organism.otrub and 0.1 or 0.2 + math.min((ply.organism.adrenaline or 0) * 25,2))
-		--	end
-		--	local musicVolume = GetConVar("snd_musicvolume"):GetFloat()
-		--	dmmusic:SetVolume(vol*musicVolume)
-		--end
-	end
-	
-	 
-	if not lply:Alive() then return end
-    if zb.ROUND_START + 8.5 < CurTime() then return end
-	zb.RemoveFade()
-    local fade = math.Clamp(zb.ROUND_START + 8 - CurTime(),0,1)
-    
-    draw.SimpleText("Homicide | DeathMatch", "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    local Rolename = fighter.name
-	local ColorRole = fighter.color1
-    ColorRole.a = 255 * fade
-    draw.SimpleText("You are a "..Rolename , "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        if StartTime and (CurTime() - StartTime) >= DM_ScreenDuration and zb.ROUND_START + 20 > CurTime() then
+                local timerText = string.FormattedTime(zb.ROUND_START + 20 - CurTime(), "%02i:%02i:%02i")
+                surface.SetFont("ZB_HomicideMediumLarge")
+                local tw, th = surface.GetTextSize(timerText)
 
-    local Objective = fighter.objective
-    local ColorObj = fighter.color1
-    ColorObj.a = 255 * fade
-    draw.SimpleText( Objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                draw.RoundedBox(8, sw * 0.5 - tw * 0.5 - 18, sh * 0.06 - th * 0.5 - 10, tw + 36, th + 20, Color(0, 0, 0, 150))
+                draw.SimpleTextOutlined(timerText, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.06, Color(255, 70, 70), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 2, Color(0, 0, 0, 220))
+        end
 
-	if hg.PluvTown.Active then
-		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
-		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
+        if not lply:Alive() or lply:Team() == TEAM_SPECTATOR or not StartTime then return end
 
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	end
+        local t = CurTime() - StartTime
+        if t > DM_ScreenDuration then
+                if MODE.RoundBeginSound then
+                        MODE.RoundBeginSound:Stop()
+                        MODE.RoundBeginSound = nil
+                end
+
+                return
+        end
+
+        local out_fade = math.Clamp((DM_ScreenDuration - t) / 1.5, 0, 1)
+
+        if MODE.RoundBeginSound then
+                MODE.RoundBeginSound:ChangeVolume(out_fade, 0)
+        end
+
+        MODE.CursorLerpX = Lerp(FrameTime() * 6, MODE.CursorLerpX or 0, (gui.MouseX() - sw * 0.5) / (sw * 0.5))
+        MODE.CursorLerpY = Lerp(FrameTime() * 6, MODE.CursorLerpY or 0, (gui.MouseY() - sh * 0.5) / (sh * 0.5))
+
+        local cursor_reach = ScreenScale(7)
+        local cox = math.Clamp(MODE.CursorLerpX, -1, 1) * cursor_reach
+        local coy = math.Clamp(MODE.CursorLerpY, -1, 1) * cursor_reach
+
+        local elements = {}
+        local tilts = MODE.RoundTextTilts or {}
+
+        local function add(text, fontname, col, x, y, dir, delay, plx, notilt)
+                elements[#elements + 1] = {
+                        text = text,
+                        font = fontname,
+                        r = col.r, g = col.g, b = col.b,
+                        x = x, y = y,
+                        dir = dir, delay = delay, plx = plx or 1,
+                        notilt = notilt,
+                }
+        end
+
+        add("Homicide | DeathMatch", "ZB_HomicideHeader", Color(255, 255, 255), sw * 0.5, sh * 0.1, "left", 0, 0.9)
+        add("You are a " .. fighter.name, "ZB_HomicideMediumLarge", fighter.color1, sw * 0.5, sh * 0.5, "right", 0.7, 1.1)
+        add(fighter.objective, "ZB_HomicideMedium", Color(255, 255, 255), sw * 0.5, sh * 0.9, "bottom", 1.4, 1.3, true)
+
+        for i, el in ipairs(elements) do
+                local appear = dm_ease_out(math.Clamp((t - el.delay) / 2.0, 0, 1))
+                local a = 255 * appear * out_fade
+
+                if a > 1 then
+                        local slide = 1 - appear
+                        local x, y = el.x, el.y
+
+                        if el.dir == "left" then
+                                x = x - slide * ScreenScale(220)
+                        elseif el.dir == "right" then
+                                x = x + slide * ScreenScale(220)
+                        elseif el.dir == "bottom" then
+                                y = y + slide * ScreenScale(120)
+                        elseif el.dir == "top" then
+                                y = y - slide * ScreenScale(120)
+                        end
+
+                        x = x + cox * el.plx
+                        y = y + coy * el.plx
+
+                        local tilt = el.notilt and 0 or (tilts[i] or 3) * appear
+
+                        dm_draw_text(el.text, el.font, x, y, el.r, el.g, el.b, a, tilt, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                end
+        end
+
+        if hg.PluvTown.Active then
+                local pluv_appear = dm_ease_out(math.Clamp(t / 1.0, 0, 1))
+                local pluv_a = pluv_appear * out_fade
+
+                surface.SetMaterial(hg.PluvTown.PluvMadness)
+                surface.SetDrawColor(255, 255, 255, math.random(175, 255) * pluv_a / 2)
+                surface.DrawTexturedRect(sw * 0.25 + cox, sh * 0.44 - ScreenScale(15) + coy, sw / 2, ScreenScale(30))
+
+                draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2 + cox, sh * 0.44 - ScreenScale(2) + coy, Color(0, 0, 0, 255 * pluv_a), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
 end
 
 local CreateEndMenu = nil
@@ -162,6 +285,13 @@ local wonply = nil
 net.Receive("dm_end",function()
 	local ent = net.ReadEntity()
 	local most_violent_player = net.ReadEntity()
+
+        for ply, burst in pairs(dmZoneBursts) do
+                if burst.station then
+                        burst.station:Stop()
+                end
+                dmZoneBursts[ply] = nil
+        end
 
 	if IsValid(most_violent_player) then
 		most_violent_player.most_violent_player = true
@@ -323,6 +453,13 @@ function MODE:RoundStart()
     for i,ply in player.Iterator() do
 		ply.won = nil
 		ply.most_violent_player = nil
+    end
+
+    for ply, burst in pairs(dmZoneBursts) do
+            if burst.station then
+                    burst.station:Stop()
+            end
+            dmZoneBursts[ply] = nil
     end
 
     if IsValid(hmcdEndMenu) then

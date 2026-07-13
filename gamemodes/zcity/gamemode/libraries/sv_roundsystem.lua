@@ -9,12 +9,44 @@ function zb.AddFade()
 end
 
 local ZB_FORCE_ONLY_HOMICIDE = true
-local ZB_FORCED_TEMP_MODE = "hmcd"
+local ZB_FORCED_TEMP_MODE_WEIGHTS = {
+        ["hmcd"] = 0.7,
+        ["dm"] = 0.3
+}
 local ZB_HAS_CHANGELEVEL
+
+local function ZB_GetForcedTempMode()
+        local total = 0
+
+        for mode, chance in pairs(ZB_FORCED_TEMP_MODE_WEIGHTS) do
+                local tbl = zb.modes[mode]
+                if tbl and (!tbl.CanLaunch or tbl:CanLaunch()) then
+                        total = total + chance
+                end
+        end
+
+        if total <= 0 then return "hmcd" end
+
+        local random = math.Rand(0, total)
+        local count = 0
+
+        for mode, chance in pairs(ZB_FORCED_TEMP_MODE_WEIGHTS) do
+                local tbl = zb.modes[mode]
+                if tbl and (!tbl.CanLaunch or tbl:CanLaunch()) then
+                        count = count + chance
+
+                        if random <= count then
+                                return mode
+                        end
+                end
+        end
+
+        return "hmcd"
+end
 
 local function ZB_ResolveNextRound(round)
 	if ZB_FORCE_ONLY_HOMICIDE then
-		return ZB_FORCED_TEMP_MODE
+                return ZB_GetForcedTempMode()
 	end
 
 	return round
@@ -55,7 +87,7 @@ function CurrentRound()
 		return zb.modes["coop"]
 	end
 
-	zb.CROUND = zb.CROUND or "hmcd"
+        zb.CROUND = zb.CROUND or ZB_ResolveNextRound("hmcd")
 	if not zb.CROUND_MAIN or (zb.LASTCROUND != zb.CROUND) then
 		zb.CROUND_MAIN = zb:GetMode(zb.CROUND)
 		zb.LASTCROUND = zb.CROUND
