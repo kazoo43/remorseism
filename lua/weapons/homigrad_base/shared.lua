@@ -469,7 +469,7 @@ end
 if SERVER then
 	hook.Add("Player Think","huyhuy",function(ply)
 		local wep = ply:GetActiveWeapon()
-		if (!wep.ishgweapon and !wep.ismelee2) or !wep.CanSuicide then ply.suiciding = false end
+		if (not IsValid(wep) or (!wep.ishgweapon and !wep.ismelee2) or !wep.CanSuicide) and ply.suiciding then ply.suiciding = false end
 	end)
 end
 
@@ -982,17 +982,20 @@ end
 if CLIENT then
 	local hook_Run = hook.Run
 	hook.Add("Think", "homigrad-weapons", function()
+		local curTime = CurTime()
+
 		for i,wep in ipairs(hg.weapons) do
 			--local wep = ply:GetActiveWeapon()
 
-			if not IsValid(wep) or not wep.Step or (not IsValid(wep:GetOwner()) and wep:GetVelocity():LengthSqr() < 5) then continue end
+			if not IsValid(wep) or not wep.Step then continue end
+			local owner = wep:GetOwner()
+			if not IsValid(owner) and wep:GetVelocity():LengthSqr() < 5 then continue end
 			--hook_Run("SWEPStep", wep)
 			if wep.NotSeen or not wep.shouldTransmit then continue end
 			//if (wep.lasttimetick or 0) > CurTime() then continue end
-			local owner = wep:GetOwner()
 			//wep.lasttimetick = CurTime() + (IsValid(owner) and owner:IsPlayer() and (owner == LocalPlayer() or owner == LocalPlayer():GetNWEntity("spect")) and 0 or 0.1)
 			if IsValid(owner) and owner:IsPlayer() then
-				wep:Step_HolsterDeploy(CurTime())
+				wep:Step_HolsterDeploy(curTime)
 				continue
 			end
 			wep:Step()
@@ -1009,7 +1012,12 @@ end
 
 hook.Add("Player Think", "suicidingaa", function(ply)
 	if SERVER then
-		ply:SetNWBool("suiciding", ply.suiciding)
+		local suiciding = ply.suiciding or false
+		if ply:GetNWBool("suiciding", false) ~= suiciding then
+			ply:SetNWBool("suiciding", suiciding)
+		end
+
+		return
 	end
 	
 	if CLIENT then
@@ -1077,9 +1085,12 @@ end
 
 if SERVER then
 	hook.Add("Player Think", "removesuiciding", function(ply)
+		local willsuicide = ply:GetNWFloat("willsuicide", 0)
+		if willsuicide == 0 then return end
+
 		local wep = ply:GetActiveWeapon()
 		
-		if !ishgweapon(wep) or !wep.CanSuicide or (ply:GetNWFloat("willsuicide", 0) < CurTime() - 1) then
+		if !ishgweapon(wep) or !wep.CanSuicide or (willsuicide < CurTime() - 1) then
 			ply:SetNWFloat("willsuicide", 0)
 		end
 	end)
@@ -2045,16 +2056,20 @@ local addvec2 = Vector(0,0,0)
 
 if SERVER then
 	hook.Add("Player Think", "sethuynyis", function(ply)
-		local dtime = CurTime() - (ply.lastcalley or (CurTime() - 10))
+		local curTime = CurTime()
+		local dtime = curTime - (ply.lastcalley or (curTime - 10))
 		if dtime < 0.1 then return end
-		ply.lastcalley = CurTime()
+		ply.lastcalley = curTime
 
 		local org = ply.organism
+		if not org then return end
 
 		local power = org.pain and ((org.pain > 50 or org.blood < 2900 or org.o2[1] < 5) and 0.3) or ((org.pain > 20 or org.blood < 4200 or org.o2[1] < 10) and 0.5) or 1
 		power = power * org.consciousness
 
-		ply:SetNWFloat("power", power)
+		if ply:GetNWFloat("power", -1) ~= power then
+			ply:SetNWFloat("power", power)
+		end
 	end)
 end
 

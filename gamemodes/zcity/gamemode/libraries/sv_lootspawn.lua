@@ -173,12 +173,27 @@ hg.props = {
 }
 
 hg.loot_boxes = {}
+local loot_box_models = {}
+local prop_models = {}
+hg.loot_box_models = loot_box_models
+hg.prop_models = prop_models
 
 for name, tbl in pairs(loot_boxes) do
-	hg.loot_boxes[string.lower(name)] = tbl
+	local model = string.lower(name)
+	hg.loot_boxes[model] = tbl
+
+	if not tbl[3] then
+		loot_box_models[#loot_box_models + 1] = model
+	end
+end
+
+for model in pairs(hg.props) do
+	prop_models[#prop_models + 1] = model
 end
 
 local developer = GetConVar("developer")
+local string_lower = string.lower
+local string_find = string.find
 function hg.GenerateLoot(ply,ent,func)
 	local curRound, rtype = CurrentRound()
 	
@@ -406,16 +421,20 @@ local functions_break = {
 }
 
 hook.Add("ZB_InventoryChecked", "LootSpawn", function(ply, ent)
+	if not IsValid(ent) or ent:IsPlayer() then return end
 	ent:SetNetVar("Inventory", ent.inventory)
-	if not IsValid(ent) or ent:IsPlayer() or ent.was_opened or not string.find(ent:GetClass(),"prop_") then return end
-	if not hg.loot_boxes[string.lower(ent:GetModel())] then return end
+	if ent.was_opened or not string_find(ent:GetClass(),"prop_", 1, true) then return end
+
+	local model = ent:GetModel()
+	local lootData = model and hg.loot_boxes[string_lower(model)]
+	if not lootData then return end
 	
 	ent.armors = {}
 	ent.inventory = {}
 
 	ent.was_opened = true
 
-	local chance = hg.loot_amount[hg.loot_boxes[string.lower(ent:GetModel())][1]] or {0,1}
+	local chance = hg.loot_amount[lootData[1]] or {0,1}
 	local amount = math.random(chance[1],chance[2])
 	
 	for i = 0,amount-1 do
@@ -446,10 +465,12 @@ hg.loot_amount = {
 }
 
 hook.Add("PropBreak", "LootSpawn", function(ply,ent)
+	if not IsValid(ent) or ent:GetClass() ~= "prop_physics" then return end
 	ent.inventory = ent.inventory or {}
 	ent:SetNetVar("Inventory", ent.inventory)
-	if not IsValid(ent) or ent:GetClass() ~= "prop_physics" then return end
-	if not hg.loot_boxes[string.lower(ent:GetModel())] then return end
+
+	local model = ent:GetModel()
+	if not (model and hg.loot_boxes[string_lower(model)]) then return end
 	
 	hook.Run("ZB_InventoryChecked", ply, ent)
 
@@ -469,7 +490,7 @@ local trCheck = {
 
 
 local function MakeRandomSpawns(basepoints,iterations,maxiterations,tbl)
-	if iterations >= maxiterations then return tbl end
+	while iterations < maxiterations do
 	--я приготовил пельмени с говном вместо мяса
 	iterations = iterations + 1
 
@@ -502,7 +523,9 @@ local function MakeRandomSpawns(basepoints,iterations,maxiterations,tbl)
 		end
 	end
 	
-	return MakeRandomSpawns(basepoints,iterations,maxiterations,tbl)
+	end
+
+	return tbl
 end
 
 local spawns = {}
@@ -607,12 +630,16 @@ timer.Create("SpawnTheBoxes", 8, 0, function() hook_Run("Boxes Think") end)
 local vec = Vector(0, 0, 64)
 local vec_dist = Vector(500,500,500)
 hook.Add("Boxes Think", "SpawnBoxes", function()
-	if zb.ROUND_STATE ~= 1 or not CurrentRound().LootSpawn then return end
+	local round = CurrentRound()
+	if zb.ROUND_STATE ~= 1 or not round.LootSpawn then return end
 	//local spawnPos = table.Random(spawns) + vec
 
 	//local spawnPos = zb:FurthestFromEveryone(spawns) + vec
 	local tbl = player.GetAll()
-	local ply = tbl[math.random(#tbl)]
+	local plys = #tbl
+	if plys == 0 then return end
+
+	local ply = tbl[math.random(plys)]
 	
 	local vel = ply:GetVelocity() * math.random(1, 100) + VectorRand(-1024, 1024)
 	vel[3] = 0
@@ -626,7 +653,7 @@ hook.Add("Boxes Think", "SpawnBoxes", function()
 	tr.collisiongroup = COLLISION_GROUP_PLAYER
 	local trace = util.TraceLine(tr)
 	
-	maxcount = 8
+	local maxcount = 8
 	while maxcount > 0 do
 		maxcount = maxcount - 1
 		local tr = {}
@@ -642,7 +669,8 @@ hook.Add("Boxes Think", "SpawnBoxes", function()
 
 	local spawnPos = trace.HitPos + vector_up * 32 - trace.Normal * 10
 	
-	if not CurrentRound().noBoxes then
+	local noBoxes = round.noBoxes
+	if not noBoxes then
 		for k, ply in ipairs(ents.FindInBox(spawnPos - vec_dist,spawnPos + vec_dist)) do
 			if not ply:IsPlayer() then continue end
 			if not ply:Alive() then continue end
@@ -658,7 +686,7 @@ hook.Add("Boxes Think", "SpawnBoxes", function()
 		end
 	end
 
-	if (math.random(2) == 1) and not CurrentRound().noBoxes then
+	if (math.random(2) == 1) and not noBoxes then
 
 		/*if math.random(4) == 1 then
 			local huy = ents.Create("prop_physics")
@@ -672,10 +700,8 @@ hook.Add("Boxes Think", "SpawnBoxes", function()
 
 		local huy = ents.Create("prop_physics")
 		huy:SetPos(spawnPos)
-		local randprop
-		for model, tbl in RandomPairs(math.random(6) == 1 and hg.props or hg.loot_boxes) do
-			if !istable(tbl) or !tbl[3] then randprop = model break end
-		end
+		local models = math.random(6) == 1 and prop_models or loot_box_models
+		local randprop = models[math.random(#models)]
 		if not util.IsValidProp(randprop) then huy:Remove() return end
 		huy:SetModel(randprop)
 		local tr = {}
@@ -726,4 +752,3 @@ for i = 1,100 do
 		huy.AmmoCount = AmmoCount
 	end
 end--]]
-

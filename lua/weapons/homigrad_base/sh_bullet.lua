@@ -49,6 +49,7 @@ end
 
 local bulletHit
 local timer, util, math, IsValid, WorldToLocal, Vector, sound, EffectData, game = timer, util, math, IsValid, WorldToLocal, Vector, sound, EffectData, game
+local table_Copy = table.Copy
 local hg_bulletholes = CreateConVar("hg_bulletholes", "0", FCVAR_ARCHIVE + FCVAR_NOTIFY + FCVAR_REPLICATED, "Enable R6S bulletholes feature", 0, 1)
 
 local function callbackBullet(self, tr, dmg, force, bullet, penetration)
@@ -574,6 +575,7 @@ function SWEP:FireBullet()
 	local isply = IsValid(owner) and owner:IsPlayer()
 	local isnpc = IsValid(owner) and owner:IsNPC()
 	local ent = owner
+	local curTime = CurTime()
 
 	if self:ShouldUseFakeModel() and not self.NoIdleLoop and isply then
 		self:PlayAnim("idle", 1)
@@ -684,9 +686,10 @@ function SWEP:FireBullet()
 		owner:LagCompensation(false)
 	end
 
-	local willsuicide = IsValid(owner) and owner:GetNWFloat("willsuicide", 0) != 0 and owner:GetNWFloat("willsuicide", 0) or ((owner.startsuicide or CurTime()) + 1) or CurTime() + 1
+	local willsuicideNet = IsValid(owner) and owner:GetNWFloat("willsuicide", 0) or 0
+	local willsuicide = willsuicideNet != 0 and willsuicideNet or ((owner.startsuicide or curTime) + 1) or curTime + 1
 	local suiciding = owner.suiciding
-	local willsuicidereal = (suiciding and (willsuicide == 0 or willsuicide < CurTime()))
+	local willsuicidereal = (suiciding and (willsuicide == 0 or willsuicide < curTime))
 	if isnpc then
 		suiciding, willsuicidereal = false, false
 	end
@@ -741,9 +744,9 @@ function SWEP:FireBullet()
 	bullet.noricochet = ammotype.noricochet
 	
 	local f1 = not owner.suiciding and owner or nil
-	local f2 = owner:IsPlayer() and owner:InVehicle() and owner:GetVehicle() or nil
-	local f3 = owner:IsPlayer() and owner.GetSimfphys and IsValid(owner:GetSimfphys()) and owner:GetSimfphys() or nil
-	local f4 = owner:IsPlayer() and owner:InVehicle() and owner.FakeRagdoll
+	local f2 = isply and owner:InVehicle() and owner:GetVehicle() or nil
+	local f3 = isply and owner.GetSimfphys and IsValid(owner:GetSimfphys()) and owner:GetSimfphys() or nil
+	local f4 = isply and owner:InVehicle() and owner.FakeRagdoll
 	local f5 = IsValid(owner.OldRagdoll) and owner.OldRagdoll or nil
 	
 	if IsValid(f1) then table.insert(bullet.Filter, 1, f1) end
@@ -760,31 +763,34 @@ function SWEP:FireBullet()
 		bullet.IgnoreEntity = owner
 	end
 	
+	local penetration = (ammotype.Penetration or (-(-self.Penetration))) * (self.PenetrationMultiplier or 1)
+	local diameter = ammotype.Diameter or 1
+
     for i = 1, numbullet do
-		local bullet = table.Copy(bullet)
-		bullet.penetrated = 0
-		bullet.MaxPenLen = 100
-		bullet.Penetration = (ammotype.Penetration or (-(-self.Penetration))) * (self.PenetrationMultiplier or 1)
-		bullet.Diameter = ammotype.Diameter or 1
+		local shot = numbullet == 1 and bullet or table_Copy(bullet)
+		shot.penetrated = 0
+		shot.MaxPenLen = 100
+		shot.Penetration = penetration
+		shot.Diameter = diameter
 
 		if SERVER and owner.suiciding and willsuicidereal then
 			local dmginfo = DamageInfo()
-			dmginfo:SetDamage(bullet.Damage)
+			dmginfo:SetDamage(shot.Damage)
 			dmginfo:SetInflictor(self)
 			dmginfo:SetAttacker(owner)
 			dmginfo:SetDamageType(DMG_BULLET)
-			dmginfo:SetDamageForce(dir * bullet.Force)
+			dmginfo:SetDamageForce(dir * shot.Force)
 			dmginfo:SetDamagePosition(headpos)
 			ent:TakeDamageInfo(dmginfo)
 		end
 
 		if(hg.PhysBullet and self.UsePhysBullets)then
 			if(SERVER)then
-				hg.PhysBullet.CreateBullet(bullet)
+				hg.PhysBullet.CreateBullet(shot)
 			end
 		else
 			--if owner.suiciding then bullet.DisableLagComp = true end
-			self:FireLuaBullets(bullet)
+			self:FireLuaBullets(shot)
 
 			if CLIENT and !GetGlobalBool("PhysBullets_ReplaceDefault") then					
 				if tr then

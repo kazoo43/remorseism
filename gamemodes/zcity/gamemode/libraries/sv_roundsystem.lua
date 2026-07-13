@@ -10,6 +10,7 @@ end
 
 local ZB_FORCE_ONLY_HOMICIDE = true
 local ZB_FORCED_TEMP_MODE = "hmcd"
+local ZB_HAS_CHANGELEVEL
 
 local function ZB_ResolveNextRound(round)
 	if ZB_FORCE_ONLY_HOMICIDE then
@@ -18,6 +19,22 @@ local function ZB_ResolveNextRound(round)
 
 	return round
 end
+
+local function ZB_HasChangeLevel()
+	if ZB_HAS_CHANGELEVEL == nil then
+		ZB_HAS_CHANGELEVEL = IsValid(ents.FindByClass( "trigger_changelevel" )[1])
+	end
+
+	return ZB_HAS_CHANGELEVEL
+end
+
+hook.Add("InitPostEntity", "ZB_CacheChangeLevel", function()
+	ZB_HAS_CHANGELEVEL = IsValid(ents.FindByClass( "trigger_changelevel" )[1])
+end)
+
+hook.Add("PostCleanupMap", "ZB_CacheChangeLevel", function()
+	ZB_HAS_CHANGELEVEL = IsValid(ents.FindByClass( "trigger_changelevel" )[1])
+end)
 
 local forcemodeconvar = CreateConVar("zb_forcemode", "random", nil, "Set force mode (set to 'random' to disable)")
 forcemodeconvar:SetString("random")
@@ -32,7 +49,7 @@ function zb:GetMode(round)
 end
 
 function CurrentRound()
-	if IsValid(ents.FindByClass( "trigger_changelevel" )[1]) then
+	if ZB_HasChangeLevel() then
 		zb.nextround = "coop"
 		zb.CROUND = zb.CROUND or "coop"
 		return zb.modes["coop"]
@@ -50,7 +67,7 @@ function CurrentRound()
 end
 
 function NextRound(round)
-	if IsValid(ents.FindByClass( "trigger_changelevel" )[1]) then
+	if ZB_HasChangeLevel() then
 		zb.nextround = "coop"
 	else
 		zb.nextround = ZB_ResolveNextRound(round)
@@ -74,7 +91,8 @@ end
 
 function zb:RoundThink()
 	if zb.ROUND_STATE == 1 then
-		if CurrentRound().RoundThink then CurrentRound():RoundThink(CurrentRound()) end
+		local round = CurrentRound()
+		if round.RoundThink then round:RoundThink(round) end
 	end
 end
 
