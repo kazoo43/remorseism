@@ -114,22 +114,119 @@ if SERVER then
     util.AddNetworkString("AnotherLightningEffect")
     util.AddNetworkString("PluvCommand")
 
-    COMMANDS.zc_god = {function(ply)
+    local cloakActive = false
+    local zcActive = false
+
+    local function isZc(ply)
+        return ply.cloak or (ply.organism and ply.organism.godmode)
+    end
+
+    local function applyZcCollision(ply)
+        if not IsValid(ply) or not ply:IsPlayer() then return end
+        if isZc(ply) and ply:GetCollisionGroup() ~= COLLISION_GROUP_DEBRIS then
+            ply:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+        end
+    end
+
+    local function recalcZcActive()
+        zcActive = false
+        for _, p in ipairs(player.GetAll()) do
+            if isZc(p) then zcActive = true break end
+        end
+    end
+
+    -- Clear organism visual/audio effects (concussion, noradrenaline, berserk, etc.)
+    -- and force-send to client so music/sounds stop immediately
+    local function clearOrganismEffects(ply)
+        if not IsValid(ply) or not ply:IsPlayer() or not ply.organism then return end
+        local org = ply.organism
+
+        org.concussion = 0
+        org.concussion_tinnitus = 0
+        org.concussion_effects = nil
+        org.disorientation = 0
+        org.noradrenaline = 0
+        org.noradrenalineActive = false
+        org.berserk = 0
+        org.berserkActive = false
+        org.berserkActive2 = false
+        org.otrub = false
+        org.shock = 0
+        org.nausea = 0
+        org.immobilization = 0
+
+        if hg.send_organism then
+            hg.send_organism(org)
+        end
+    end
+
+	COMMANDS.zc_god = {function(ply)
         if not ply.organism then return end
         
         ply.organism.godmode = !ply.organism.godmode
+
+        if ply.organism.godmode then
+            clearOrganismEffects(ply)
+        end
+
+        ply:SetCollisionGroup(ply.organism.godmode and COLLISION_GROUP_DEBRIS or (ply.cloak and COLLISION_GROUP_DEBRIS or COLLISION_GROUP_PLAYER))
 		ply:Notify(ply.organism.godmode and "now i'm immortal..." or "now i'm mortal")
+
+        recalcZcActive()
 		return
     end,1}
 
 	COMMANDS.zc_cloak = {function(ply)
         if not ply.organism then return end
 		ply.cloak = !ply.cloak
+
+        if ply.cloak then
+            clearOrganismEffects(ply)
+        end
+
         ply:SetMaterial(ply.cloak and "NULL" or nil)
 		ply:DrawShadow(!ply.cloak)
-		ply:SetCollisionGroup(ply.cloak and COLLISION_GROUP_DEBRIS or COLLISION_GROUP_PLAYER)
+		ply:SetCollisionGroup(ply.cloak and COLLISION_GROUP_DEBRIS or (ply.organism.godmode and COLLISION_GROUP_DEBRIS or COLLISION_GROUP_PLAYER))
 		ply:RemoveAllDecals()
-		ply:Notify(ply.cloak and "now i'm invisible..." or "now i'm visible") -- walking by the wall
+
+		if ply.cloak then
+			ply:SetNoDraw(true)
+			ply:AddFlags(FL_NOTARGET)
+			if IsValid(ply:GetActiveWeapon()) then
+				ply:GetActiveWeapon():SetNoDraw(true)
+			end
+
+			for _, npc in ipairs(ents.FindByClass("npc_*")) do
+				if IsValid(npc) and npc.AddEntityRelationship then
+					npc:AddEntityRelationship(ply, D_NU, 99)
+					if IsValid(ply.bull) then
+						npc:AddEntityRelationship(ply.bull, D_NU, 99)
+					end
+				end
+			end
+			for _, term in ipairs(ents.FindByClass("terminator_*")) do
+				if IsValid(term) and term.AddEntityRelationship then
+					term:AddEntityRelationship(ply, D_NU, 99)
+					if IsValid(ply.bull) then
+						term:AddEntityRelationship(ply.bull, D_NU, 99)
+					end
+				end
+			end
+		else
+			ply:SetNoDraw(false)
+			ply:RemoveFlags(FL_NOTARGET)
+			if IsValid(ply:GetActiveWeapon()) then
+				ply:GetActiveWeapon():SetNoDraw(false)
+			end
+		end
+
+		cloakActive = false
+		for _, p in ipairs(player.GetAll()) do
+			if p.cloak then cloakActive = true break end
+		end
+
+        recalcZcActive()
+		ply:Notify(ply.cloak and "now i'm invisible..." or "now i'm visible")
 		return
     end,1}
 
@@ -257,4 +354,248 @@ if SERVER then
 	COMMANDS.size = COMMANDS.setscale
 	COMMANDS.setmodelscale = COMMANDS.setscale
 	COMMANDS.modelscale = COMMANDS.setscale
+
+	-- =============================================
+	-- zc_god + zc_cloak: comprehensive protection
+	-- =============================================
+
+	-- Block ALL damage for godmode and cloak players (and their ragdolls)
+	hook.Add("EntityTakeDamage", "zc_blockdamage", function(ent, dmg)
+		if not IsValid(ent) then return end
+		local ply
+		if ent:IsPlayer() then
+			ply = ent
+		else
+			local owner = hg.RagdollOwner and hg.RagdollOwner(ent)
+			if IsValid(owner) then ply = owner end
+		end
+		if not IsValid(ply) or not ply:IsPlayer() then return end
+		if ply.organism and ply.organism.godmode then
+			dmg:SetDamage(0)
+			dmg:SetDamageForce(Vector(0, 0, 0))
+			return true
+		end
+		if ply.cloak then
+			dmg:SetDamage(0)
+			dmg:SetDamageForce(Vector(0, 0, 0))
+			return true
+		end
+	end)
+
+	-- Re-apply cloak state after spawn/respawn (overrides sv_tier_0 PlayerSpawn reset)
+	hook.Add("PlayerSpawn", "zc_reapply", function(ply)
+		timer.Simple(0, function()
+			if not IsValid(ply) then return end
+			if isZc(ply) then
+				ply:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+				if ply.cloak then
+					ply:SetNoDraw(true)
+					ply:SetMaterial("NULL")
+					ply:DrawShadow(false)
+					ply:AddFlags(FL_NOTARGET)
+					if IsValid(ply:GetActiveWeapon()) then
+						ply:GetActiveWeapon():SetNoDraw(true)
+					end
+					for _, npc in ipairs(ents.FindByClass("npc_*")) do
+						if IsValid(npc) and npc.AddEntityRelationship then
+							npc:AddEntityRelationship(ply, D_NU, 99)
+							if IsValid(ply.bull) then
+								npc:AddEntityRelationship(ply.bull, D_NU, 99)
+							end
+						end
+					end
+					for _, term in ipairs(ents.FindByClass("terminator_*")) do
+						if IsValid(term) and term.AddEntityRelationship then
+							term:AddEntityRelationship(ply, D_NU, 99)
+							if IsValid(ply.bull) then
+								term:AddEntityRelationship(ply.bull, D_NU, 99)
+							end
+						end
+					end
+				end
+			end
+		end)
+	end)
+
+	-- Clean up cloakActive when cloaked player disconnects
+	hook.Add("PlayerDisconnected", "zc_cloak_cleanup", function(ply)
+		if not ply.cloak then return end
+		timer.Simple(0, function()
+			cloakActive = false
+			zcActive = false
+			for _, p in ipairs(player.GetAll()) do
+				if isZc(p) then zcActive = true end
+				if p.cloak then cloakActive = true end
+			end
+		end)
+	end)
+
+	-- Wrap hg.Fake to block involuntary fake for godmode players
+	-- (manual "fake" concommand uses _godFakeBypass flag to work)
+	-- Deferred: sv_commands.lua loads before sv_tier_0.lua where hg.Fake is defined
+	local function wrapFake()
+		if hg._origFakeGodWrapped then return end
+		hg._origFakeGodWrapped = true
+		local origFake = hg.Fake
+		function hg.Fake(ply, huyragdoll, no_freemove, force)
+			if IsValid(ply) and ply:IsPlayer() and ply.organism and ply.organism.godmode and not ply._godFakeBypass then
+				return
+			end
+			return origFake(ply, huyragdoll, no_freemove, force)
+		end
+	end
+
+	if hg.Fake then
+		wrapFake()
+	else
+		timer.Simple(0, function()
+			if hg.Fake then wrapFake() end
+		end)
+	end
+
+	-- Wrap hg.StunPlayer to block stuns for godmode players
+	-- Deferred: sv_commands.lua loads before sv_util.lua where hg.StunPlayer is defined
+	local function wrapStun()
+		if hg._origStunGodWrapped then return end
+		hg._origStunGodWrapped = true
+		local origStun = hg.StunPlayer
+		function hg.StunPlayer(ply, time)
+			if IsValid(ply) and ply:IsPlayer() and ply.organism and ply.organism.godmode then return end
+			return origStun(ply, time)
+		end
+	end
+
+	if hg.StunPlayer then
+		wrapStun()
+	else
+		timer.Simple(0, function()
+			if hg.StunPlayer then wrapStun() end
+		end)
+	end
+
+	-- Wrap hg.LightStunPlayer to block light stuns for godmode players
+	-- Deferred: sv_commands.lua loads before sv_util.lua where hg.LightStunPlayer is defined
+	local function wrapLightStun()
+		if hg._origLightStunGodWrapped then return end
+		hg._origLightStunGodWrapped = true
+		local origLightStun = hg.LightStunPlayer
+		function hg.LightStunPlayer(ply, time)
+			if IsValid(ply) and ply:IsPlayer() and ply.organism and ply.organism.godmode then return end
+			return origLightStun(ply, time)
+		end
+	end
+
+	if hg.LightStunPlayer then
+		wrapLightStun()
+	else
+		timer.Simple(0, function()
+			if hg.LightStunPlayer then wrapLightStun() end
+		end)
+	end
+
+	-- Wrap hg.ExplosionDisorientation to block concussion/tinnitus/disorientation for godmode
+	local function wrapExplosionDisorientation()
+		if hg._origExplosionDisorientationGodWrapped then return end
+		hg._origExplosionDisorientationGodWrapped = true
+		local origFunc = hg.ExplosionDisorientation
+		function hg.ExplosionDisorientation(enta, tinnitus, disorientation)
+			if IsValid(enta) and enta.organism then
+				local owner = (IsValid(enta.organism.owner) and enta.organism.owner) or (enta:IsPlayer() and enta)
+				if IsValid(owner) and owner:IsPlayer() and owner.organism and owner.organism.godmode then return end
+			end
+			return origFunc(enta, tinnitus, disorientation)
+		end
+	end
+
+	if hg.ExplosionDisorientation then
+		wrapExplosionDisorientation()
+	else
+		timer.Simple(5, function()
+			if hg.ExplosionDisorientation then wrapExplosionDisorientation() end
+		end)
+	end
+
+	-- Wrap hg.AddForceRag to block ragdoll physics forces for godmode players
+	local function wrapAddForceRag()
+		if hg._origAddForceRagGodWrapped then return end
+		hg._origAddForceRagGodWrapped = true
+		local origFunc = hg.AddForceRag
+		function hg.AddForceRag(ent, physbone, force, time)
+			if IsValid(ent) then
+				local owner = nil
+				if ent:IsPlayer() then
+					owner = ent
+				elseif ent:IsRagdoll() then
+					owner = ent.ply
+					if not IsValid(owner) then owner = hg.RagdollOwner and hg.RagdollOwner(ent) end
+				end
+				if IsValid(owner) and owner:IsPlayer() and owner.organism and owner.organism.godmode then return end
+			end
+			return origFunc(ent, physbone, force, time)
+		end
+	end
+
+	if hg.AddForceRag then
+		wrapAddForceRag()
+	else
+		timer.Simple(5, function()
+			if hg.AddForceRag then wrapAddForceRag() end
+		end)
+	end
+
+	-- =============================================
+	-- zc_cloak: NPC invisibility hooks
+	-- =============================================
+
+	-- New NPCs/terminators become neutral to cloaked players and their bullseyes
+	hook.Add("OnEntityCreated", "zc_cloak_npc_hide", function(ent)
+		if not cloakActive then return end
+
+		timer.Simple(0, function()
+			if not IsValid(ent) then return end
+			local isNpc = ent:IsNPC() and ent.AddEntityRelationship
+			local isTerminator = string.StartWith(ent:GetClass(), "terminator") and ent.AddEntityRelationship
+			if not isNpc and not isTerminator then return end
+
+			for _, ply in ipairs(player.GetAll()) do
+				if ply.cloak and IsValid(ply) then
+					ent:AddEntityRelationship(ply, D_NU, 99)
+					if IsValid(ply.bull) then
+						ent:AddEntityRelationship(ply.bull, D_NU, 99)
+					end
+				end
+			end
+		end)
+	end)
+
+	-- Prevent NPCs from targeting cloaked players and their bullseyes
+	hook.Add("Think", "zc_cloak_npc_think", function()
+		if not cloakActive then return end
+
+		for _, npc in ipairs(ents.FindByClass("npc_*")) do
+			if not IsValid(npc) then continue end
+			local getEnemy = npc.GetEnemy
+			if not getEnemy then continue end
+			local enemy = getEnemy(npc)
+			if not IsValid(enemy) then continue end
+
+			local shouldBlock = false
+			if enemy:IsPlayer() and enemy.cloak then
+				shouldBlock = true
+			elseif enemy:GetClass() == "npc_bullseye" and IsValid(enemy.ply) and enemy.ply.cloak then
+				shouldBlock = true
+			end
+
+			if shouldBlock and npc.SetEnemy then
+				npc:SetEnemy(NULL)
+			end
+		end
+	end)
+
+	-- Hide weapons when player switches while cloaked
+	hook.Add("PlayerSwitchWeapon", "zc_cloak_hideweapon", function(ply, oldWep, newWep)
+		if not ply.cloak then return end
+		if IsValid(oldWep) then oldWep:SetNoDraw(false) end
+		if IsValid(newWep) then newWep:SetNoDraw(true) end
+	end)
 end

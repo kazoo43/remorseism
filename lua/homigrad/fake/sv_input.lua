@@ -5,11 +5,13 @@ concommand.Add("fake", function(ply)
 	if ply.fakecd and ply.fakecd > CurTime() then return end
 	if ply:IsFlagSet( FL_FROZEN ) then return end
 	--ply.fakecd = CurTime() + cooldown
+	ply._godFakeBypass = true
 	if not IsValid(ply.FakeRagdoll) then
 		hg.Fake(ply)
 	else
 		hg.FakeUp(ply)
 	end
+	ply._godFakeBypass = nil
 end)
 
 hook.Add("PlayerInitialSpawn", "PlayerColideCallback", function(ply) ply:AddCallback("PhysicsCollide", function(phys, data) hook.Run("PlayerCollide", ply, data.HitEntity, data) end) end)
