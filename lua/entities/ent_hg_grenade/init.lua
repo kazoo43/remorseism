@@ -54,13 +54,14 @@ end
 
 function ENT:Think()
 	if CLIENT then return end
-	self:NextThink(CurTime())
+	local curTime = CurTime()
+	self:NextThink(curTime)
 
 	if self.AddThink then
 		self:AddThink()
 	end
 
-	if (CurTime() - ( self.CreateTime or 0 )) >= 90 and self.owner ~= nil then
+	if (curTime - ( self.CreateTime or 0 )) >= 90 and self.owner ~= nil then
 		self:SetOwner(nil)
 		self.owner = nil
 		self.shouldBoom = true
@@ -73,7 +74,7 @@ function ENT:Think()
 			local wpos = ent:LocalToWorld(lpos)
 
 			if wpos:Distance(self:GetPos()) > origlen + 20 then
-				self:Arm(CurTime() - self.timeToBoom + 1)
+				self:Arm(curTime - self.timeToBoom + 1)
 			end
 
 			local tr = {}
@@ -82,17 +83,18 @@ function ENT:Think()
 			tr.filter = {self,self.ent2,self.ent}
 			local trace = util.TraceLine(tr)
 			if IsValid(trace.Entity) then
-				self:Arm(CurTime() - self.timeToBoom + 1,trace.Entity:GetVelocity())
+				self:Arm(curTime - self.timeToBoom + 1,trace.Entity:GetVelocity())
 			end
 		end
 		if not IsValid(self.cons2) then
-			self:Arm(CurTime() - self.timeToBoom + 1,0)
+			self:Arm(curTime - self.timeToBoom + 1,0)
 		end
 		return true
 	end
 
-	if (CurTime() - self.timer) < self.timeToBoom then hg.EmitAISound(self:GetPos(), 256, 2, 8) end
-	if (CurTime() - self.timer) > self.timeToBoom and not self.Exploded then self:Explode() end
+	local time = curTime - self.timer
+	if time < self.timeToBoom then hg.EmitAISound(self:GetPos(), 256, 2, 8) end
+	if time > self.timeToBoom and not self.Exploded then self:Explode() end
 	
 	return true
 end
@@ -361,6 +363,25 @@ if not enta.organism.owner.organism or not enta.organism.owner.organism.godmode 
 		local co = coroutine.create(function()
 
 			local LastShrapnel = SysTime()
+			local filter = {self}
+			local penetration = (ammotype.Penetration or (-(-self.Penetration))) * (self.PenetrationMultiplier or 1)
+			local diameter = ammotype.Diameter or 1
+			local bullet = {
+				Speed = ammotype.Speed,
+				Distance = 56756,
+				MaxPenLen = 100,
+				Diameter = diameter,
+				Src = selfPos,
+				Spread = vecCone,
+				Force = 20,
+				Damage = 40,
+				AmmoType = ammo,
+				Attacker = self.owner,
+				Inflictor = self,
+				DisableLagComp = true,
+				Filter = filter,
+				Callback = hg.bulletHit
+			}
 
 			for i = 1, self.Fragmentation do
 					LastShrapnel = SysTime()
@@ -372,27 +393,10 @@ if not enta.organism.owner.organism or not enta.organism.owner.organism.godmode 
 					local Tr = util.QuickTrace(selfPos, dir * 10000, self)
 
 					if Tr.Hit and !Tr.HitSky and !Tr.HitWorld then
-						local bullet = {}
-
-						bullet.Speed = ammotype.Speed
-						bullet.Distance = ammotype.Distance or 56756
 						bullet.penetrated = 0
-						bullet.MaxPenLen = 100
-						bullet.Penetration = (ammotype.Penetration or (-(-self.Penetration))) * (self.PenetrationMultiplier or 1)
-						bullet.Diameter = ammotype.Diameter or 1
-
-						bullet.Src = selfPos
-						bullet.Spread = vecCone
-						bullet.Force = 20
-						bullet.Damage = 40
-						bullet.AmmoType = ammo
-						bullet.Attacker = self.owner
-						bullet.Inflictor = self
-						bullet.Distance = 56756
-						bullet.DisableLagComp = true
-						bullet.Filter = {self}
+						bullet.Penetration = penetration
+						bullet.Diameter = diameter
 						bullet.Dir = dir
-						bullet.Callback = hg.bulletHit
 
 						self:FireLuaBullets(bullet, true)
 					end
@@ -414,6 +418,7 @@ if not enta.organism.owner.organism or not enta.organism.owner.organism.godmode 
 		timer.Create("GrenadeCheck_" .. index, 0, 0, function()
 			if !IsValid(self) then
 				timer.Remove("GrenadeCheck_" .. index)
+				return
 			end
 
 			coroutine.resume(co)
