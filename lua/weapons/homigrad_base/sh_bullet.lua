@@ -886,7 +886,7 @@ function SWEP:FireBullet()
 			ent:TakeDamageInfo(dmginfo)
 		end
 
-		if(hg.PhysBullet and self.UsePhysBullets)then
+		if(hg.PhysBullet and hg.PhysBullet.CreateBullet and self.UsePhysBullets)then
 			if(SERVER)then
 				hg.PhysBullet.CreateBullet(bullet)
 			end

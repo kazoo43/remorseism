@@ -38,36 +38,25 @@ local mat = Material("hmcd_dmzone")
 local mapsize = 7500
 
 function MODE:RenderScreenspaceEffects()
-	
-    if zb.ROUND_START + 7.5 < CurTime() then return end
-	
-    local fade = math.Clamp(zb.ROUND_START + 7.5 - CurTime(),0,1)
-
-    surface.SetDrawColor(0,0,0,255 * fade)
-    surface.DrawRect(-1,-1,ScrW() + 1,ScrH() + 1)
+	hg.RoundStart.Fade()
 end
 
 function MODE:HUDPaint()
 	 
-	if not lply:Alive() then return end
-    if zb.ROUND_START + 8.5 < CurTime() then return end
-	zb.RemoveFade()
-    local fade = math.Clamp(zb.ROUND_START + 8 - CurTime(),0,1)
+	local eventname = GetGlobalString("ZB_EventName", "Event")
+	local isEventer = EventersList[LocalPlayer():SteamID()]
+	local Rolename = isEventer and "Eventer" or GetGlobalString("ZB_EventRole", "Player")
+	local roleColor = isEventer and eventer.color1 or fighter.color1
+	local objective = GetGlobalString("ZB_EventObjective", "")
 
-    local eventname = GetGlobalString("ZB_EventName","Event")
-    draw.SimpleText("ZCity | "..eventname, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-    
-
-    local isEventer = EventersList[LocalPlayer():SteamID()]
-    local Rolename = isEventer and "Eventer" or GetGlobalString("ZB_EventRole","Player")
-    local ColorRole = isEventer and eventer.color1 or fighter.color1
-    ColorRole.a = 255 * fade
-    draw.SimpleText("You are a "..Rolename , "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-    local Objective = GetGlobalString("ZB_EventObjective","")
-    local ColorObj = isEventer and eventer.color1 or fighter.color1
-    ColorObj.a = 255 * fade
-    draw.SimpleText( Objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	hg.RoundStart.DrawTitle({
+		header = "ZCity | " .. eventname,
+		lines = {
+			{ text = "You are a " .. Rolename, color = roleColor },
+		},
+		objective = objective ~= "" and objective or nil,
+		color = roleColor,
+	}, { startTime = zb.ROUND_START, duration = 10 })
 end
 
 local CreateEndMenu = nil

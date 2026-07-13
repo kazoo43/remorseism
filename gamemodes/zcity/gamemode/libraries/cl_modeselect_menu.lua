@@ -291,18 +291,7 @@ if CLIENT then
             UpdateSearch(self:GetValue())
         end
         
-        local allowedModes = {
-            ["tdm"] = true,
-            ["cstrike"] = true,
-            ["hmcd"] = true,
-            ["hl2dm"] = true,
-            ["riot"] = true,
-            ["gwars"] = true,
-            ["criresp"] = true,
-        }
-        
         for i, mode in SortedPairsByMemberValue(zb.availableModes,"canlaunch",true) do
-            if !LocalPlayer():IsSuperAdmin() and !allowedModes[mode.key] then continue end
             
             local modeBtn = CreateModeItem(dscroll, mode)
             table.insert(modeItems, modeBtn)

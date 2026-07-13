@@ -63,6 +63,15 @@ SWEP.Primary.Wait = 0.4
 
 local path = "weapons/darsu_eft/mts255/"
 
+-- Длительности анимаций (в секундах) — меняй тут
+SWEP.AnimDurations = {
+    ["fistful_start__0"]    = 1.25,
+    ["sg_reload_start1__0"] = 3.25,
+    ["sg_reload_start2__0"] = 2.95,
+    ["sg_reload_start3__0"] = 2.65,
+    ["sg_reload_start4__0"] = 2.35,
+}
+
 -- Р—Р’РЈРљР Р’Р«РЎРўР Р•Р›Рђ
 SWEP.Primary.Sound = {path .. "mts255_outdoor_close.ogg", 90, 100, 100}
 SWEP.SupressedSound = {path .. "mts255_indoor_close.ogg", 80, 100, 100}
@@ -73,7 +82,7 @@ SWEP.HolsterSnd = {path .. "mr133_holster.ogg", 55, 100, 100}
 SWEP.AnimShootMul = 3
 SWEP.AnimShootHandMul = 10
 SWEP.HoldType = "shotgun"
-SWEP.ZoomPos = Vector(0, -0.69, 5.5)
+SWEP.ZoomPos = Vector(0, -0.69, 5.2)
 SWEP.RHandPos = Vector(0, 0, -1)
 SWEP.LHandPos = Vector(7, 0, -2)
 SWEP.Ergonomics = 0.8
@@ -94,16 +103,56 @@ SWEP.AnimList = {
     ["reload"]        = "fistful_insert5", -- Р·Р°РіР»СѓС€РєР°
 
     -- РѕСЃРјРѕС‚СЂ С‡РµСЂРµР· look__3 (РёРјРµРЅРЅРѕ СЌС‚Р° Р°РЅРёРјР°С†РёСЏ РјРѕРґРµР»Рё)
-    ["inspect"]       = "look__3",
-    ["inspect_empty"] = "look__3",
+    ["inspect"]       = "look__0",
+    ["inspect_empty"] = "look__0",
 }
 
-SWEP.AnimsSounds = {
+function SWEP:AllowedInspect()
+    if not self:CanUse() then return end
+    if self.isReloading then return end
+    if self:Clip1() < self.Primary.ClipSize then return end
+    if self.drawBullet == false then return end
+    return true
+end
+
+
+local path = "weapons/darsu_eft/mts255/"
+SWEP.AnimsEvents = {
+    ["inspect"] = {
+        [0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+    },
     ["draw__0"] = {
         [0.05] = function(self) self:EmitSound(path .. "mr133_draw.ogg") end,
     },
     ["holster__0"] = {
         [0.05] = function(self) self:EmitSound(path .. "mr133_holster.ogg") end,
+    },
+    ["fistful_start__0"] = {
+        [0.1] = function(self) self:EmitSound(path .. "mts255_baraban_open.ogg") end,
+        [0.25] = function(self) self:EmitSound(path .. "mts255_baraban_purge_all.ogg") end,
+    },
+    ["sg_reload_start1__0"] = {
+        [0.1] = function(self) self:EmitSound(path .. "mts255_baraban_open.ogg") end,
+        [0.4] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.55] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.65] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.95] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+
+    },
+    ["sg_reload_start2__0"] = {
+        [0.1] = function(self) self:EmitSound(path .. "mts255_baraban_open.ogg") end,
+        [0.5] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.65] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.85] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+    },
+    ["sg_reload_start3__0"] = {
+        [0.1] = function(self) self:EmitSound(path .. "mts255_baraban_open.ogg") end,
+        [0.5] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+        [0.75] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
+    },
+    ["sg_reload_start4__0"] = {
+        [0.1] = function(self) self:EmitSound(path .. "mts255_baraban_open.ogg") end,
+        [0.6] = function(self) self:EmitSound(path .. "mts255_baraban_purge_single.ogg") end,
     },
 }
 
@@ -313,43 +362,37 @@ function SWEP:Reload(time)
         self.reloadToLoad    = toLoad
 
         if clip == 0 then
-            -- РџРћР›РќРђРЇ РџР•Р Р•Р—РђР РЇР”РљРђ
+            -- ПОЛНАЯ ПЕРЕЗАРЯДКА
             local targetStep = math.min(toLoad, 5)
 
-            local estimatedTime = 1.3 + (targetStep * 1.2) + 1.3
+            local fistfulDur = self.AnimDurations["fistful_start__0"] or 1.25
+
+            local estimatedTime = fistfulDur + (targetStep * 1.2) + 1.3
             self:SetNetVar("shootgunReload", CurTime() + estimatedTime)
             self.reloadCoolDown = CurTime() + estimatedTime
 
-            self:PlayAnim("fistful_start__0", 1.25, false, function()
+            self:PlayAnim("fistful_start__0", fistfulDur, false, function()
                 if not IsValid(self) then return end
-                -- Р·РІСѓРє РІС‹Р±СЂР°СЃС‹РІР°РЅРёСЏ РІСЃРµС… РіРёР»СЊР·
-                self:EmitSound(path .. "mts255_baraban_purge_all.ogg")
                 MTS255_PlayFistfulChain(self, 1, targetStep)
             end, false, true)
 
-            -- Р·РІСѓРє РћРўРљР Р«РўРРЇ Р±Р°СЂР°Р±Р°РЅР°
-            self:EmitSound(path .. "mts255_baraban_open.ogg")
-
         else
-            -- Р’Р«Р‘РћР РћР§РќРђРЇ РџР•Р Р•Р—РђР РЇР”РљРђ
+            -- ВЫБОРОЧНАЯ ПЕРЕЗАРЯДКА
             local firstIndex = clip
             local lastIndex  = math.min(clip + toLoad - 1, 4)
 
-            local estimatedTime = 1.2 + (toLoad * 1.1) + 1.2
+            local startAnim = "sg_reload_start" .. clip .. "__0"
+            local startDur = self.AnimDurations[startAnim] or 2.35
+
+            local estimatedTime = startDur + (toLoad * 1.1) + 1.2
             self:SetNetVar("shootgunReload", CurTime() + estimatedTime)
             self.reloadCoolDown = CurTime() + estimatedTime
 
-            local startAnim = "sg_reload_start" .. clip .. "__0"
-
-            self:PlayAnim(startAnim, 2.35, false, function()
+            self:PlayAnim(startAnim, startDur, false, function()
                 if not IsValid(self) then return end
-                -- Р·РІСѓРє РІС‹С‚Р°СЃРєРёРІР°РЅРёСЏ РїР°С‚СЂРѕРЅРѕРІ РёР· Р±Р°СЂР°Р±Р°РЅР° (partial reload)
                 self:EmitSound(path .. "mts255_round_extract1.ogg")
                 MTS255_PlaySgInsertChain(self, firstIndex, lastIndex)
             end, false, true)
-
-            -- Р·РІСѓРє РћРўРљР Р«РўРРЇ Р±Р°СЂР°Р±Р°РЅР°
-            self:EmitSound(path .. "mts255_baraban_open.ogg")
         end
     end
 end

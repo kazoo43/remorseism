@@ -72,7 +72,7 @@ function CLASS.On(self, data)
     self:SetNetVar("Accessories", "")
     self.CurAppearance = Appearance
     
-    self:SetModel("models/humans/gordon/group01/gordoncitizen.mdl")--gordon without HEV
+    self:SetModel("models/humans/gordon/group01/gordoncitizen.mdl")
     self:SetNWString("PlayerName", "Gordon")
     self:SetPlayerColor(Color(246, 139, 0):ToVector())
     self:SetSubMaterial()
@@ -85,9 +85,9 @@ function CLASS.On(self, data)
             local wep = self:Give(math.random(2) == 1 and "weapon_hk_usp" or "weapon_revolver357")
             self:GiveAmmo(wep:GetMaxClip1() * 3, wep:GetPrimaryAmmoType(), true)
 
-            self:Give("weapon_hg_crowbar")--GORDON FREEMAN SAVED MY LIFE
+            self:Give("weapon_hg_crowbar")
 
-            self:Give("weapon_physcannon")
+            self:Give("weapon_hg_gravitygun")
 
             local wep = self:Give("weapon_hg_hl2nade_tpik")
             wep.count = 3
@@ -144,7 +144,7 @@ function CLASS.On(self, data)
         self:SyncArmor()
         hevchanged(self)
 
-        --print("JOOOPAAAA")
+        
     end
 end
 
@@ -273,7 +273,7 @@ hook.Add("WeaponEquip","pickuplom",function(wep,ply)
         wep:Remove()
 		local bar = ply:Give("weapon_hg_crowbar_gordon")
 		ply:SelectWeapon(bar)
-	elseif ply.PlayerClassName ~= "Gordon" and wep:GetClass() == "weapon_hg_crowbar_gordon" then -- не достоен
+	elseif ply.PlayerClassName ~= "Gordon" and wep:GetClass() == "weapon_hg_crowbar_gordon" then 
 		wep:Remove()
 		local bar = ply:Give("weapon_hg_crowbar")
 		ply:SelectWeapon(bar)
@@ -403,7 +403,7 @@ if CLIENT then
     local color_glow_ar = Color(255,155,0,0)
     local color_glow_ammo = Color(255,155,0,0)
     local color_bld = Color(255,155,0)
-    local color_sight = Color(255,155,0,220) -- Color(240,240,240,255) uncomment for real hl2 crosshair
+    local color_sight = Color(255,155,0,220) 
     local armorTxt = 0
     local hpTxt = 0
     local BloodTxt = 0
@@ -418,7 +418,7 @@ if CLIENT then
     function CLASS.HUDPaint(self)
         if not self:Alive() then return end
         if not self:GetNetVar("HEVSuit") then return end
-        --HP
+        
         local FRT = FrameTime() * 5
         local pos, size = drawBGPanel(0.065,0.98)
         surface.SetFont("HEVFontDefault")
@@ -428,7 +428,7 @@ if CLIENT then
         color_bg.a = 225
         draw.DrawText("000","HEVFontDefaultBG",pos[1]+size[1]*0.08 + 1,pos[2]+(size[2]/2) - txtSizeY/2 + 1,color_bg,TEXT_ALIGN_RIGHT)
 
-        --draw.GlowingText(text, font, x, y, col, colglow, colglow2, align )
+        
         color_glow.a = math.Round( Lerp( FRT, color_glow.a, oldHpTxt ~= hpTxt and 255 or 0 ) ) 
 
         local color_hp = color_hp1:Lerp(color_crit,(1-hpTxt/25)*math.abs(math.cos(CurTime()*2)))
@@ -456,26 +456,20 @@ if CLIENT then
         oldArTxt = armorTxt
         draw.DrawText("Armor","HEVFontSmall",pos[1]+size[1]*0.085+1,pos[2]+(size[2]/1.8)+1,color_bg,TEXT_ALIGN_LEFT)
         draw.DrawText("Armor","HEVFontSmall",pos[1]+size[1]*0.085,pos[2]+(size[2]/1.8),color_ar,TEXT_ALIGN_LEFT)
-        -- Sights
+        
         local wep = self:GetActiveWeapon()
         if IsValid(wep) then
             if not IsValid(wep) or not wep.GetTrace then return end
             local tr = wep:GetTrace(true)
             posSight = LerpVector(FRT*5, posSight, Vector(tr.HitPos:ToScreen().x,tr.HitPos:ToScreen().y,0) )
             color_sight.a = Lerp(FRT*5,color_sight.a, lply:KeyDown(IN_ATTACK2) and 0 or 255)
-			--[[ uncomment for real hl2 crosshair
-				draw.RoundedBox(0, posSight.x - 1, posSight.y - 1, 1, 1, color_sight)
-				draw.RoundedBox(0, posSight.x - 1, posSight.y + 6, 1, 1, color_sight)
-				draw.RoundedBox(0, posSight.x - 1, posSight.y - 8, 1, 1, color_sight)
-				draw.RoundedBox(0, posSight.x + 8, posSight.y - 1, 1, 1, color_sight)
-				draw.RoundedBox(0, posSight.x - 10, posSight.y - 1, 1, 1, color_sight)
-			]]
+			
             draw.RoundedBox(0, posSight.x - 1, posSight.y + 2, 2, 6, color_sight)
             draw.RoundedBox(0, posSight.x - 1, posSight.y - 8, 2, 6, color_sight)
             draw.RoundedBox(0, posSight.x + 2, posSight.y - 1, 6, 2, color_sight)
             draw.RoundedBox(0, posSight.x - 8, posSight.y - 1, 6, 2, color_sight)
         end
-        --Ammo
+        
         if IsValid(wep) and wep.Clip1 then
             local FRT = FrameTime() * 5
             ammolerp = Lerp(FRT,ammolerp,wep:Clip1() < 0 and 0 or 1)
@@ -487,7 +481,7 @@ if CLIENT then
             color_ar.a = 255*ammolerp
             ammoTxt = math.min(ammoTxt + 1, wep:Clip1())
             draw.DrawText( "000", "HEVFontDefaultBG",pos[1]+size[1]*0.08 + 1,pos[2]+(size[2]/2) - txtSizeY/2 + 1,color_bg,TEXT_ALIGN_RIGHT)
-            --draw.DrawText( ammoTxt, "HEVFontDefault",pos[1]+size[1]*0.08,pos[2]+(size[2]/2) - txtSizeY/2,color_ar,TEXT_ALIGN_RIGHT)
+            
 
             color_glow_ammo.a = math.Round( Lerp( FRT, color_glow_ammo.a, oldAmmoTxt ~= ammoTxt and 255 or 0 ) ) 
             draw.GlowingText( ammoTxt, "HEVFontDefault", pos[1]+size[1]*0.08, pos[2]+(size[2]/2) - txtSizeY/2, color_ar, color_glow_ammo,nil, TEXT_ALIGN_RIGHT)
@@ -496,14 +490,14 @@ if CLIENT then
             draw.DrawText( "Ammo", "HEVFontSmall",pos[1]+size[1]*0.085+1,pos[2]+(size[2]/1.8)+1,color_bg,TEXT_ALIGN_LEFT)
             draw.DrawText( "Ammo", "HEVFontSmall",pos[1]+size[1]*0.085,pos[2]+(size[2]/1.8),color_ar,TEXT_ALIGN_LEFT)
         end
-        --Blood
+        
         local pos, size = drawBGPanel(0.035,0.93)
         surface.SetFont("HEVFontSmall")
         if not self.organism or not self.organism.blood then return end
         bloodlerp = Lerp(FRT,bloodlerp,self.organism.blood > 4900 and 0 or 1)
         bloodOld = self.organism.blood
         local _,txtSizeY = surface.GetTextSize(self.organism.blood)
-        --print(self.organism.blood)
+        
         BloodTxt = math.Round(math.min(BloodTxt + 25, self.organism.blood))
 
         local color_bg = BGColor
@@ -534,18 +528,6 @@ if CLIENT then
     end)
 
 end
-
-hook.Add("CanListenOthers", "GordonWeDontHearYou", function(talker)
-    if talker:Alive() and talker.PlayerClassName == "Gordon" then
-        return false, false 
-    end
-end)
-
-hook.Add("HG_PlayerSay", "GordonWeDontSeeYouChat", function(ply, txtTbl, text)
-    if ply:Alive() and ply.PlayerClassName == "Gordon" then
-        txtTbl[1] = ""
-    end
-end)
 
 if CLIENT then
     local queen = {}
@@ -615,7 +597,7 @@ elseif SERVER then
             ply:SetNetVar("HEVMedicine", ply.HEV.Medicine)
             if org.brain > 0.1 then
                 org.mannitol = org.brain * 2
-                --ply, msg, delay, msgKey, showTime, func, clr)
+                
                 ply:Notify("HEV suit has detected a traumatic brain injury. Injecting mannitol.",true,"mannitol_hev",0.5,function(ply)
                     net.Start("HEV_DAMAGE")
                         net.WriteString("hl1/fvox/automedic_on.wav")
@@ -855,7 +837,7 @@ elseif SERVER then
                         if #ply.organism.arterialwounds > 0 then
                             snd = "hl1/fvox/torniquette_applied.wav"
                         end
-                        --table.Empty(ply.organism.arterialwounds)
+                        
                         for i, wound in pairs(ply.organism.arterialwounds) do
                             wound[1] = 0
                         end
@@ -876,4 +858,3 @@ elseif SERVER then
 
 end
 
--- hl1/fvox/armor_gone.wav

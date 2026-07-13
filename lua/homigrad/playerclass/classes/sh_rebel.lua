@@ -84,13 +84,17 @@ local rebel_medic_models = {
 
 
 local primary_weapons = {
-    "weapon_akm",
-    "weapon_asval",
-    "weapon_mp7",
-    "weapon_spas12",
-    "weapon_xm1014",
-    "weapon_svd",
-    "weapon_osipr"
+    "weapon_ak74u",
+    "weapon_akmwreked",
+    "weapon_m16a2",
+    "weapon_ash12",
+    "weapon_ash12",
+    "weapon_ump45",
+    "weapon_skorpion1",
+    "weapon_m590a1",
+    "weapon_vpo136",
+    "weapon_sok94",
+    "weapon_ar15"
 }
 
 local primary_attachments = {
@@ -102,18 +106,39 @@ local primary_attachments = {
 }
 
 local secondary_weapons = {
-    "weapon_m9beretta",
-    "weapon_browninghp",
-    "weapon_revolver357",
-    "weapon_revolver2",
-    "weapon_hk_usp",
-    "weapon_glock17"
+    "weapon_tokarev",
+    "weapon_pl15",
+    "weapon_m1911",
+    "weapon_p22",
+    "weapon_cz75",
+    "weapon_pb",
+    "weapon_makarov",
+    "weapon_sr1mp",
+    "weapon_p226",
+    "weapon_fn57",
+    "weapon_chiappa_rhino",
+    "weapon_aps"
+}
+
+local shotgunner_primary = {
+    "weapon_ks23",
+    "weapon_remington870_long",
+    "weapon_m3super",
+    "weapon_870",
+    "weapon_m590a1",
+    "weapon_mp133",
+    "weapon_mp153",
+    "weapon_mr43",
+    "weapon_mts255",
+    "weapon_mts255",
+    "weapon_xm1014"
 }
 
 local helmet_list = {
-    "helmet1",
-    "helmet7"
-    --"helmet5",
+    "helmet14",
+    "helmet20",
+    "helmet9",
+    "helmet12"
 }
 
 local face_list = {
@@ -127,10 +152,28 @@ local face_list = {
     ""
 }
 
-local vest_list = {
-    "vest5",
-    "vest4",
-    "vest1"
+local bulldozer_primary = {
+    "weapon_rpk",
+    "weapon_mk78",
+    "weapon_pkm",
+    "weapon_m60",
+    "weapon_usas12",
+    "weapon_aa12"
+}
+
+local bulldozer_helmets = {
+    { helmet = "helmet18", mask = "" },
+    { helmet = "helmet20", mask = "mask4" },
+    { helmet = "helmet17", mask = "mask1" },
+    { helmet = "helmet9",  mask = "mask1" },
+}
+
+local bulldozer_vests = {
+    "vest13",
+    "vest19",
+    "vest11",
+    "vest16",
+    "vest17"
 }
 
 local rebel_subclasses = {
@@ -178,8 +221,21 @@ local rebel_subclasses = {
 
     sniper = {
         give_fn = function(ply)
-            local wep1 = ply:Give("weapon_hg_crossbow")
+            local snipers = {
+                { class = "weapon_sks",     atts = { "optic4" } },
+                { class = "weapon_mosin",   atts = { "optic12" } },
+                { class = "weapon_vpo215",  atts = { "optic6", "supressor7" } },
+                { class = "weapon_ak50",    atts = { "optic3" } },
+                { class = "weapon_svt",     atts = { "optic4" } },
+            }
+
+            local choice = snipers[math.random(#snipers)]
+            local wep1 = ply:Give(choice.class)
             ply:GiveAmmo(wep1:GetMaxClip1() * 10, wep1:GetPrimaryAmmoType(), true)
+
+            for _, att in ipairs(choice.atts) do
+                hg.AddAttachmentForce(ply, wep1, att)
+            end
 
             local wep2 = ply:Give("weapon_revolver357")
             ply:GiveAmmo(wep2:GetMaxClip1() * 3, wep2:GetPrimaryAmmoType(), true)
@@ -188,7 +244,7 @@ local rebel_subclasses = {
 
     grenadier = {
         give_fn = function(ply)
-            ply:Give(math.random(0,1) == 1 and "weapon_hg_rebelrpg" or "weapon_hg_rpg")
+            ply:Give("weapon_hg_rebelrpg")
             ply:Give("weapon_claymore")
             ply:Give("weapon_traitor_ied")
             ply:Give("weapon_hg_slam")
@@ -196,6 +252,26 @@ local rebel_subclasses = {
 
             local wep = ply:Give("weapon_revolver357")
             ply:GiveAmmo(wep:GetMaxClip1() * 3, wep:GetPrimaryAmmoType(), true)
+        end
+    },
+
+    bulldozer = {
+        give_fn = function(ply)
+            local wep1 = ply:Give(bulldozer_primary[math.random(#bulldozer_primary)])
+            ply:GiveAmmo(wep1:GetMaxClip1() * 3, wep1:GetPrimaryAmmoType(), true)
+
+            local wep2 = ply:Give(secondary_weapons[math.random(#secondary_weapons)])
+            ply:GiveAmmo(wep2:GetMaxClip1() * 3, wep2:GetPrimaryAmmoType(), true)
+        end
+    },
+
+    shotgunner = {
+        give_fn = function(ply)
+            local wep1 = ply:Give(shotgunner_primary[math.random(#shotgunner_primary)])
+            ply:GiveAmmo(wep1:GetMaxClip1() * 6, wep1:GetPrimaryAmmoType(), true)
+
+            local wep2 = ply:Give(secondary_weapons[math.random(#secondary_weapons)])
+            ply:GiveAmmo(wep2:GetMaxClip1() * 6, wep2:GetPrimaryAmmoType(), true)
         end
     }
 }
@@ -205,17 +281,33 @@ local function giveSubClassLoadout(ply, subClass)
     
     cfg.give_fn(ply)
 
-    --;; Система случайного говна
+    
     ply.armors = ply.armors or {}
-    local randVest = vest_list[math.random(#vest_list)]
-    local randFace = face_list[math.random(#face_list)]
-    local randHelmet = helmet_list[math.random(#helmet_list)]
 
-    if randVest ~= "" then hg.AddArmor(ply, randVest) end
-    if randHelmet ~= "" then hg.AddArmor(ply, randHelmet) end
-    if randFace ~= "" then hg.AddArmor(ply, randFace) end
+    if subClass == "bulldozer" then
+        local randVest = bulldozer_vests[math.random(#bulldozer_vests)]
+        hg.AddArmor(ply, randVest)
+
+        local pick = bulldozer_helmets[math.random(#bulldozer_helmets)]
+        hg.AddArmor(ply, pick.helmet)
+        if pick.mask ~= "" then hg.AddArmor(ply, pick.mask) end
+    else
+        local mainVest = (subClass == "medic") and "vest20" or "vest21"
+        hg.AddArmor(ply, mainVest)
+
+        local randFace = face_list[math.random(#face_list)]
+        if randFace ~= "" then hg.AddArmor(ply, randFace) end
+
+        local randHelmet = helmet_list[math.random(#helmet_list)]
+        if randHelmet ~= "" then hg.AddArmor(ply, randHelmet) end
+    end
 
     ply:SyncArmor()
+
+    if subClass ~= "medic" then
+        ply:Give("weapon_bigbandage_sh")
+        ply:Give("weapon_painkillers")
+    end
 
     ply:Give("weapon_combatknife")
     ply:Give("weapon_walkie_talkie")
@@ -227,33 +319,26 @@ function CLASS.On(self, data)
 
     ApplyAppearance(self,nil,nil,nil,true)
     local appearance = self.CurAppearance or hg.Appearance.GetRandomAppearance()
-    appearance.AAttachments = ""
-    appearance.AColthes = ""
 
-    local mdl_key = appearance.AModel
-    if not rebel_models[mdl_key] then
-        self:ChatPrint("zcity/appearance.json have invalid variables.. Setting random Appearance")
-        appearance = hg.Appearance.GetRandomAppearance()
-        mdl_key = appearance.AModel
-    end
+    
+    
+    local subclass = self.subClass or "default"
 
     self:SetPlayerColor(Color(13,101,5):ToVector())
-    self:SetModel(rebel_models[mdl_key])
     self:SetSubMaterial()
-    self:SetNetVar("Accessories", "")
 
     if not data.bNoEquipment then
-        self:PlayerClassEvent("GiveEquipment", self.subClass)
+        self:PlayerClassEvent("GiveEquipment", subclass)
     end
 
-
-    if self.subClass == "medic" then
-        local new_mdl = rebel_medic_models[self:GetModel()]
-        if new_mdl then
-            self:SetModel(new_mdl)
-        end
+    
+    local clothSheet = ThatPlyIsFemale(self) and "models/humans/female/group02/citizen_sheet" or "models/humans/male/group02/citizen_sheet"
+    local slots = self:GetSubMaterialSlots()
+    for _, v in ipairs(slots) do
+        self:SetSubMaterial(v, clothSheet)
     end
 
+    self:SetNetVar("Accessories", appearance.AAttachments or "")
 
     self.subClass = nil
 
@@ -303,7 +388,7 @@ function CLASS.GiveEquipment(self, subClass)
     giveSubClassLoadout(ply, subClass or "default")
 end
 
---;; Серверная часть: звуки боли, перезарядки и т.п.
+
 if SERVER then
     local paintable = {
         [HITGROUP_STOMACH] = function(ply,ent)
@@ -365,7 +450,7 @@ if SERVER then
         if rebel_classes[ply.PlayerClassName] then
             ply.painCD = ply.painCD or 0
             if paintable[hitgroup] and (ply.painCD < CurTime()) and ply.organism and not ply.organism.otrub and ply:Alive() and not ply.organism.holdingbreath then 
-                --paintable[hitgroup](ply,ent)
+                
             end
         end
     end)

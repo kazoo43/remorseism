@@ -8,12 +8,19 @@ function zb.AddFade()
 	net.Broadcast()
 end
 
-local ZB_FORCE_ONLY_HOMICIDE = true
+local ZB_FORCE_ONLY_HOMICIDE = false
 local ZB_FORCED_TEMP_MODE = "hmcd"
 
 local function ZB_ResolveNextRound(round)
 	if ZB_FORCE_ONLY_HOMICIDE then
 		return ZB_FORCED_TEMP_MODE
+	end
+
+	if forcemodeconvar then
+		local f = forcemodeconvar:GetString()
+		if f and f ~= "random" and f ~= "" then
+			return f
+		end
 	end
 
 	return round

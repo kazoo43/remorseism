@@ -242,8 +242,8 @@ if SERVER then
 		return "Bystander", ROLE_INNO
 	end
 
-	-- Mirror of MODE:CheckAlivePlayers: traitors win when they are the only
-	-- side left standing.
+	
+	
 	local function TraitorsWon()
 		local tAlive, iAlive = false, false
 		for _, ply in player.Iterator() do
@@ -264,8 +264,9 @@ if SERVER then
 		local plys = ActivePlayers()
 		local featured, used = {}, {}
 
-		-- Traitor victory: the MVP is automatically the traitor with the most kills.
+		
 		local haveMVP = false
+
 		if TraitorsWon() then
 			local best = BestBy(plys, function(p)
 				if not p.isTraitor then return end
@@ -299,13 +300,13 @@ if SERVER then
 	end
 
 	hook.Add("ZB_EndRound", "rem_roundsummary_send", function()
+		if zb.CROUND == "coop" then return end
+
 		local featured, NameOf, RoleFor = ComputeFeatured()
 		if #featured == 0 then return end
 
-		if zb.nextround ~= "coop" then
-			local want = CurTime() + math.max(SUMMARY_POST_ROUND, CurrentRound().end_time or 5)
-			zb.END_TIME = math.max(zb.END_TIME or 0, want)
-		end
+		local want = CurTime() + math.max(SUMMARY_POST_ROUND, CurrentRound().end_time or 5)
+		zb.END_TIME = math.max(zb.END_TIME or 0, want)
 
 		net.Start("rem_roundsummary")
 			net.WriteUInt(#featured, 4)
@@ -603,7 +604,7 @@ local function SetupModel(mp, ply, model, pose, spec, appearance, playerClassNam
 	end
 
 	if spec then
-		-- Spectators who somehow got featured show as a solid black silhouette.
+		
 		function mp:PreDrawModel()
 			render.SuppressEngineLighting(true)
 			render.SetColorModulation(0, 0, 0)
@@ -632,7 +633,7 @@ local function SetupModel(mp, ply, model, pose, spec, appearance, playerClassNam
 		if istable(acc) and hg and hg.Accessories and DrawAccesories then
 			for _, a in ipairs(acc) do
 				local d = hg.Accessories[a]
-				if d then DrawAccesories(ent, ent, a, d, false, true) end
+				if d then DrawAccesories(ply, ent, a, d, false, true) end
 			end
 		end
 		ent:SetupBones()

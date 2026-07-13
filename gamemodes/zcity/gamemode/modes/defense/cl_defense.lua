@@ -20,11 +20,7 @@ local teams = {
 }
 
 function MODE:RenderScreenspaceEffects()
-    if zb.ROUND_START + 7.5 < CurTime() then return end
-    local fade = math.Clamp(zb.ROUND_START + 7.5 - CurTime(), 0, 1)
-
-    surface.SetDrawColor(0, 0, 0, 255 * fade)
-    surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
+	hg.RoundStart.Fade()
 end
 
 local NextWave_Time = 0
@@ -45,29 +41,26 @@ function MODE:HUDPaint()
 		draw.SimpleText( "Next wave in ".. time.m ..":" .. time.s, "ZB_HomicideMedium", sw * 0.5, sh * (0.9 + timePos), Color(87,146,255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 
-    if zb.ROUND_START + 8.5 < CurTime() then return end
-	 
-	if not lply:Alive() then return end
-    local fade = math.Clamp(zb.ROUND_START + 8 - CurTime(), 0, 1)
 	local team_ = lply:Team()
-    draw.SimpleText("ZBattle | HL2 Base Defense", "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0,162,255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	
-    local playerRole = lply:GetNWString("PlayerRole", "Refugee") 
-    local roleColor = teams[team_].color1
-    roleColor.a = 255 * fade
-    draw.SimpleText("You are a " .. playerRole, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, roleColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	local playerRole = lply:GetNWString("PlayerRole", "Refugee")
+	local teamData = teams[team_] or teams[1]
 
-    local objective = teams[team_].objective
-    local objectiveColor = teams[team_].color2
-    objectiveColor.a = 255 * fade
-    draw.SimpleText(objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, objectiveColor, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	hg.RoundStart.DrawTitle({
+		header = "ZBattle | HL2 Base Defense",
+		lines = {
+			{ text = "You are a " .. playerRole, color = teamData.color1 },
+		},
+		objective = teamData.objective ~= "" and teamData.objective or nil,
+		color = teamData.color1,
+	}, { startTime = zb.ROUND_START, duration = 10 })
 
-	if hg.PluvTown.Active then
+	if hg.PluvTown.Active and (CurTime() - zb.ROUND_START) < 10 then
+		local pluv_a = math.Clamp((10 - (CurTime() - zb.ROUND_START)) / 10, 0, 1)
 		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
+		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * pluv_a / 2)
 		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
 
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * pluv_a), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 end
 

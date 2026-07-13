@@ -9,7 +9,7 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_shot_m3super90.mdl"
-SWEP.WorldModelFake = "models/weapons/arc9/darsu_eft/c_toz106.mdl"
+SWEP.WorldModelFake = "models/weapons/c_toz106.mdl"
 SWEP.FakeAttachment = "1"
 SWEP.FakeBodyGroups = "110011111"
 SWEP.FakeBodyGroupsPresets = {
@@ -26,22 +26,12 @@ SWEP.FakeAng = Angle(-0.2, 0, 0)
 SWEP.AttachmentPos = Vector(0.5,0.1,0.3)
 SWEP.AttachmentAng = Angle(0,0,0)
 
-SWEP.FakeReloadSounds = {
-	[0.51] = "weapons/tfa_nam_svd/svd_magout.wav",
-	[0.95] = "weapons/tfa_nam_svd/svd_magin.wav",
-}
-
-SWEP.FakeEmptyReloadSounds = {
-	[0.1] = "weapons/tfa_ins2/k98/m40a1_boltlatch.wav",
-	[0.15] = "weapons/tfa_ins2/k98/m40a1_boltrelease.wav",
-	[0.5] = "weapons/tfa_nam_svd/svd_magout.wav",
-	[0.87] = "weapons/tfa_nam_svd/svd_magin.wav",
-	[0.97] = "weapons/tfa_ins2/k98/m40a1_boltrelease.wav",
-}
-
 local math = math
 local math_random = math.random
 SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
 	["cycle0"] = {
 		[0.1] = function(self)
 			self:EmitSound("weapons/tfa_ins2/k98/m40a1_boltback.wav", 45, math_random(110, 115))
@@ -99,7 +89,16 @@ SWEP.AnimList = {
 	["reload"] = "reload0",
 	["reload_empty"] = "reload_empty0",
 	["cycle"] = "cycle0",
+	["inspect"] = "inspect0",
 }
+
+function SWEP:AllowedInspect()
+    if not self:CanUse() then return end
+    if self.isReloading then return end
+    if self:Clip1() < self.Primary.ClipSize then return end
+    if self.drawBullet == false then return end
+    return true
+end
 
 SWEP.ScrappersSlot = "Primary"
 SWEP.WepSelectIcon2 = Material("entities/arc9_eft_toz106.png")
@@ -112,8 +111,8 @@ SWEP.CustomShell = "20/70"
 SWEP.EjectAng = Angle(-45,0,0)
 SWEP.AutomaticDraw = false
 SWEP.UseCustomWorldModel = false
-SWEP.Primary.ClipSize = 3
-SWEP.Primary.DefaultClip = 3
+SWEP.Primary.ClipSize = 5
+SWEP.Primary.DefaultClip = 5
 SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "20/70 gauge"
 SWEP.Primary.Cone = 0
@@ -124,8 +123,8 @@ SWEP.Primary.Sound = {"weapons/darsu_eft/toz106/toz_fire_close1.ogg", 65, 90, 10
 SWEP.SupressedSound = {"homigrad/weapons/rifle/m4a1-1.wav", 65, 90, 100}
 SWEP.availableAttachments = {
 	barrel = {
-		[1] = {"supressor1", Vector(0,0,0), {}},
-		[2] = {"supressor6", Vector(3,0,0), {}},
+		[1] = {"", Vector(0,0,0), {}},
+		[2] = {"", Vector(3,0,0), {}},
 		["mount"] = Vector(-3,2,0.2),
 	},
 	sight = {
@@ -354,17 +353,11 @@ function SWEP:InitializePost()
 end
 
 -- Inspect Assault
-SWEP.InspectAnimWepAng = {
-	Angle(0,0,0),
-	Angle(4,4,15),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(-6,-15,-15),
-	Angle(1,15,-45),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(0,0,0),
-	Angle(0,0,0)
-}
+function SWEP:AllowedInspect()
+    if not self:CanUse() then return end
+    if self.isReloading then return end
+    if self:Clip1() < self.Primary.ClipSize then return end
+    if self.drawBullet == false then return end
+    return true
+end
+

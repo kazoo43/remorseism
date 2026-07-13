@@ -142,7 +142,7 @@ function SWEP:AnimHoldPost() end
 function SWEP:ModelCreated(model) model:SetBodyGroups(self:GetRandomBodygroups() or "000000000") end
 function SWEP:PostSetupDataTables() self:NetworkVar("String", 0, "RandomBodygroups"); if CLIENT then self:NetworkVarNotify("RandomBodygroups", self.OnVarChanged) end end
 function SWEP:OnVarChanged(name, old, new) if not IsValid(self:GetWM()) then return end self:GetWM():SetBodyGroups(new) end
-function SWEP:InitializePost() self:SetRandomBodygroups(table.Random(self.FakeBodyGroupsPresets)); self.AnimStart_Insert = 0; self.AnimStart_Draw = 0 end
+function SWEP:InitializePost() local randomPreset = table.Random(self.FakeBodyGroupsPresets); if istable(randomPreset) then randomPreset = table.Random(randomPreset) end; if isstring(randomPreset) then self:SetRandomBodygroups(randomPreset) end; self.AnimStart_Insert = 0; self.AnimStart_Draw = 0 end
 function SWEP:AnimationPost() 
     local animpos = math.Clamp(self:GetAnimPos_Draw(CurTime()), 0, 1)
     local sin = 1 - animpos

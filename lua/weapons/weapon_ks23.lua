@@ -9,7 +9,7 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_shot_m3super90.mdl"
-SWEP.WorldModelFake = "models/weapons/arc9/darsu_eft/c_ks23.mdl"
+SWEP.WorldModelFake = "models/weapons/c_ks23.mdl"
 
 SWEP.FakePos = Vector(-12, 4, 7.5)
 SWEP.FakeAng = Angle(-0.5, 0, 1)
@@ -118,8 +118,21 @@ SWEP.AnimList = {
 	["insert"] = "reload_loop2",
 	["start"] = "reload_start2",
 	["cycle"] = "pump1",
+	["inspect"] = "look",
 }
+
+function SWEP:AllowedInspect()
+    if not self:CanUse() then return end
+    if self.isReloading then return end
+    if self:Clip1() < self.Primary.ClipSize then return end
+    if self.drawBullet == false then return end
+    return true
+end
+
 SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
 	["reload_start2"] = {
 		[0.45] = function(self)
 			self:EmitSound("weapons/arccw_ud/870/shell-insert-0"..math.random(1,3)..".ogg")

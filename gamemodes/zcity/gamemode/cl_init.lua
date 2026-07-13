@@ -1,5 +1,6 @@
 zb = zb or {}
 include("shared.lua")
+include("libraries/cl_roundstart.lua")
 include("loader.lua")
 
 if not ConVarExists("hg_newspectate") then

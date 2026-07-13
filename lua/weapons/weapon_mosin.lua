@@ -151,6 +151,9 @@ function SWEP:ModelCreated(model)
 end
 
 SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
 	["Base_Reload_Start"] = {
 		[0.3] = function(self)
 			SetModelAmmo(self:GetWM(), self)

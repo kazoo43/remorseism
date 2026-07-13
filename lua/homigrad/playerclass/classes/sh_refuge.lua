@@ -111,6 +111,12 @@ local primary = {
     "weapon_sks",
     "weapon_vpo136",
     "weapon_winchester",
+    "weapon_mts255",
+    "weapon_mr43_short",
+    "weapon_mr43",
+    "weapon_vpo215",
+    "weapon_mp18",
+    "weapon_mxlr",
 }
 
 local secondary = {

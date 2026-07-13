@@ -565,7 +565,8 @@ function SWEP:PrimaryShoot()
 
 	self:EmitShoot()
 	--if SERVER or self:IsClient() then
-		self:FireBullet()
+		local ok, err = pcall(self.FireBullet, self)
+		if not ok then ErrorNoHalt("[HG] FireBullet error: " .. tostring(err)) end
 	--end
 	self.dwr_reverbDisable = nil
 	self.shooanim = self.ShootAnimMul

@@ -34,50 +34,28 @@ local teams = {
 }
 
 function MODE:RenderScreenspaceEffects()
-    if zb.ROUND_START + 7.5 < CurTime() then return end
-    local fade = math.Clamp(zb.ROUND_START + 7.5 - CurTime(),0,1)
-
-    surface.SetDrawColor(0,0,0,255 * fade)
-    surface.DrawRect(-1,-1,ScrW() + 1,ScrH() + 1)
+	hg.RoundStart.Fade()
 end
 
 --// Ну вроде сделал его чуточку читаемым 
 function MODE:HUDPaint()
-    if zb.ROUND_START + 8.5 < CurTime() then return end
-     
-    if not lply:Alive() then return end
-    zb.RemoveFade()
+	local team_data = teams[lply:Team()] or teams[0]
+	hg.RoundStart.DrawTitle({
+		header = "ZBattle | Half-Life 2 Deathmatch",
+		lines = {
+			{ text = "You are " .. team_data.name, color = team_data.color1 },
+		},
+		objective = team_data.objective ~= "" and team_data.objective or nil,
+		color = team_data.color1,
+	}, { startTime = zb.ROUND_START, duration = 10 })
 
-    local fade = math.Clamp(zb.ROUND_START + 8 - CurTime(), 0, 1)
-    local team_id = lply:Team()
-    local role = lply:GetNWString("PlayerRole")
-    local team_data = teams[team_id]
-
-    draw.SimpleText("ZBattle | Half-Life 2 Deathmatch", "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0, 162, 255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-	--; Любимое ООП шарика
-    local role_data = {
-        name = team_data.name,
-        color = team_data.color1,
-        objective = team_data.objective
-    }
-    
-    role_data.color.a = 255 * fade
-
-    draw.SimpleText("You are " .. role_data.name, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, role_data.color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-    local objective_color = team_data.color2
-
-    objective_color.a = 255 * fade
-
-    draw.SimpleText(role_data.objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, objective_color, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-
-	if hg.PluvTown.Active then
+	if hg.PluvTown.Active and (CurTime() - zb.ROUND_START) < 10 then
+		local pluv_a = math.Clamp((10 - (CurTime() - zb.ROUND_START)) / 10, 0, 1)
 		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
+		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * pluv_a / 2)
 		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
 
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * pluv_a), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 end
 

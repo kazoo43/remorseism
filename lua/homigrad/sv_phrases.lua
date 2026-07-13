@@ -428,7 +428,7 @@ function hg.AssignPainScreamFolder(ply)
 		return ply.painScreamFolder
 	end
 
-	local folders = painScreamFolders[female]
+	local folders = painScreamFolders[female] or painScreamFolders[false]
 	ply.painScreamFolderFemale = female
 	ply.painScreamFolder = folders[mRandom(#folders)]
 

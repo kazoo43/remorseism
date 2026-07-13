@@ -9,30 +9,47 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_pist_glock18.mdl"
-SWEP.WorldModelFake = "models/weapons/arc9/darsu_eft/c_pl15.mdl"
-SWEP.FakeScale = 1.07
-SWEP.FakePos = Vector(-17.5, 4.5, 6.5)
+SWEP.WorldModelFake = "models/weapons/c_pl15.mdl"
+SWEP.FakeScale = 1
+SWEP.FakePos = Vector(-19, 4.5, 6.5)
 SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.AttachmentPos = Vector(0,0,0)
 SWEP.AttachmentAng = Angle(0,0,0)
 SWEP.FakeAttachment = "1"
 SWEP.FakeEjectBrassATT = "2"
 SWEP.FakeBodyGroups = "111110101"
-SWEP.FakeReloadSounds = {
-	[0.23] = "zcitysnd/sound/weapons/m9/handling/m9_magout.wav",
-	[0.75] = "zcitysnd/sound/weapons/m9/handling/m9_magin.wav",
-	[0.91] = "zcitysnd/sound/weapons/m9/handling/m9_maghit.wav"
-}
-
-SWEP.stupidgun = true
-
-SWEP.FakeEmptyReloadSounds = {
-	[0.2] = "zcitysnd/sound/weapons/m9/handling/m9_magout.wav",
-	[0.67] = "zcitysnd/sound/weapons/m9/handling/m9_magin.wav",
-	[0.74] = "zcitysnd/sound/weapons/m9/handling/m9_maghit.wav",
-	[0.97] = "zcitysnd/sound/weapons/m9/handling/m9_boltrelease.wav"
-}
 SWEP.MagModel = "models/weapons/arc9/darsu_eft/mods/mag_pl15.mdl"
+
+SWEP.AnimList = {
+	["idle"] = "idle",
+	["reload"] = "reload",
+	["reload_empty"] = "reload_empty",
+	["inspect"] = "inspect",
+}
+
+SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
+    ["reload"] = {
+        [0.1] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_mag_out.ogg") end,
+        [0.55] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_mag_in.ogg") end,
+    },
+    ["reload_empty"] = {
+        [0.025] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_chamber_out.ogg") end,
+		[0.2] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_mag_out_all.ogg") end,
+		[0.5] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_mag_in.ogg") end,
+		[0.7] = function(self) self:EmitSound("weapons/darsu_eft/deagle/deagle_chamber_in.ogg") end,
+    },
+}
+
+function SWEP:AllowedInspect()
+	if not self:CanUse() then return end
+	if self.isReloading then return end
+	if self:Clip1() < self.Primary.ClipSize then return end
+	if self.drawBullet == false then return end
+	return true
+end
 
 SWEP.lmagpos = Vector(0,0,0)
 SWEP.lmagang = Angle(0,0,0)
@@ -72,11 +89,6 @@ SWEP.FakeReloadEvents = {
 	end,
 }
 
-SWEP.AnimList = {
-	["idle"] = "idle",
-	["reload"] = "reload",
-	["reload_empty"] = "reload_empty",
-}
 
 SWEP.FakeVPShouldUseHand = false
 
@@ -106,23 +118,17 @@ SWEP.Primary.Ammo = "9x19 mm Parabellum"
 SWEP.Primary.Cone = 0
 SWEP.Primary.Damage = 24
 SWEP.Primary.Sound = {"weapons/darsu_eft/pl15/pl_fire_indoor_distant.wav", 75, 90, 100}
-SWEP.SupressedSound = {"zcitysnd/sound/weapons/m9/m9_suppressed_fp.wav", 65, 90, 100}
+SWEP.SupressedSound = {"weapons/darsu_eft/pl15/pl_fire_silenced_indoor_close.wav", 65, 90, 100}
 SWEP.Primary.SoundEmpty = {"zcitysnd/sound/weapons/makarov/handling/makarov_empty.wav", 75, 100, 105, CHAN_WEAPON, 2}
 SWEP.Primary.Force = 23
 SWEP.Primary.Wait = PISTOLS_WAIT
-SWEP.ReloadTime = 3.6
-SWEP.ReloadSoundes = {
-	"none",
-	"weapons/tfa_ins2/usp_tactical/magout.wav",
-	"weapons/tfa_ins2/browninghp/magin.wav",
-	"pwb/weapons/fnp45/sliderelease.wav",
-	"none",
-	"none"
-}
+SWEP.ReloadTime = 3
+
+
 SWEP.DeploySnd = {"homigrad/weapons/draw_pistol.mp3", 55, 100, 110}
 SWEP.HolsterSnd = {"homigrad/weapons/holster_pistol.mp3", 55, 100, 110}
 SWEP.HoldType = "revolver"
-SWEP.ZoomPos = Vector(-3, -0.1, 4.1)
+SWEP.ZoomPos = Vector(0, 0.2076, 4.2312)
 SWEP.SprayRand = {Angle(-0.03, -0.03, 0), Angle(-0.05, 0.03, 0)}
 SWEP.Ergonomics = 1.3
 SWEP.Penetration = 7
@@ -145,9 +151,14 @@ SWEP.holsteredAng = Angle(0, 20, 30)
 SWEP.shouldntDrawHolstered = true
 SWEP.availableAttachments = {
 	barrel = {
-		[1] = {"supressor6", Vector(0,0,0), {}},
+		[1] = {"supressor3", Vector(0,0,0), {}},
 		[2] = {"supressor4", Vector(0,0.1,0), {}},
 		["mount"] = Vector(-0.251,0.2,0.03),
+	},
+	underbarrel = {
+		["mount"] = Vector(13.2, -1.2, -1),
+		["mountAngle"] = Angle(0, -0.75, 90),
+		["mountType"] = "picatinny_small"
 	},
 }
 
@@ -175,97 +186,3 @@ function SWEP:DrawPost()
 	end
 end
 
---RELOAD ANIMS PISTOL
-
-SWEP.ReloadAnimLH = {
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(-3,-1,-5),
-	Vector(-12,1,-22),
-	Vector(-12,1,-22),
-	Vector(-12,1,-22),
-	Vector(-12,1,-22),
-	Vector(-2,-1,-3),
-	"fastreload",
-	Vector(0,0,0),
-	"reloadend",
-	"reloadend",
-}
-SWEP.ReloadAnimLHAng = {
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(30,-10,0),
-	Angle(60,-20,0),
-	Angle(70,-40,0),
-	Angle(90,-30,0),
-	Angle(40,-20,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-}
-
-SWEP.ReloadAnimRH = {
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	Vector(-2,0,0),
-	Vector(-1,0,0),
-	Vector(0,0,0)
-}
-SWEP.ReloadAnimRHAng = {
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(15,2,20),
-	Angle(15,2,20),
-	Angle(0,0,0)
-}
-SWEP.ReloadAnimWepAng = {
-	Angle(0,0,0),
-	Angle(5,15,15),
-	Angle(-5,21,14),
-	Angle(-5,21,14),
-	Angle(5,20,13),
-	Angle(5,22,13),
-	Angle(1,22,13),
-	Angle(1,21,13),
-	Angle(2,22,12),
-	Angle(-5,21,16),
-	Angle(-5,22,14),
-	Angle(-4,23,13),
-	Angle(7,22,8),
-	Angle(7,12,3),
-	Angle(2,6,1),
-	Angle(0,0,0)
-}
-
-
--- Inspect Assault
-
-SWEP.InspectAnimWepAng = {
-	Angle(0,0,0),
-	Angle(4,4,15),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(-6,-15,-15),
-	Angle(1,15,-45),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(0,0,0),
-	Angle(0,0,0)
-}

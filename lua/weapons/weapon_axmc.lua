@@ -143,6 +143,12 @@ SWEP.AnimsSounds = {
     },
 }
 
+SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
+}
+
 SWEP.stupidgun = true
 
 function SWEP:AllowedInspect()
@@ -155,7 +161,7 @@ function SWEP:PostSetupDataTables() self:NetworkVar("String", 0, "RandomBodygrou
 function SWEP:OnVarChanged(name, old, new) if not IsValid(self:GetWM()) then return end self:GetWM():SetBodyGroups(new) end
 
 function SWEP:InitializePost() 
-    self:SetRandomBodygroups(table.Random(self.FakeBodyGroupsPresets))
+    local randomPreset = table.Random(self.FakeBodyGroupsPresets); if istable(randomPreset) then randomPreset = table.Random(randomPreset) end; if isstring(randomPreset) then self:SetRandomBodygroups(randomPreset) end
     self.AnimStart_Insert = 0
     self.AnimStart_Draw = 0
     self.BlockReload = 0 -- Инициализация блокировки перезарядки

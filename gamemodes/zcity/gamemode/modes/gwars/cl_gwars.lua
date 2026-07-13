@@ -49,10 +49,7 @@ local teams = {
 }
 local lerpsnd = 0.3
 function MODE:RenderScreenspaceEffects()
-	if zb.ROUND_START + 7.5 < CurTime() then return end
-	local fade = math.Clamp(zb.ROUND_START + 7.5 - CurTime(), 0, 1)
-	surface.SetDrawColor(0, 0, 0, 255 * fade)
-	surface.DrawRect(-1, -1, ScrW() + 1, ScrH() + 1)
+	hg.RoundStart.Fade()
 end
 
 surface.CreateFont("timer_Font2", {
@@ -127,25 +124,23 @@ function MODE:HUDPaint()
 	if zb.ROUND_START + 8.5 < CurTime() then return end
 
 	if not lply:Alive() then return end
-	zb.RemoveFade()
-	local fade = math.Clamp(zb.ROUND_START + 8 - CurTime(), 0, 1)
 	local team_ = lply:Team()
-	draw.SimpleText("ZBattle | Gang Wars", "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.1, Color(0, 162, 255, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	local Rolename = teams[team_].name
-	local ColorRole = teams[team_].color1
-	ColorRole.a = 255 * fade
-	draw.SimpleText("You are " .. Rolename, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.5, ColorRole, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-	local Objective = teams[team_].objective
-	local ColorObj = teams[team_].color2
-	ColorObj.a = 255 * fade
-	draw.SimpleText(Objective, "ZB_HomicideMedium", sw * 0.5, sh * 0.9, ColorObj, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+	hg.RoundStart.DrawTitle({
+		header = "ZBattle | Gang Wars",
+		lines = {
+			{ text = "You are " .. (teams[team_] or teams[0]).name, color = (teams[team_] or teams[0]).color1 },
+		},
+		objective = (teams[team_] or teams[0]).objective ~= "" and (teams[team_] or teams[0]).objective or nil,
+		color = (teams[team_] or teams[0]).color1,
+	}, { startTime = zb.ROUND_START, duration = 10 })
 
-	if hg.PluvTown.Active then
+	if hg.PluvTown.Active and (CurTime() - zb.ROUND_START) < 10 then
+		local pluv_a = math.Clamp((10 - (CurTime() - zb.ROUND_START)) / 10, 0, 1)
 		surface.SetMaterial(hg.PluvTown.PluvMadness)
-		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * fade / 2)
+		surface.SetDrawColor(255, 255, 255, math.random(175, 255) * pluv_a / 2)
 		surface.DrawTexturedRect(sw * 0.25, sh * 0.44 - ScreenScale(15), sw / 2, ScreenScale(30))
 
-		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * fade), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+		draw.SimpleText("SOMEWHERE IN PLUVTOWN", "ZB_ScrappersLarge", sw / 2, sh * 0.44 - ScreenScale(2), Color(0, 0, 0, 255 * pluv_a), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 	end
 end
 

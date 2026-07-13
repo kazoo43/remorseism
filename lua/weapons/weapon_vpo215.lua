@@ -37,7 +37,7 @@ SWEP.FakeVPShouldUseHand = false
 SWEP.WepSelectIcon2 = Material("entities/arc9_eft_vpo215.png")
 SWEP.IconOverride = "entities/arc9_eft_vpo215.png"
 
-SWEP.LocalMuzzlePos = Vector(40, -0.66, 3.8)
+SWEP.LocalMuzzlePos = Vector(20, -0.66, 7)
 SWEP.LocalMuzzleAng = Angle(1, -0.2, 0)
 SWEP.WeaponEyeAngles = Angle(-0.7, 0.1, 0)
 
@@ -164,6 +164,12 @@ SWEP.AnimsSounds = {
     },
 }
 
+SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
+}
+
 SWEP.stupidgun = true
 
 function SWEP:AllowedInspect()
@@ -190,7 +196,7 @@ function SWEP:OnVarChanged(name, old, new)
 end
 
 function SWEP:InitializePost()
-    self:SetRandomBodygroups(table.Random(self.FakeBodyGroupsPresets))
+    local randomPreset = table.Random(self.FakeBodyGroupsPresets); if istable(randomPreset) then randomPreset = table.Random(randomPreset) end; if isstring(randomPreset) then self:SetRandomBodygroups(randomPreset) end
     self.AnimStart_Insert = 0
     self.AnimStart_Draw = 0
 end

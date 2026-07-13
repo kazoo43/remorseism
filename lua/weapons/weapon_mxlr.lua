@@ -12,7 +12,7 @@ SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_shotgun.mdl"
 SWEP.WorldModelFake = "models/weapons/c_mxlr.mdl"
 
-SWEP.FakePos = Vector(-7, 3.6, 6)
+SWEP.FakePos = Vector(-11, 3.6, 6)
 SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.FakeAttachment = "1"
 SWEP.AttachmentPos = Vector(-8.5,0,0)
@@ -24,22 +24,6 @@ SWEP.FakeBodyGroups = "01111111111100"
 
 SWEP.FakeBodyGroupsPresets = {
     "01111111111100"
-}
-
-SWEP.FakeReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.34] = "weapons/ak74/ak74_magout_rattle.wav",
-    [0.85] = "weapons/ak74/ak74_magin.wav",
-    [0.95] = "weapons/universal/uni_crawl_l_05.wav",
-}
-
-SWEP.FakeEmptyReloadSounds = {
-    [0.25] = "weapons/ak74/ak74_magout.wav",
-    [0.34] = "weapons/ak74/ak74_magout_rattle.wav",
-    [0.65] = "weapons/ak74/ak74_magin.wav",
-    [0.75] = "weapons/universal/uni_crawl_l_05.wav",
-    [0.91] = "weapons/ak74/ak74_boltback.wav",
-    [0.96] = "weapons/ak74/ak74_boltrelease.wav",
 }
 
 SWEP.MagModel = "models/weapons/upgrades/w_magazine_m1a1_30.mdl"
@@ -54,13 +38,11 @@ SWEP.FakeVPShouldUseHand = false
 SWEP.WepSelectIcon2 = Material("entities/arc9_eft_mxlr.png")
 SWEP.IconOverride = "entities/arc9_eft_mxlr.png"
 
-SWEP.LocalMuzzlePos = Vector(40, -0.66, 3.8)
+SWEP.LocalMuzzlePos = Vector(20, -0.66, 7)
 SWEP.LocalMuzzleAng = Angle(1, -0.2, 0)
 SWEP.WeaponEyeAngles = Angle(-0.7, 0.1, 0)
 
 SWEP.CustomShell = ".357 Magnum"
-SWEP.ReloadSound = "weapons/remington_870/870_shell_in_1.wav"
-SWEP.CockSound = "pwb2/weapons/ithaca37stakeout/pump.wav"
 SWEP.weight = 4
 SWEP.ScrappersSlot = "Primary"
 SWEP.weaponInvCategory = 1
@@ -93,7 +75,7 @@ SWEP.AnimShootHandMul = 1
 SWEP.DeploySnd = {"homigrad/weapons/draw_hmg.mp3", 55, 100, 110}
 SWEP.HolsterSnd = {"homigrad/weapons/hmg_holster.mp3", 55, 100, 110}
 SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(0, -0.68, 5.1)
+SWEP.ZoomPos = Vector(0, -0.6758, 4.9886)
 SWEP.RHandPos = Vector(0, 0, -1)
 SWEP.LHandPos = Vector(7, 0, -2)
 SWEP.Ergonomics = 1.2
@@ -329,7 +311,17 @@ SWEP.AnimsSounds = {
     },
 }
 
+SWEP.AnimsEvents = {
+	["inspect"] = {
+		[0.01] = function(self) self:EmitSound("weapons/universal/uni_crawl_l_03.wav") end,
+	},
+}
+
 SWEP.stupidgun = true
+
+function SWEP:AllowedInspect()
+	return self:Clip1() >= self.Primary.ClipSize and self.drawBullet == true
+end
 
 function SWEP:AnimHoldPost()
 end
@@ -348,11 +340,12 @@ end
 
 function SWEP:OnVarChanged(name, old, new)
     if not IsValid(self:GetWM()) then return end
+    if istable(new) then local normalized = {}; for i = 1, #new do normalized[i] = tostring(new[i]) end; new = table.concat(normalized, "") elseif not isstring(new) then return end
     self:GetWM():SetBodyGroups(new)
 end
 
 function SWEP:InitializePost()
-    self:SetRandomBodygroups(table.Random(self.FakeBodyGroupsPresets))
+    local randomPreset = table.Random(self.FakeBodyGroupsPresets); if istable(randomPreset) then randomPreset = table.Random(randomPreset) end; if isstring(randomPreset) then self:SetRandomBodygroups(randomPreset) end
     self.AnimStart_Insert = 0
     self.AnimStart_Draw = 0
 end
@@ -479,23 +472,3 @@ function SWEP:CanPrimaryAttack()
     return not (self:GetNetVar("shootgunReload", 0) > CurTime())
 end
 
--- Inspect Assault
-SWEP.InspectAnimLH = { Vector(0, 0, 0) }
-SWEP.InspectAnimLHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimRH = { Vector(0, 0, 0) }
-SWEP.InspectAnimRHAng = { Angle(0, 0, 0) }
-SWEP.InspectAnimWepAng = {
-    Angle(0, 0, 0),
-    Angle(-5, 9, 5),
-    Angle(-5, 9, 14),
-    Angle(-5, 9, 16),
-    Angle(-6, 10, 15),
-    Angle(-5, 9, 16),
-    Angle(-10, 15, -15),
-    Angle(-2, 22, -15),
-    Angle(0, 25, -32),
-    Angle(0, 24, -45),
-    Angle(0, 22, -55),
-    Angle(0, 20, -56),
-    Angle(0, 0, 0)
-}

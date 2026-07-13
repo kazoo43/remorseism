@@ -318,7 +318,9 @@ if SERVER then
     end
 
     local function npcCheckDistance(npc, npc2)
-        return (npc:GetPos():Distance(npc2:GetPos()))
+        local pos2 = IsValid(npc2) and npc2:GetPos() or npc2
+        if not pos2 then return 0 end
+        return (npc:GetPos():Distance(pos2))
     end
 
     local function npcIsRangingAttack(npc)
@@ -920,8 +922,9 @@ if SERVER then
             for _, npc in pairs(ents.FindByClass("npc_combine_s")) do
                 local soundstring = sound.Volume >= 0.5 and (string.find(sound.SoundName:lower(), "foot") or string.find(sound.SoundName:lower(), "metropolice/gear"))
                 local idlemode = npc:GetNPCState() == NPC_STATE_IDLE or npc:GetNPCState() == NPC_STATE_ALERT
-                local dist = npcCheckDistance(npc, sound.Entity) <= 2048
-                local poss = sound.Pos != nil and sound.Pos or sound.Entity:GetPos()
+                local sndPos = IsValid(sound.Entity) and sound.Entity:GetPos() or sound.Pos
+                local dist = sndPos and npcCheckDistance(npc, sndPos) <= 2048
+                local poss = sndPos
                 timer.Simple(1, function()
                     if soundstring and IsValid(npc) then
                         if not npc:IsMoving() and (npc:GetNPCState()==1 or npc:GetNPCState()==2) and dist then
@@ -951,7 +954,7 @@ if SERVER then
     end
 
     local function SoldierMoreChatter(npc)
-        if npc:GetClass()=="npc_combine_s" then
+        if IsValid(npc) and npc:GetClass()=="npc_combine_s" then
             local hasEnemy, enemy = npcEnemyIsValid(npc)
             local canChat = npc:GetNWBool( "SoldierCanChat" )
             local bool = GetConVar(fullName("morechatter")):GetBool()

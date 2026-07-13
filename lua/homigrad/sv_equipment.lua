@@ -4,9 +4,9 @@ util.AddNetworkString("hg_drop_equipment")
 local syncLinkedArmor
 
 local armorBreakShotRanges = {
-	head = {25, 55},
-	face = {25, 55},
-	default = {10, 35}
+	head = {40, 80},
+	face = {40, 80},
+	default = {20, 50}
 }
 
 local armorBrokenProtectionRange = {0.1, 0.2}
@@ -23,6 +23,10 @@ local DEFAULT_VEST_HEALTH = 1.5
 local DEFAULT_VEST_HEALTH_DAMAGE_MUL = 0.01
 local DEFAULT_VEST_WORN_THRESHOLD = 0.25
 local ARMOR_WEAR_STAGES = 3
+
+-- Global armor toughness: armor takes this fraction of damage to its HP / durability,
+-- so it lasts a bit longer before breaking. Lower = tougher armor.
+local ARMOR_DAMAGE_TAKEN_MUL = 0.7
 
 local function getArmorShotRange(equipment)
 	local placement = hg.GetArmorPlacement(equipment)
@@ -169,6 +173,8 @@ local function IsArmorBreakProtected(ent)
 	if not IsValid(ent) then return false end
 	if ent:IsNPC() and ent:GetClass() == "npc_combine_s" then return true end
 	if ent:IsPlayer() and ent.PlayerClassName == "Gordon" then return true end
+	-- Combine and Metrocop armor is unbreakable.
+	if ent:IsPlayer() and (ent.PlayerClassName == "Combine" or ent.PlayerClassName == "Metrocop") then return true end
 	return false
 end
 
@@ -569,7 +575,7 @@ local function DamageArmor(org, placement, armor, dmgInfo, rawDmg)
 
 		local absorbMultiplier = armorData.absorbMultiplier or DEFAULT_HELMET_ABSORB_MULTIPLIER
 		local durabilityDamageMul = armorData.durabilityDamageMul or DEFAULT_HELMET_DURABILITY_DAMAGE_MUL
-		local damageToArmor = rawDmg * absorbMultiplier * durabilityDamageMul
+		local damageToArmor = rawDmg * absorbMultiplier * durabilityDamageMul * ARMOR_DAMAGE_TAKEN_MUL
 
 		currentDurability = math.max(0, currentDurability - damageToArmor)
 		owner.armors_durability[armor] = currentDurability
@@ -588,7 +594,7 @@ local function DamageArmor(org, placement, armor, dmgInfo, rawDmg)
 	local currentHealth = owner.armors_health[armor] or DEFAULT_VEST_HEALTH
 
 	local healthDamageMul = armorData.healthDamageMul or DEFAULT_VEST_HEALTH_DAMAGE_MUL
-		currentHealth = math.max(0, currentHealth - rawDmg * healthDamageMul)
+		currentHealth = math.max(0, currentHealth - rawDmg * healthDamageMul * ARMOR_DAMAGE_TAKEN_MUL)
 		owner.armors_health[armor] = currentHealth
 		SyncArmorWear(owner, armor, placement)
 		PlayArmorWearStageSound(owner, armor, placement)
@@ -702,14 +708,13 @@ local function protec(org, bone, dmg, dmgInfo, placement, armor, scale, scalepro
 		local rawDmg = dmgInfo:GetDamage()
 		local broken = DamageArmor(org, placement, armor, dmgInfo, rawDmg)
 		if broken and placement == "head" then
-			local absorbMul = armorData.absorbMultiplier or DEFAULT_HELMET_ABSORB_MULTIPLIER
-			dmgInfo:ScaleDamage(math.Clamp(1 - absorbMul, 0, 1))
-			-- Keep the damage as a bullet wound so a punched-through helmet still
-			-- opens a bleeding hole in the head instead of a harmless club hit.
+			-- The shot that knocks the helmet off fully protects the player:
+			-- the helmet stops the bullet and it does not punch through to the head.
+			dmgInfo:ScaleDamage(0)
 			dmgInfo:SetDamageForce(dmgInfo:GetDamageForce() * 0.4)
 			org.lastArmorMitigation = 1
 			org.lastHeadArmorMitigation = 1
-			return 0
+			return 1
 		end
 
 		-- A fully broken plate carrier / mask offers no protection: let the bullet

@@ -489,7 +489,7 @@ local function ConsumeIEDBonus(ent)
 end
 
 local expItems = {
-	["models/props_c17/oildrum001_explosive.mdl"] = {ExpType = "Fire", Force = 75, RangeMul = 1.35},
+	["models/props_c17/oildrum001_explosive.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.1, KnockbackMul = 0.55, DamageMul = 0.65},
 	["models/props_junk/gascan001a.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.3},
 	["models/props_junk/propane_tank001a.mdl"] = {ExpType = "Sharpnel", Force = 30, RangeMul = 1.35},
 	["models/props_junk/metalgascan.mdl"] = {ExpType = "Fire", Force = 40, RangeMul = 1.3},

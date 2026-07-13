@@ -558,6 +558,8 @@ if SERVER then
 			self.modeValues[1] = self.modeValues[1] - amt
 			org.bandagedskull = true
 			org.pain = math.max(org.pain - 7, 0)
+			ent.bandaged_limbs = ent.bandaged_limbs or {}
+			ent.bandaged_limbs["ValveBiped.Bip01_Head1"] = true
 			done = true
 		end
 
@@ -911,7 +913,7 @@ if SERVER then
 else
 	local boneScale = {
 		["ValveBiped.Bip01_Head1"] = 1,
-		["ValveBiped.Bip01_Neck1"] = 0.8,
+		["ValveBiped.Bip01_Neck1"] = 1,
 		["ValveBiped.Bip01_L_UpperArm"] = 0.9,
 		["ValveBiped.Bip01_L_Forearm"] = 0.8,
 		["ValveBiped.Bip01_R_UpperArm"] = 0.9,
@@ -923,7 +925,7 @@ else
 	}
 
 	local boneOffset = {
-		["ValveBiped.Bip01_Neck1"] = {Vector(0, -1.5, -2), Angle(90, 90, 90)},
+		["ValveBiped.Bip01_Neck1"] = {Vector(2, -2, -2.9), Angle(90, 80, 70)},
 		["ValveBiped.Bip01_L_UpperArm"] = {Vector(5, -0.5, -3.2), Angle(90, 90, 90)},
 		["ValveBiped.Bip01_L_Forearm"] = {Vector(5, -0.1, -2.8), Angle(90, 90, 90)},
 		["ValveBiped.Bip01_R_UpperArm"] = {Vector(7, -0.1, -1.5), Angle(90, 90, 90)},
@@ -1016,6 +1018,10 @@ else
 			ent.bandagesModel:Remove()
 		end
 		ent.bandagesModel = nil
+		if IsValid(ent.bandagesHeadModel) then
+			ent.bandagesHeadModel:Remove()
+		end
+		ent.bandagesHeadModel = nil
 	end
 
 	hook.Add("OnNetVarSet","bandage_netvar",function(index, key, var)
@@ -1037,6 +1043,11 @@ else
 
 	local BadagesModelMale = "models/distac/newbandage.mdl"
 	local BadagesModelFemale = "models/distac/newbandage_f.mdl"
+
+	local HeadBandageModelMale = "models/distac/newbandage-head.mdl"
+	local HeadBandageModelFemale = "models/distac/newbandage-head.mdl"
+	local HeadBandageOffsetMale = {Vector(0, 0, -0.2), Angle(0, 0, 0)}
+	local HeadBandageOffsetFemale = {Vector(0, 0, -0.6), Angle(0, 0, 0)}
 	local BodyGroupsMale = {
 		["ValveBiped.Bip01_Pelvis"] = "belly",
 		["ValveBiped.Bip01_Spine"] = "groin",
@@ -1097,6 +1108,7 @@ else
 		
 		if not model.BodygroupsApplied then 
 			for k, v in pairs(ent.bandaged_limbs) do
+				if k == "ValveBiped.Bip01_Head1" then continue end -- head uses separate model
 				if dontmakehands and (k == "ValveBiped.Bip01_L_Hand" or k == "ValveBiped.Bip01_R_Hand") then continue end -- ez
 				model:SetBodygroup(model:FindBodygroupByName( ThatPlyIsFemale(ent) and BodyGroupsFemale[k] or BodyGroupsMale[k] or ""), 1)
 			end
@@ -1115,6 +1127,38 @@ else
 			model.BodygroupsApplied = true
 		end
 		model:DrawModel()
+
+		if ent.bandaged_limbs["ValveBiped.Bip01_Head1"] then
+			local female = ThatPlyIsFemale(ent)
+			local mdlpath = female and HeadBandageModelFemale or HeadBandageModelMale
+			if not IsValid(ent.bandagesHeadModel) or ent.bandagesHeadModel:GetModel() ~= mdlpath then
+				if IsValid(ent.bandagesHeadModel) then ent.bandagesHeadModel:Remove() end
+				ent.bandagesHeadModel = ClientsideModel(mdlpath)
+				ent:CallOnRemove("removebandageshead", function()
+					if IsValid(ent.bandagesHeadModel) then
+						ent.bandagesHeadModel:Remove()
+						ent.bandagesHeadModel = nil
+					end
+				end)
+			end
+			local headmodel = ent.bandagesHeadModel
+			headmodel:SetNoDraw(true)
+			headmodel:SetPos(ent:GetPos() + vector_up * 1)
+			headmodel:SetParent(ent)
+			headmodel:AddEffects(EF_BONEMERGE)
+			headmodel:SetupBones()
+
+			local offset = female and HeadBandageOffsetFemale or HeadBandageOffsetMale
+			if offset[1] ~= vector_origin or offset[2] ~= angle_zero then
+				local nb = headmodel:GetBoneCount()
+				for i = 0, nb - 1 do
+					local p, a = headmodel:GetBonePosition(i)
+					headmodel:SetBonePosition(i, p + offset[1], a + offset[2])
+				end
+			end
+
+			headmodel:DrawModel()
+		end
 	end
 	--end)
 end
