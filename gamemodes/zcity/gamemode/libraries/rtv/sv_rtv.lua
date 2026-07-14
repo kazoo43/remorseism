@@ -34,6 +34,7 @@ end
 local blacklist = {
     ["gm_construct"] = true, ["gm_flatgrass"] = true, ["gm_altarskforest"] = true, ["gm_renostruct_v2"] = true,
     ["gm_renostruct_v2_night"] = true, ["gm_city_of_silence"] = true, ["ttt_hogwarts"] = true,
+    ["hmcd_gonka"] = true, ["hmcd_bloodring"] = true,
 }
 
 local allowedPrefix = {
@@ -292,7 +293,7 @@ end
 
 local function getMapWeight(map)
     local pop = mapPopularity[map] or 0
-    return 1 - (pop / 100) 
+    return math.max(1 - (pop / 100), 0.01)
 end
 
 function zb.StartRTV(time)
@@ -383,22 +384,22 @@ function zb.StartRTV(time)
     end
 
     if #finalmaps < 12 then
-        local fallbackPrefix = "gm"
-        local fallbackMaps = getMapsByPrefix(fallbackPrefix)
         local filteredFallback = {}
-        for _, m in ipairs(fallbackMaps) do
-            if not table.HasValue(PlayedMaps, m) then
+        for _, m in ipairs(mappull) do
+            if not table.HasValue(PlayedMaps, m) and not table.HasValue(finalmaps, m) then
                 table.insert(filteredFallback, m)
             end
         end
 
-        local attempts = 0
-        while #finalmaps < 12 and #filteredFallback > 0 do
-            attempts = attempts + 1
-            if attempts > 300 then
-                break
+        if #filteredFallback == 0 then
+            for _, m in ipairs(mappull) do
+                if not table.HasValue(finalmaps, m) then
+                    table.insert(filteredFallback, m)
+                end
             end
+        end
 
+        while #finalmaps < 12 and #filteredFallback > 0 do
             local totalWeight = 0
             for _, m in ipairs(filteredFallback) do
                 totalWeight = totalWeight + getMapWeight(m)
@@ -419,13 +420,24 @@ function zb.StartRTV(time)
             if selectedIndex then
                 table.insert(finalmaps, filteredFallback[selectedIndex])
                 table.remove(filteredFallback, selectedIndex)
+            else
+                break
             end
         end
     end
 
     if #finalmaps == 0 then
-        local rndMap = mappull[ math.random(#mappull) ]
-        table.insert(finalmaps, rndMap)
+        local filteredFallback = {}
+        for _, m in ipairs(mappull) do
+            if not table.HasValue(finalmaps, m) then
+                table.insert(filteredFallback, m)
+            end
+        end
+
+        local rndMap = filteredFallback[ math.random(#filteredFallback) ]
+        if rndMap then
+            table.insert(finalmaps, rndMap)
+        end
     end
 
     table.insert(finalmaps, "random")
