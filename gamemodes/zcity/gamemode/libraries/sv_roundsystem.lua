@@ -10,12 +10,14 @@ end
 
 local ZB_FORCE_LIMITED_MODE_POOL = true
 local ZB_FORCED_TEMP_MODE_WEIGHTS = {
-        ["hmcd"] = 0.7,
-        ["dm"] = 0.3
+        ["hmcd"] = 0.85,
+        ["dm"] = 0.1,
+        ["riot"] = 0.05
 }
 local ZB_FORCED_MODE_POOL = {
         ["hmcd"] = true,
-        ["dm"] = true
+        ["dm"] = true,
+        ["riot"] = true
 }
 local ZB_HAS_CHANGELEVEL
 
@@ -107,11 +109,11 @@ function CurrentRound()
 	return zb.modes[round], zb.CROUND
 end
 
-function NextRound(round)
+function NextRound(round, direct)
 	if ZB_HasChangeLevel() then
 		zb.nextround = "coop"
 	else
-		zb.nextround = ZB_ResolveNextRound(round)
+                zb.nextround = direct and round or ZB_ResolveNextRound(round)
 	end
 end
 
@@ -141,9 +143,10 @@ hook.Add("CanListenOthers","RoundStartChat",function(output, input, isChat, team
 	if zb.ROUND_STATE == 0 or zb.ROUND_STATE == 3 then return true, false end
 end)
 
-function zb:EndRound()
+function zb:EndRound(skipPresentation)
 	zb.ROUND_STATE = 3
 	zb.Roundscount = (zb.Roundscount or 0) + 1
+        zb.SKIP_END_PRESENTATION = skipPresentation and true or false
 
 	local mode, round = CurrentRound()
 
@@ -154,8 +157,13 @@ function zb:EndRound()
 
 	--PrintMessage(HUD_PRINTTALK, "Раунд закончен.")
 	CurrentRound():EndRound()
-	hook.Run("ZB_EndRound")
-	zb.AddFade()
+        if not zb.SKIP_END_PRESENTATION then
+                hook.Run("ZB_EndRound")
+                zb.AddFade()
+        else
+                zb.END_TIME = CurTime()
+                zb.SHOULD_FADE = false
+        end
 
 	hg.achievements.SavePlayerAchievements()
 end
@@ -221,7 +229,8 @@ function zb:EndRoundThink()
 		if zb.END_TIME < CurTime() then
 			zb.ROUND_STATE = 0
 
-			zb.SHOULD_FADE = true
+                        zb.SHOULD_FADE = true
+                        zb.SKIP_END_PRESENTATION = false
 
 			hook.Run("ZB_PreRoundStart")
 			hook.Run("TTTPrepareRound") -- stormfox2 random_round_weather
@@ -713,7 +722,7 @@ net.Receive("AdminSetGameMode", function(len, ply)
 	local addToQueue = net.ReadBool() or false
 
 	if command == "setmode" then
-		NextRound(modeKey)
+                NextRound(modeKey, true)
 		ply:ChatPrint("Game mode set to: " .. modeKey)
 
 		if addToQueue and #zb.QueuedModes < 12 then
@@ -724,7 +733,7 @@ net.Receive("AdminSetGameMode", function(len, ply)
 		end
 	elseif command == "setforcemode" then
 		forcemode = modeKey
-		NextRound(forcemode)
+                NextRound(forcemode, true)
 		ply:ChatPrint("Force mode set to: " .. modeKey)
 
 		if addToQueue then
@@ -740,7 +749,7 @@ net.Receive("AdminEndRound", function(len, ply)
 	if not ply:IsAdmin() then return end
 
 	ply:ChatPrint("Round ended!")
-	zb:EndRound()
+        zb:EndRound(true)
 end)
 
 function zb.SyncQueueToAdmins()
@@ -821,7 +830,7 @@ COMMANDS.setmode = {
 		if not ply:IsAdmin() then ply:ChatPrint("You don't have access") return end
 		if not args[1] or (not zb:GetMode(args[1]) and args[1]~="random") then return end
 		ply:ChatPrint(args[1])
-		NextRound(args[1])
+                NextRound(args[1], true)
 	end,
 	0
 }
@@ -833,7 +842,7 @@ COMMANDS.setforcemode = {
 		ply:ChatPrint(args[1])
 		forcemode = args[1]
 		if args[1] ~= "random" then
-			NextRound(args[1])
+                        NextRound(args[1], true)
 		end
 	end, 0
 }
@@ -844,7 +853,7 @@ COMMANDS.endround = {
 			ply:ChatPrint("You don't have access")
 			return
 		end
-	 	zb:EndRound()
+                zb:EndRound(true)
 	end, 0
 }
 
@@ -886,7 +895,7 @@ if SERVER then
 		end
 
 		if command == "setmode" then
-			NextRound(modeKey)
+                        NextRound(modeKey, true)
 			ply:ChatPrint("Game mode set to: " .. modeKey)
 
 			if addToQueue and #zb.QueuedModes < 12 then
@@ -897,7 +906,7 @@ if SERVER then
 			end
 		elseif command == "setforcemode" then
 			forcemode = modeKey
-			NextRound(forcemode)
+                        NextRound(forcemode, true)
 			ply:ChatPrint("Force mode set to: " .. modeKey)
 
 			if addToQueue and #zb.QueuedModes < 12 then
