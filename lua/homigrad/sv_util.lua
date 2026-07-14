@@ -3,10 +3,6 @@ local isBulletDamage = FindMetaTable( "CTakeDamageInfo" ).IsBulletDamage
 
 hg.ConVars = hg.ConVars or {}
 
--- Ослабление контузии/баротравмы в зависимости от материала стены между
--- взрывом и игроком. Ударная волна огибает препятствия, отражается в замкнутом
--- пространстве и проходит сквозь тонкие перегородки (гипсокартон, дерево),
--- поэтому контузия за стеной возможна, но сильные стены гасят её сильнее.
 function hg.GetBlastWallAttenuation(tr)
 	if not tr then return 3.5 end
 

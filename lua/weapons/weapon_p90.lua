@@ -9,7 +9,7 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_smg_p90.mdl"
-SWEP.WorldModelFake = "models/weapons/arc9/darsu_eft/c_p90.mdl"
+SWEP.WorldModelFake = "models/weapons/c_p90.mdl"
 
 SWEP.FakePos = Vector(-2.5, 3.65, 7.6)
 SWEP.FakeAng = Angle(0, 0, 0)
