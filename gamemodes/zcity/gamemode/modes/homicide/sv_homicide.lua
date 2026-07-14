@@ -695,7 +695,17 @@ function MODE:SubModes()
 	return modes
 end
 
-local homicide_traitoramount = ConVarExists("homicide_traitoramount") and GetConVar("homicide_traitoramount") or CreateConVar("homicide_traitoramount", 1, FCVAR_SERVER_CAN_EXECUTE + FCVAR_ARCHIVE, "Homicide Only: Determine how many traitors should innocents face in homicide.", 1, 20)
+local function GetHomicideTraitorCount(player_count)
+        local traitors_needed = 1
+
+        if player_count > 20 then
+                traitors_needed = 3
+        elseif player_count > 10 then
+                traitors_needed = 2
+        end
+
+        return math.max(0, math.min(player_count - 1, traitors_needed))
+end
 
 function MODE:Intermission()
 	game.CleanUpMap()
@@ -730,15 +740,7 @@ function MODE:Intermission()
 	MODE.TraitorWord = MODE.TraitorWords[math.random(1, #MODE.TraitorWords)]
 	MODE.TraitorWordSecond = MODE.TraitorWords[math.random(1, #MODE.TraitorWords)]
 
-	local traitors_needed = math.min(player_count - 1, homicide_traitoramount:GetInt())
-	
-	if(MODE.ShouldStartRoleRound())then
-		traitors_needed = math.ceil(player_count / 9)
-		
-		if(player_count > 8 and math.random(1, 8) == 1)then
-			traitors_needed = traitors_needed + 1
-		end
-	end
+        local traitors_needed = GetHomicideTraitorCount(player_count)
 
 	MODE.TraitorExpectedAmt = traitors_needed
 	local main_traitor = nil
