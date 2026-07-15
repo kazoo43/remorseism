@@ -148,8 +148,17 @@ local function GetIntensityData(index)
     }
 end
 
+local function GetRiotTeam(ply)
+    return ply.RiotAssignedTeam or ply:Team()
+end
+
+local function SetRiotTeam(ply, teamId)
+    ply.RiotAssignedTeam = teamId
+    ply:SetTeam(teamId)
+end
+
 local function GetIntroRoleName(ply, intensityId)
-    if ply:Team() == 0 then
+    if GetRiotTeam(ply) == 0 then
         return "a Rioter"
     end
 
@@ -173,6 +182,7 @@ function MODE:Intermission()
     for _, ply in player.Iterator() do
         if ply:Team() == TEAM_SPECTATOR then continue end
         ply.HasVoted = nil
+        ply.RiotAssignedTeam = nil
         if ply:Alive() then
             ply:KillSilent()
         end
@@ -251,7 +261,7 @@ function MODE:EndVoting()
 
             net.Start("riot_start")
             net.WriteInt(selectedMode, 4)
-            net.WriteInt(ply:Team(), 4)
+            net.WriteInt(GetRiotTeam(ply), 4)
             net.WriteString(GetIntroRoleName(ply, intensityId))
             net.Send(ply)
         end
@@ -262,13 +272,15 @@ function MODE:CheckAlivePlayers()
     local swatPlayers = {}
     local banditPlayers = {}
 
-    for _, ply in ipairs(team.GetPlayers(0)) do
+    for _, ply in player.Iterator() do
+        if GetRiotTeam(ply) ~= 0 then continue end
         if ply:Alive() and not ply:GetNetVar("handcuffed", false) then
             table.insert(swatPlayers, ply)
         end
     end
 
-    for _, ply in ipairs(team.GetPlayers(1)) do
+    for _, ply in player.Iterator() do
+        if GetRiotTeam(ply) ~= 1 then continue end
         if ply:Alive() and not ply:GetNetVar("handcuffed", false) then
             table.insert(banditPlayers, ply)
         end
@@ -442,12 +454,18 @@ function MODE:GiveEquipment()
     local glockIndex = numLawEnforcers > 0 and math.random(numLawEnforcers) or 1
     local shotgunIndex = numRioters > 0 and math.random(numRioters) or 1
 
+    for i = 1, numPlayers do
+        local ply = players[i]
+        SetRiotTeam(ply, i <= numRioters and 0 or 1)
+    end
+
     for i = 1, numRioters do
         local ply = players[i]
         ply:SetupTeam(0)
         if not ply:Alive() then
             ply:Spawn()
         end
+        SetRiotTeam(ply, 0)
 
         if selectedIntensity == "CONTAINED" then
             GiveContainedRioter(ply)
@@ -465,6 +483,7 @@ function MODE:GiveEquipment()
         if not ply:Alive() then
             ply:Spawn()
         end
+        SetRiotTeam(ply, 1)
 
         if selectedIntensity == "CONTAINED" then
             GiveContainedLaw(ply, lawIndex)
@@ -481,6 +500,13 @@ function MODE:GetTeamSpawn()
 end
 
 function MODE:RoundThink()
+    for _, ply in player.Iterator() do
+        if ply:Team() == TEAM_SPECTATOR then continue end
+        if ply.RiotAssignedTeam == nil then continue end
+        if ply:Team() ~= ply.RiotAssignedTeam then
+            ply:SetTeam(ply.RiotAssignedTeam)
+        end
+    end
 end
 
 
