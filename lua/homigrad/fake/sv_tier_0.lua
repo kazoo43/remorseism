@@ -1232,7 +1232,7 @@ function hg.FakeUp(ply, forced, instant)
 	ply:SetHealth(hp)
 	ply:SetArmor(armor)
 	ply:SetEyeAngles(ang)
-	if IsValid(wep) then ply:SelectWeapon(wep:GetClass()) else ply:SelectWeapon("weapon_hands_sh") end
+        if IsValid(wep) then ply:SelectWeapon(wep:GetClass()) else ply:SelectWeapon(hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh") end
 	
 	if IsValid(ragdoll) and ragdoll.rope_attach then
 		ply:PickupWeapon(ragdoll.rope_attach)

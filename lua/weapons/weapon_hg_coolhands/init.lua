@@ -22,7 +22,7 @@ local shoveCooldownPrimary = 1.1
 local shoveCooldownSecondary = 1.35
 local shoveRange = 50
 local shoveForce = 200
-local shoveRagdollChance = 10
+local shoveRagdollChance = 6
 local shoveStumbleChance = 1
 local specialDamageMul = 1.5
 

@@ -186,6 +186,8 @@ hook.Add("HomigradDamage", "GuiltReg", function(ply, dmgInfo, hitgroup, ent, har
 
     zb.GuiltTable[Attacker] = zb.GuiltTable[Attacker] or {}
     zb.GuiltTable[Victim] = zb.GuiltTable[Victim] or {}
+    zb.HarmDoneKarma[Victim] = zb.HarmDoneKarma[Victim] or {}
+    zb.HarmDoneKarma[Victim][Attacker] = zb.HarmDoneKarma[Victim][Attacker] or 0
     
     Attacker.LastAttacked = CurTime()
 

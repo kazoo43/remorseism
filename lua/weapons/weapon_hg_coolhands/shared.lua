@@ -35,8 +35,23 @@ SWEP.SwingAng = -5
 
 hg = hg or {}
 
+local string_lower = string.lower
+local string_find = string.find
+
+local function UseDefaultHands(ply)
+        if not IsValid(ply) then return false end
+
+        local className = string_lower(ply.PlayerClassName or "")
+
+        if className == "furry" then
+                return false
+        end
+
+        return string_find(className, "zombie", 1, true) == nil
+end
+
 function hg.GetHandsWeaponClass(ply)
-        if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" then
+        if not UseDefaultHands(ply) then
                 return "weapon_hands_sh"
         end
 
@@ -62,6 +77,33 @@ function hg.GetHandsWeapon(ply)
         end
 
         return ply:GetWeapon("weapon_hands_sh")
+end
+
+if SERVER then
+        hook.Add("WeaponEquip", "hg_coolhands_fallback", function(wep, ply)
+                if not IsValid(wep) or wep:GetClass() != "weapon_hands_sh" then return end
+                if not IsValid(ply) or hg.GetHandsWeaponClass(ply) != "weapon_hg_coolhands" then return end
+
+                timer.Simple(0, function()
+                        if not IsValid(ply) then return end
+
+                        local wasActive = ply:GetActiveWeapon() == wep
+
+                        if ply:HasWeapon("weapon_hands_sh") then
+                                ply:StripWeapon("weapon_hands_sh")
+                        end
+
+                        local hands = ply:GetWeapon("weapon_hg_coolhands")
+
+                        if not IsValid(hands) then
+                                hands = ply:Give("weapon_hg_coolhands")
+                        end
+
+                        if wasActive and IsValid(hands) then
+                                ply:SelectWeapon("weapon_hg_coolhands")
+                        end
+                end)
+        end)
 end
 
 local math = math -- owo

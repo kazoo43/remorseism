@@ -20,9 +20,10 @@ function MODE:HG_MovementCalc_2( mul, ply, cmd, mv )
             mv:RemoveKey(IN_ATTACK2)
         end
 
-        if IsValid(ply) and IsValid(ply:GetWeapon("weapon_hands_sh")) then
-            cmd:SelectWeapon(ply:GetWeapon("weapon_hands_sh"))
-            if SERVER then ply:SelectWeapon("weapon_hands_sh") end
+        local hands = IsValid(ply) and (hg.GetHandsWeapon and hg.GetHandsWeapon(ply) or ply:GetWeapon("weapon_hands_sh"))
+        if IsValid(hands) then
+            cmd:SelectWeapon(hands)
+            if SERVER then ply:SelectWeapon(hands:GetClass()) end
         end
     end
 end

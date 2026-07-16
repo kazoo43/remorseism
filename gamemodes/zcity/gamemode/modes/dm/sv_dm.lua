@@ -200,7 +200,8 @@ function MODE:RoundStart()
 		if not ply:Alive() then continue end
 		ply:SetSuppressPickupNotices(true)
 		ply.noSound = true
-		ply:Give("weapon_hands_sh")
+                local handsClass = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hands_sh"
+                ply:Give(handsClass)
 
 		local inv = ply:GetNetVar("Inventory")
 		inv["Weapons"]["hg_sling"] = true
@@ -249,7 +250,7 @@ function MODE:RoundStart()
 		end
 
 		ply:Give("weapon_walkie_talkie")
-		ply:SelectWeapon("weapon_hands_sh")
+                ply:SelectWeapon(handsClass)
 
 		if ply.organism then ply.organism.recoilmul = 0.5 end
 
