@@ -82,6 +82,8 @@ hook.Add("RenderScreenspaceEffects", "homigrad", function()
 	hook_Run("Post Post Processing")
 
 	hook_Run("Post Post Pre Post Processing")
+
+	hook_Run("Post Pain Processing")
 end)
 
 local postprs = hg.postprocess
@@ -234,6 +236,7 @@ local heatMat = Material("effects/shaders/zb_heat")
 local blindMat = Material("effects/shaders/zb_blind")
 
 local PainLerp = 0
+local painThresholdIntensityLerp = 1
 local PanicAttackLerp = 0
 local O2Lerp = 0
 local assimilatedLerp = 0
@@ -288,8 +291,9 @@ local painExcruciatingThreshold = 0.87
 local painAgonyVolumeMul = 1.15
 local painExcruciatingVolumeMul = 0.85
 local painLayerFadeLerp = 0.06
-local painEffectIntensity = 1.55
-local painPulseIntensity = 0.45
+local painEffectIntensity = 0.8
+local unconsciousPainEffectIntensity = 1.55
+local painPulseIntensity = 0.25
 local PainStationLoading = false
 local PanicStationLoading = false
 local PainStationOverlayLoading = false
@@ -495,6 +499,7 @@ end
 
 local function stopthings()
 	PainLerp = 0
+	painThresholdIntensityLerp = 1
 	PanicAttackLerp = 0
 	O2Lerp = 0
 	shockLerp = 0
@@ -857,25 +862,6 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		local strobe = math.ease.InOutSine(math.abs(math.cos(CurTime() * 2))) * PainLerp * painPulseIntensity
 		pain = PainLerp + strobe
 		shock = shockLerp
-		render.UpdateScreenEffectTexture()
-
-		vignetteMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-		vignetteMat:SetFloat("$c0_z", org.otrub and 5 * painEffectIntensity or (pain / 32 + math.max(shock - 5, 0) / 2.4) * painEffectIntensity) //ColorIntensity
-		vignetteMat:SetFloat("$c1_y", org.otrub and 10 * painEffectIntensity or (pain / 32 + math.max(shock - 5, 0) / 2.4) * painEffectIntensity) //Vignette
-
-		render.SetMaterial(vignetteMat)
-		render.DrawScreenQuad()
-
-		render.UpdateScreenEffectTexture()
-
-		painMat:SetFloat("$c2_x", CurTime() + 10000) //Time
-		painMat:SetFloat("$c0_y", 0.8) //Gate
-		painMat:SetFloat("$c0_z", painEffectIntensity) //ColorIntensity
-		painMat:SetFloat("$c1_x", math.Clamp(pain / 70, 0, 0.95)) //Lerp
-		painMat:SetFloat("$c1_y", math.Clamp(pain / 70, 0, 0.95)) //Vignette
-
-		render.SetMaterial(painMat)
-		render.DrawScreenQuad()
 
 		if org.otrub then
 			DrawMotionBlur(0.1, 1., 0.01)
@@ -951,7 +937,7 @@ hook.Add("Post Post Processing", "ItHurts", function()
 			end
 
 			BrainTraumaStationLoading = true
-			sound.PlayFile("sound/zcitysnd/real_sonar/brainhemorrhagestage"..chooser..".mp3", "noblock noplay", function(station, err)
+			sound.PlayFile("sound/rem_cerebralanoxia.wav", "noblock noplay", function(station, err)
 				BrainTraumaStationLoading = false
 				if IsValid(station) then
 					station:SetVolume(0)
@@ -1199,6 +1185,44 @@ hook.Add("Post Post Pre Post Processing", "BrainLobeEffects", function()
 		render.SetMaterial(painMat)
 		render.DrawScreenQuad()
 	end
+end)
+
+hook.Add("Post Pain Processing", "PainEffects", function()
+	local spect = IsValid(lply:GetNWEntity("spect")) and lply:GetNWEntity("spect")
+	if !lply:Alive() and (!IsValid(spect) or viewmode != 1) then return end
+
+	local org = lply:Alive() and lply.organism or (IsValid(spect) and spect.organism)
+	if not org or not org.brain then return end
+	if not ((PainLerp > 0.001 or shockLerp > 5) or org.otrub) then return end
+
+	local strobe = math.ease.InOutSine(math.abs(math.cos(CurTime() * 2))) * PainLerp * painPulseIntensity
+	local pain = PainLerp + strobe
+	local shock = shockLerp
+	local thresholdReached = PainLerp >= painThresholdMax
+	painThresholdIntensityLerp = LerpFT(0.03, painThresholdIntensityLerp, thresholdReached and 5 or 1)
+	local intensityMul = painThresholdIntensityLerp
+	local coverage = thresholdReached and 1 or math.Clamp(pain / 70, 0, 0.95)
+	local effectIntensity = pain / 32 * painEffectIntensity * intensityMul + math.max(shock - 5, 0) / 2.4 * painEffectIntensity
+
+	render.UpdateScreenEffectTexture()
+
+	vignetteMat:SetFloat("$c2_x", CurTime() + 10000)
+	vignetteMat:SetFloat("$c0_z", org.otrub and 5 * unconsciousPainEffectIntensity or effectIntensity)
+	vignetteMat:SetFloat("$c1_y", org.otrub and 10 * unconsciousPainEffectIntensity or effectIntensity)
+
+	render.SetMaterial(vignetteMat)
+	render.DrawScreenQuad()
+
+	render.UpdateScreenEffectTexture()
+
+	painMat:SetFloat("$c2_x", CurTime() + 10000)
+	painMat:SetFloat("$c0_y", 0.8)
+	painMat:SetFloat("$c0_z", org.otrub and unconsciousPainEffectIntensity or painEffectIntensity * intensityMul)
+	painMat:SetFloat("$c1_x", coverage)
+	painMat:SetFloat("$c1_y", coverage)
+
+	render.SetMaterial(painMat)
+	render.DrawScreenQuad()
 end)
 
 hook.Add("Player_Death", "ItDoesntNow", function(ply)

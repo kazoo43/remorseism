@@ -117,7 +117,6 @@ function SWEP:SetupDataTables()
 	self:NetworkVar("Float", 1, "NextDown")
 	self:NetworkVar("Bool", 3, "Blocking")
 	self:NetworkVar("Bool", 4, "IsCarrying")
-	self:NetworkVar("Bool", 5, "Blocking")
 	self:NetworkVar("Float", 6, "LastBlocked")
 	self:NetworkVar("Float", 7, "StartedBlocking")
 end

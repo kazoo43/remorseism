@@ -1,4 +1,53 @@
 include("shared.lua")
+
+if not SWEP.GetNextIdle then
+        function SWEP:GetNextIdle()
+                return self:GetDTFloat(0)
+        end
+end
+
+if not SWEP.SetNextIdle then
+        function SWEP:SetNextIdle(value)
+                self:SetDTFloat(0, value)
+        end
+end
+
+if not SWEP.GetNextDown then
+        function SWEP:GetNextDown()
+                return self:GetDTFloat(1)
+        end
+end
+
+if not SWEP.SetNextDown then
+        function SWEP:SetNextDown(value)
+                self:SetDTFloat(1, value)
+        end
+end
+
+if not SWEP.GetFists then
+        function SWEP:GetFists()
+                return self:GetDTBool(2)
+        end
+end
+
+if not SWEP.SetFists then
+        function SWEP:SetFists(value)
+                self:SetDTBool(2, value)
+        end
+end
+
+if not SWEP.GetBlocking then
+        function SWEP:GetBlocking()
+                return self:GetDTBool(3)
+        end
+end
+
+if not SWEP.SetBlocking then
+        function SWEP:SetBlocking(value)
+                self:SetDTBool(3, value)
+        end
+end
+
 SWEP.Category = "ZCity Other"
 SWEP.PrintName = "Hands"
 SWEP.AdminOnly = true

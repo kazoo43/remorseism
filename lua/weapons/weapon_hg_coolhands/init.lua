@@ -24,7 +24,7 @@ local shoveRange = 50
 local shoveForce = 200
 local shoveRagdollChance = 6
 local shoveStumbleChance = 1
-local specialDamageMul = 1.5
+local specialDamageMul = 2.5
 
 local function PlayPunchSound(pos, level)
         local id = math_random(1, 11)
@@ -576,8 +576,10 @@ function SWEP:BlockingLogic(ent, mul, attacktype, trace)
 			wep:SetLastBlocked(CurTime())
 
 			//viewpunch the attacker maybe?
-			self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg / 2)
-			self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg / 2)
+                        if self.PunchPlayer then
+                                self:PunchPlayer(owner, attacktype, -owner:GetAimVector(), selfdmg / 2)
+                                self:PunchPlayer(ent, attacktype, owner:GetAimVector(), selfdmg / 2)
+                        end
 
 			ent:EmitSound("physics/body/body_medium_impact_soft6.wav") -- parry sound
 
@@ -949,8 +951,8 @@ function SWEP:AttackFront(special_attack, rand)
                                 if owner.PlayerClassName == "furry" then
                                         sound.Play("pwb/weapons/knife/hit"..math_random(1,4)..".wav", HitPos, 60, math_random(90, 110))
                                 elseif special_attack then
-                                        sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", HitPos, 60, math_random(90, 110))
-                                        PlayPunchSound(HitPos, 65)
+                                        sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", HitPos, 58, math_random(90, 110))
+                                        PlayPunchSound(HitPos, 60)
                                 else
                                         PlayPunchSound(HitPos, 65)
                                 end
@@ -962,8 +964,8 @@ function SWEP:AttackFront(special_attack, rand)
                                 if owner.PlayerClassName == "furry" then
                                         sound.Play("pwb/weapons/knife/hit"..math_random(1,4)..".wav", HitPos, 80, math_random(90, 110))
                                 elseif special_attack then
-                                        sound.Play(snd, HitPos, 80, math_random(90, 110))
-                                        PlayPunchSound(HitPos, 75)
+                                        sound.Play(snd, HitPos, 60, math_random(90, 110))
+                                        PlayPunchSound(HitPos, 62)
                                 else
                                         PlayPunchSound(HitPos, 75)
                                 end
@@ -972,7 +974,7 @@ function SWEP:AttackFront(special_attack, rand)
                                 end
                         end
                         if havekastet and owner.PlayerClassName ~= "furry" then
-                                PlayKnuckledusterSound(HitPos, special_attack and 78 or 74)
+                                PlayKnuckledusterSound(HitPos, special_attack and 62 or 74)
                         end
                         if owner.PlayerClassName == "furry" then
                                 util.Decal("Blood",HitPos + owner:EyeAngles():Forward() * -1,HitPos - owner:EyeAngles():Forward() * -1)
@@ -1000,6 +1002,11 @@ function SWEP:AttackFront(special_attack, rand)
                 local DamageAmt = ((math_random(8, 10) * (special_attack and specialDamageMul or 1)) * ((isfur and (owner:IsBerserk() and 10 or 0.85)) or 1)) * (self.DamageMul or 1)
                 local ent = Ent
                 local vec = AimVec
+                local hitForceVec = AimVec
+
+                if special_attack and not isfur then
+                        hitForceVec = (AimVec + owner:EyeAngles():Right() * 0.45):GetNormalized()
+                end
 
                 Ent:PrecacheGibs()
 
@@ -1039,7 +1046,7 @@ function SWEP:AttackFront(special_attack, rand)
                 Dam:SetAttacker(owner)
                 Dam:SetInflictor(self)
                 Dam:SetDamage(DamageAmt * Mul * 0.85 * (owner.PlayerClassName == "furry" and 5 or 1))
-                Dam:SetDamageForce(AimVec * Mul ^ 2)
+                Dam:SetDamageForce(hitForceVec * Mul ^ 2)
                 Dam:SetDamageType((owner.PlayerClassName == "furry" or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
                 Dam:SetDamagePosition(HitPos)
                 Ent:TakeDamageInfo(Dam)
@@ -1047,12 +1054,12 @@ function SWEP:AttackFront(special_attack, rand)
                 local Phys = Ent:IsPlayer() and Ent:GetPhysicsObject() or Ent:GetPhysicsObjectNum(physbone or 0)
 
                 if Ent:IsPlayer() then
-                        Ent:ViewPunch(Angle(special_attack and -45 or -5,0,0))
+                        Ent:ViewPunch(special_attack and Angle(0, -14, -8) or Angle(-5,0,0))
                 end
 
                 if IsValid(Phys) then
-                        if Ent:IsPlayer() then Ent:SetVelocity(AimVec * SelfForce * 1.5 * (owner.organism.superfighter and 5 or 1) * (1 + owner.organism.berserk * 5)) end
-                        Phys:ApplyForceOffset(AimVec * 5000 * Mul, HitPos)
+                        if Ent:IsPlayer() then Ent:SetVelocity(hitForceVec * SelfForce * 1.5 * (owner.organism.superfighter and 5 or 1) * (1 + owner.organism.berserk * 5)) end
+                        Phys:ApplyForceOffset(hitForceVec * 5000 * Mul, HitPos)
                         owner:SetVelocity(AimVec * SelfForce * .8 * (owner.organism.superfighter and 2 or 1) * (1 + owner.organism.berserk / 10))
                 end
         end

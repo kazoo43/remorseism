@@ -36,6 +36,10 @@ SWEP.ModelScale = 0.4
 
 SWEP.traceLen = 5
 
+local ExplodeTheItem
+local RemoveAttachedBombVisual
+local MarkIEDDestroyed
+
 function SWEP:SetupDataTables()
 
 	self:NetworkVar( "Bool", 0, "Planted" )
@@ -229,10 +233,7 @@ end
 
 function SWEP:CreateFake() end
 
-local ExplodeTheItem
-local RemoveAttachedBombVisual
-
-local function MarkIEDDestroyed(self)
+MarkIEDDestroyed = function(self)
 	if not IsValid(self) then return end
 
 	self:SetDialing(false)

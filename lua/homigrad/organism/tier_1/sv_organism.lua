@@ -803,20 +803,16 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 
 	local just_went_uncon = not org.otrub and org.needotrub
 
-	if org.posturing then //-- the decerebrate one
+	if org.postureType == "decerebrate" then //-- the decerebrate one
 		local ent = hg.GetCurrentCharacter(org.owner)
 
 		local rleg = ent:GetPhysicsObjectNum(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_R_Foot")))
 		local lleg = ent:GetPhysicsObjectNum(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_L_Foot")))
-		local rarm = ent:GetPhysicsObjectNum(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_R_Hand")))
-		local larm = ent:GetPhysicsObjectNum(ent:TranslateBoneToPhysBone(ent:LookupBone("ValveBiped.Bip01_L_Hand")))
 
 		local down = -ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Spine")):GetAngles():Forward()
-		if IsValid(rleg) and IsValid(rarm) and IsValid(larm) and IsValid(lleg)then
+		if IsValid(rleg) and IsValid(lleg)then
 			rleg:ApplyForceCenter(down * 500)
 			lleg:ApplyForceCenter(down * 500)
-			rarm:ApplyForceCenter(down * 500)
-			larm:ApplyForceCenter(down * 500)
 		end
 	end
 

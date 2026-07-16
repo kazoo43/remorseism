@@ -703,7 +703,7 @@ function SWEP:Deploy()
 	if not IsFirstTimePredicted() then
 		self:DoBFSAnimation("fists_draw",1)
 		local owner = self:GetOwner()
-		if not IsValid(owner:GetViewModel()) then
+                if IsValid(owner) and IsValid(owner:GetViewModel()) then
 			owner:GetViewModel():SetPlaybackRate(.1)
 		end
 		return true
@@ -1934,11 +1934,13 @@ function SWEP:DoBFSAnimation(anim,time)
 		self.animtime = CurTime() + time
 	end
 	if SERVER then
+                local owner = self:GetOwner()
+                local pos = IsValid(owner) and owner:GetPos() or self:GetPos()
 		net.Start("play_anim")
 		net.WriteEntity(self)
 		net.WriteString(anim)
 		net.WriteFloat(time)
-		net.SendPVS(self:GetOwner():GetPos())
+                net.SendPVS(pos)
 	end
 end
 
