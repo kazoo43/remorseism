@@ -104,7 +104,7 @@ function AddDecalToEnt(ent, id, --[[optional]] entIndex, tex, clear, x, y, rot, 
 		surface.SetDrawColor( 255, 255, 255, alpha or math.random(100, 255) )
 		surface.SetMaterial( tex )
 		--surface.SetTexture(surface.GetTextureID("zbattle/blood"))
-		local rand = math.Clamp(math.random(), 0.5, 1)
+		local rand = math.Clamp(math.random(), 0.045, 1)
 		surface.DrawTexturedRectRotated(x, y, size * rand, size * rand, rot)
 	cam.End2D()
 
@@ -147,7 +147,7 @@ net.Receive("bloody_decal_1", function()
 	end
 end)
 
-local bruiseSizeCvar = CreateClientConVar("hg_bruise_size", "0.045", true, false, "Bruise decal size (world units)", 0.01, 5)
+local bruiseSizeCvar = CreateClientConVar("hg_bruise_size", "0.35", true, false, "Bruise decal size (world units)", 0.01, 5)
 net.Receive("bruise_decal", function()
 	local ent = net.ReadEntity()
 	local victim = net.ReadEntity()
@@ -160,7 +160,7 @@ net.Receive("bruise_decal", function()
 	if not mat then return end
 
 	local s = bruiseSizeCvar:GetFloat()
-	local alpha = math.random(140, 255)
+	local alpha = math.random(80, 180)
 	local col = Color(255, 255, 255, alpha)
 	util.DecalEx(mat, ent, pos + normal, normal, col, s, s)
 	if IsValid(victim) and victim ~= ent then

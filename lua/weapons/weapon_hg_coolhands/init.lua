@@ -1056,9 +1056,20 @@ function SWEP:AttackFront(special_attack, rand)
                 Dam:SetDamageForce(AimVec * Mul ^ 2)
                 Dam:SetDamageType((owner.PlayerClassName == "furry" or (Ent:GetClass() == "func_breakable_surf")) and DMG_SLASH or DMG_CLUB)
                 Dam:SetDamagePosition(HitPos)
-                Ent:TakeDamageInfo(Dam)
+Ent:TakeDamageInfo(Dam)
 
-                local Phys = Ent:IsPlayer() and Ent:GetPhysicsObject() or Ent:GetPhysicsObjectNum(physbone or 0)
+				if special_attack and Dam:GetDamageType() == DMG_CLUB then
+					if Ent:IsPlayer() then
+						hg.ApplyBruiseTo(Ent, Ent, HitPos, trace.HitNormal)
+					elseif Ent:GetClass() == "prop_ragdoll" then
+						local ragOwner = hg.RagdollOwner(Ent)
+						if IsValid(ragOwner) and ragOwner:IsPlayer() then
+							hg.ApplyBruiseTo(Ent, ragOwner, HitPos, trace.HitNormal)
+						end
+					end
+				end
+
+				local Phys = Ent:IsPlayer() and Ent:GetPhysicsObject() or Ent:GetPhysicsObjectNum(physbone or 0)
 
                 if Ent:IsPlayer() then
                         Ent:ViewPunch(Angle(special_attack and -45 or -5,0,0))
