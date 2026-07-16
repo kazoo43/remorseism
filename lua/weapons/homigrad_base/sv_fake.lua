@@ -52,7 +52,7 @@ hook.Add("Fake", "weapons", function(ply, ragdoll)
 		--wep:CreateFake(ragdoll)
 	else
 		if IsValid(wep) and wep.Holster then
-			wep:Holster(ply:GetWeapon("weapon_hands_sh"))
+                        wep:Holster(hg.GetHandsWeapon and hg.GetHandsWeapon(ply) or ply:GetWeapon("weapon_hands_sh"))
 		end
 		ply:SetActiveWeapon(NULL)
 	end

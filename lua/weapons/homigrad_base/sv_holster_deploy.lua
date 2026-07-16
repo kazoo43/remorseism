@@ -49,7 +49,7 @@ end
 local vecZero = Vector(0, 0, 0)
 function SWEP:Holster_End()
 	local owner = self:GetOwner()
-	local wep = IsValid(self:GetHolsterWep()) and self:GetHolsterWep() or owner:GetWeapon("weapon_hands_sh")
+        local wep = IsValid(self:GetHolsterWep()) and self:GetHolsterWep() or (hg.GetHandsWeapon and hg.GetHandsWeapon(owner) or owner:GetWeapon("weapon_hands_sh"))
 	
 	if IsValid(wep) then
 		owner:SetActiveWeapon(wep)

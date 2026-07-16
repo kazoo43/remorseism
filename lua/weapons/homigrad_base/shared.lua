@@ -1103,7 +1103,10 @@ hook.Add("PlayerSwitchWeapon", "cantswitchwhenithappens", function(ply)
 
 	if ply.organism and ply.organism.larmamputated and ply.organism.rarmamputated then
 		if SERVER then
-			ply:SetActiveWeapon(ply:GetWeapon("weapon_hands_sh"))
+                        local hands = hg.GetHandsWeapon and hg.GetHandsWeapon(ply) or ply:GetWeapon("weapon_hands_sh")
+                        if IsValid(hands) then
+                                ply:SetActiveWeapon(hands)
+                        end
 		end
 		return true
 	end
@@ -1263,7 +1266,10 @@ function SWEP:CoreStep()
 				hook.Run("PlayerDropWeapon", owner)
 			else
 				hook.Run("PlayerDropWeapon", owner)
-				owner:SetActiveWeapon(owner:GetWeapon("weapon_hands_sh"))
+                                local hands = hg.GetHandsWeapon and hg.GetHandsWeapon(owner) or owner:GetWeapon("weapon_hands_sh")
+                                if IsValid(hands) then
+                                        owner:SetActiveWeapon(hands)
+                                end
 			end
 		end
 
@@ -1304,7 +1310,7 @@ function SWEP:CoreStep()
 					dmgInfo:SetDamage(15 * (owner.organism.superfighter and 5 or 1))
                     dmgInfo:SetDamageType((ent:GetClass() == "func_breakable_surf") and DMG_SLASH or DMG_CLUB)
 					dmgInfo:SetAttacker(owner)
-					dmgInfo:SetInflictor(owner:GetWeapon("weapon_hands_sh"))
+                                        dmgInfo:SetInflictor(hg.GetHandsWeapon and hg.GetHandsWeapon(owner) or owner:GetWeapon("weapon_hands_sh"))
 					dmgInfo:SetDamagePosition(tr.HitPos - tr.Normal * 5)
 					dmgInfo:SetDamageForce(tr.Normal * 55)
 

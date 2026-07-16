@@ -238,6 +238,22 @@ local PanicAttackLerp = 0
 local O2Lerp = 0
 local assimilatedLerp = 0
 local tempLerp = 36.6
+local brainFrontalLerp = 0
+local brainParietalLerp = 0
+local brainTemporalLerp = 0
+local brainOccipitalLerp = 0
+local brainHemorrhageLerp = 0
+local brainFrontalColor = {
+	["$pp_colour_addr"] = 0,
+	["$pp_colour_addg"] = 0,
+	["$pp_colour_addb"] = 0,
+	["$pp_colour_brightness"] = 0,
+	["$pp_colour_contrast"] = 1,
+	["$pp_colour_colour"] = 1,
+	["$pp_colour_mulr"] = 0,
+	["$pp_colour_mulg"] = 0,
+	["$pp_colour_mulb"] = 0
+}
 
 local show_image_time = 0
 local show_some_images_time = 0
@@ -485,6 +501,11 @@ local function stopthings()
 	assimilatedLerp = 0
 	tempLerp = 36.6
 	consciousnessLerp = 1
+	brainFrontalLerp = 0
+	brainParietalLerp = 0
+	brainTemporalLerp = 0
+	brainOccipitalLerp = 0
+	brainHemorrhageLerp = 0
 
 	lply.tinnitus = 0
 	nextPanicAttackShake = 0
@@ -686,6 +707,12 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	local LerpFT = LerpFT or Lerp
 
 	if !org or !org.o2 or !isnumber(org.o2[1]) or !org.analgesia then stopthings() return end
+
+	brainFrontalLerp = LerpFT(0.025, brainFrontalLerp, org.brainFrontal or 0)
+	brainParietalLerp = LerpFT(0.025, brainParietalLerp, org.brainParietal or 0)
+	brainTemporalLerp = LerpFT(0.025, brainTemporalLerp, org.brainTemporal or 0)
+	brainOccipitalLerp = LerpFT(0.025, brainOccipitalLerp, org.brainOccipital or 0)
+	brainHemorrhageLerp = LerpFT(0.02, brainHemorrhageLerp, org.brainHemorrhage or 0)
 
 	local o2 = org.o2[1] or 0
 	o2 = o2 + (org.CO or 0)
@@ -904,10 +931,11 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		PanicStation = nil
 	end
 
-	if brain > 0.01 then
+	local brainTrauma = math.max(brain, (org.brainHemorrhage or 0) * 0.85)
+	if brainTrauma > 0.01 then
 		local chooser = 1
 		for i, choose in ipairs(stations) do
-			if choose < brain then
+			if choose < brainTrauma then
 				chooser = i
 			end
 		end
@@ -936,7 +964,7 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 
 		if IsValid(BrainTraumaStation) then
-			BrainTraumaStation:SetVolume(math.Clamp(!org.otrub and brain * 2 or 0, 0, 1))
+			BrainTraumaStation:SetVolume(math.Clamp(!org.otrub and brainTrauma * 2 or 0, 0, 1))
 		end
 	else
 		if IsValid(BrainTraumaStation) then
@@ -946,7 +974,9 @@ hook.Add("Post Post Processing", "ItHurts", function()
 	end
 
 	//if brain > 0.1 and not org.otrub and show_some_images_time > 0 and false then
-	if lply.tinnitus and lply.tinnitus > CurTime() and lply:Alive() then
+	local temporalTinnitus = math.Clamp(((org.brainTemporal or 0) - 0.1) / 0.9, 0, 1)
+	local tinnitusTime = lply.tinnitus and math.max(lply.tinnitus - CurTime(), 0) or 0
+	if (tinnitusTime > 0 or temporalTinnitus > 0.01) and lply:Alive() then
 		if (!IsValid(Tinnitus) or Tinnitus:GetState() != GMOD_CHANNEL_PLAYING) and not TinnitusLoading then
 			TinnitusLoading = true
 			sound.PlayFile("sound/zcitysnd/real_sonar/tinnitus"..math.random(3)..".mp3", "noblock noplay", function(station, err)
@@ -961,7 +991,7 @@ hook.Add("Post Post Processing", "ItHurts", function()
 		end
 
 		if IsValid(Tinnitus) then
-			Tinnitus:SetVolume(math.min(math.max(lply.tinnitus - CurTime(), 0) / 10, 1))
+			Tinnitus:SetVolume(math.Clamp(math.max(tinnitusTime / 10, temporalTinnitus * 0.65), 0, 1))
 		end
 	else
 		if IsValid(Tinnitus) then
@@ -1088,6 +1118,86 @@ hook.Add("Post Post Processing", "ItHurts", function()
 			NoiseStation:Stop()
 			NoiseStation = nil
 		end
+	end
+end)
+
+hook.Add("Post Post Pre Post Processing", "BrainLobeEffects", function()
+	local spect = IsValid(lply:GetNWEntity("spect")) and lply:GetNWEntity("spect")
+	if !lply:Alive() and (!IsValid(spect) or viewmode != 1) then return end
+
+	local org = lply:Alive() and lply.organism or (IsValid(spect) and spect.organism)
+	if not org or org.otrub then return end
+
+	local frontal = math.Clamp(brainFrontalLerp, 0, 1)
+	local parietal = math.Clamp(brainParietalLerp, 0, 1)
+	local temporal = math.Clamp(brainTemporalLerp, 0, 1)
+	local occipital = math.Clamp(brainOccipitalLerp, 0, 1)
+	local hemorrhage = math.Clamp(brainHemorrhageLerp, 0, 1)
+
+	if frontal > 0.01 then
+		brainFrontalColor["$pp_colour_brightness"] = -frontal * 0.035
+		brainFrontalColor["$pp_colour_contrast"] = 1 - frontal * 0.18
+		brainFrontalColor["$pp_colour_colour"] = 1 - frontal * 0.7
+		brainFrontalColor["$pp_colour_mulr"] = frontal * 0.05
+		brainFrontalColor["$pp_colour_mulb"] = frontal * 0.08
+		DrawColorModify(brainFrontalColor)
+
+		render.UpdateScreenEffectTexture()
+		grainMat:SetFloat("$c0_x", CurTime() * 0.7)
+		grainMat:SetFloat("$c0_y", 0.35)
+		grainMat:SetFloat("$c0_z", frontal * 2.6)
+		grainMat:SetFloat("$c1_x", frontal * 1.25)
+		grainMat:SetFloat("$c1_y", frontal * 3.5)
+		grainMat:SetFloat("$c1_z", frontal * 0.65)
+		grainMat:SetFloat("$c2_x", frontal * 0.08)
+		grainMat:SetFloat("$c2_y", 0)
+		grainMat:SetFloat("$c2_z", frontal * 0.12)
+		grainMat:SetFloat("$c3_x", 0)
+		render.SetMaterial(grainMat)
+		render.DrawScreenQuad()
+	end
+
+	if parietal > 0.01 then
+		DrawMotionBlur(0.025 + parietal * 0.08, 0.35 + parietal * 0.55, 0.015 + parietal * 0.09)
+		DrawSharpen(parietal * 0.8, parietal * 1.4)
+	end
+
+	if temporal > 0.01 then
+		render.UpdateScreenEffectTexture()
+		seizureChromatic:SetFloat("$c0_x", 3.4 - temporal * 2.6)
+		seizureChromatic:SetInt("$c0_y", 1)
+		render.SetMaterial(seizureChromatic)
+		render.DrawScreenQuad()
+	end
+
+	if occipital > 0.01 then
+		surface.SetDrawColor(255, 255, 255, math.Clamp(occipital * 235, 0, 235))
+		surface.SetMaterial(lobotomy_mats[5])
+		surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
+		if occipital > 0.6 then
+			surface.SetDrawColor(0, 0, 0, math.Remap(occipital, 0.6, 1, 0, 210))
+			surface.DrawRect(0, 0, ScrW(), ScrH())
+		end
+		surface.SetDrawColor(255, 255, 255, 255)
+	end
+
+	if hemorrhage > 0.01 then
+		local pulse = hemorrhage * (0.7 + math.abs(math.sin(CurTime() * 2.2)) * 0.3)
+		render.UpdateScreenEffectTexture()
+		vignetteMat:SetFloat("$c2_x", CurTime() + 10000)
+		vignetteMat:SetFloat("$c0_z", pulse * 2.2)
+		vignetteMat:SetFloat("$c1_y", pulse * 3.2)
+		render.SetMaterial(vignetteMat)
+		render.DrawScreenQuad()
+
+		render.UpdateScreenEffectTexture()
+		painMat:SetFloat("$c2_x", CurTime() + 10000)
+		painMat:SetFloat("$c0_y", 0.8)
+		painMat:SetFloat("$c0_z", pulse)
+		painMat:SetFloat("$c1_x", pulse * 0.45)
+		painMat:SetFloat("$c1_y", pulse * 0.7)
+		render.SetMaterial(painMat)
+		render.DrawScreenQuad()
 	end
 end)
 

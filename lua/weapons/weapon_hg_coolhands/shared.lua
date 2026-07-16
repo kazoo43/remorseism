@@ -26,11 +26,43 @@ SWEP.ShockMultiplier = 1
 SWEP.PainMultiplier = 1
 SWEP.BreakBoneMul = 0.33
 SWEP.Penetration = 1
-SWEP.DamageMul = 1
+SWEP.DamageMul = 0.9
 SWEP.animtime = 0
 SWEP.WorkWithFake = false
 SWEP.supportTPIK = true
 SWEP.ismelee = true
+SWEP.SwingAng = -5
+
+hg = hg or {}
+
+function hg.GetHandsWeaponClass(ply)
+        if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" then
+                return "weapon_hands_sh"
+        end
+
+        return "weapon_hg_coolhands"
+end
+
+function hg.GetHandsWeapon(ply)
+        if not IsValid(ply) then return NULL end
+
+        local class = hg.GetHandsWeaponClass(ply)
+        local wep = ply:GetWeapon(class)
+
+        if SERVER and class == "weapon_hg_coolhands" and not IsValid(wep) then
+                wep = ply:Give(class)
+        end
+
+        if SERVER and class == "weapon_hg_coolhands" and ply:HasWeapon("weapon_hands_sh") then
+                ply:StripWeapon("weapon_hands_sh")
+        end
+
+        if IsValid(wep) then
+                return wep
+        end
+
+        return ply:GetWeapon("weapon_hands_sh")
+end
 
 local math = math -- owo
 local math_random, math_Clamp, CurTime, Color = math.random, math.Clamp, CurTime, Color

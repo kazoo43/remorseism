@@ -47,7 +47,7 @@ function SWEP:Holster(wep)
 	local time = CurTime()
 	if self.holster and self.holster - CurTime() < 0 then self:Holster_End() end
 
-	wep = IsValid(wep) and wep or self:GetOwner():GetWeapon("weapon_hands_sh")
+        wep = IsValid(wep) and wep or (hg.GetHandsWeapon and hg.GetHandsWeapon(self:GetOwner()) or self:GetOwner():GetWeapon("weapon_hands_sh"))
 	self:SetHolsterWep(wep)
 
 	self.holster = time + self.CooldownHolster / self.Ergonomics

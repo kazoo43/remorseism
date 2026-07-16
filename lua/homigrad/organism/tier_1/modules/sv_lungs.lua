@@ -359,11 +359,42 @@ module[2] = function(owner, org, timeValue)
 	if org.skull >= 0.6 then k = 0 end
 	if org.brain >= 0.6 then k = 0 end
 
+	local frontal = org.brainFrontal or 0
+	local parietal = org.brainParietal or 0
+	local temporal = org.brainTemporal or 0
+	local occipital = org.brainOccipital or 0
+	local hemorrhage = org.brainHemorrhage or 0
+	local bleedRate = org.brainBleedRate or 0
+
+	org.disorientation = math.max(org.disorientation, frontal * 0.35 + parietal * 0.65 + temporal * 0.25)
+	org.immobilization = math.max(org.immobilization, parietal * 8)
+	org.consciousness = math.min(org.consciousness, 1 - frontal * 0.35 - temporal * 0.15)
+	if hemorrhage > 0 then
+		org.brain = min(org.brain + timeValue * hemorrhage / (hemorrhage < 0.3 and 900 or 300), 1)
+		org.disorientation = math.max(org.disorientation, hemorrhage * 0.9)
+		org.consciousness = math.min(org.consciousness, 1 - hemorrhage * 0.45)
+		org.painadd = math.max(org.painadd, hemorrhage * 25)
+	end
+
+	if hg.organism.AddSeizure and temporal > 0.2 then
+		hg.organism.AddSeizure(org, timeValue * temporal / 1200)
+	end
+
+	if bleedRate > 0 then
+		org.brainHemorrhage = min(hemorrhage + timeValue * bleedRate * 0.4, 1)
+		org.brain = min(org.brain + timeValue * bleedRate * (1 + hemorrhage), 1)
+		org.brainBleedRate = max(bleedRate - timeValue / 600000, 0)
+	end
+
+	if occipital > 0.35 then
+		org.disorientation = math.max(org.disorientation, occipital * 0.4)
+	end
+
 	if org.skull < 1 and org.skull >= 0.5 and org.bandagedskull then
 		org.skull = math.Approach(org.skull, 0, timeValue / 600)
 	end
 
-	if org.brain >= 0.3 then
+        if org.brain >= 0.5 then
 		if org.brain >= 0.5 then
 			if math.random(60) == 1 then
 				org.heartstop = true
@@ -385,8 +416,6 @@ module[2] = function(owner, org, timeValue)
 		org.alive = false
 	end
 
-	if org.skull == 1 then org.brain = min(org.brain + timeValue / 1000, 1) end
-
 	if org.isPly then
 		if org.brain > 0.1 and org.brain < 0.3 then
 			org.owner:Notify(math.random(2) == 1 and "My head hurts..." or "Where am I?", true, "brain", 5)
@@ -398,7 +427,7 @@ module[2] = function(owner, org, timeValue)
 	org.brain = max(org.brain - timeValue / 400 * ((org.mannitol > 0 and org.brain < 0.6) and 1 or (org.brain > 0.1 and 0.1 or 0)), 0)
 	org.mannitol = math.Approach(org.mannitol, 0, timeValue / 200)
 	
-        if k < 0.25 then
-		org.brain = min(org.brain + timeValue / (org.brain < 0.3 and 300 or 120) * math.min(((org.o2[1] < 0.25 and 1 or 0) + org.skull), 1), 1)
+	if k < 0.25 then
+		org.brain = min(org.brain + timeValue / (org.brain < 0.3 and 300 or 120) * math.min(((org.o2[1] < 0.25 and 1 or 0) + (org.brainHemorrhage or 0)), 1), 1)
 	end --~120 seconds to fully die (0.3 of 300 and 0.4 of 60 seconds after)
 end

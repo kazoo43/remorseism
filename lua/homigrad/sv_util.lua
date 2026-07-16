@@ -686,6 +686,8 @@ concommand.Add("hg_dropkastet",function(ply)
 	if not ply:Alive() then return end
 	local inv = ply:GetNetVar("Inventory")
 	if not inv["Weapons"] or not inv["Weapons"]["hg_brassknuckles"] then return end
+    local kastet = inv["Weapons"]["hg_brassknuckles"]
+    local count = isnumber(kastet) and kastet or (kastet and 1 or 0)
 	local ent = ents.Create("hg_brassknuckles")
 	ent:SetPos(ply:EyePos())
 	ent:SetAngles(ply:EyeAngles())
@@ -695,7 +697,7 @@ concommand.Add("hg_dropkastet",function(ply)
 	if IsValid(phys) then
 		phys:ApplyForceCenter(ply:GetAimVector() * 200 * phys:GetMass())
 	end
-	inv["Weapons"]["hg_brassknuckles"] = nil
+    inv["Weapons"]["hg_brassknuckles"] = count > 1 and (count - 1) or nil
 	ply:SetNetVar("Inventory",inv)
 	ply:DoAnimationEvent(ACT_GMOD_GESTURE_MELEE_SHOVE_1HAND)
 end)
