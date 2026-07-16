@@ -21,10 +21,10 @@ local shoveAnimTime = 0.7
 local shoveCooldownPrimary = 1.1
 local shoveCooldownSecondary = 1.35
 local shoveRange = 50
-local shoveForce = 150
+local shoveForce = 200
 local shoveRagdollChance = 10
-local shoveStumbleChance = 5
-local specialDamageMul = 2.5
+local shoveStumbleChance = 1
+local specialDamageMul = 1.5
 
 local function PlayPunchSound(pos, level)
         local id = math_random(1, 11)
@@ -853,7 +853,7 @@ function SWEP:ShoveFront()
         pushVel = pushVel * shoveForce
 
         if IsValid(ent) and ent:IsRagdoll() then
-                sound.Play("raminto/ram" .. math_random(1, 3) .. ".wav", trace.HitPos, 75, 110)
+                sound.Play("physics/body/body_medium_impact_soft" .. math_random(1, 7) .. ".wav", trace.HitPos, 75, 110)
                 PushRagdoll(ent, trace.PhysicsBone or 0, pushVel * 0.45, trace.HitPos)
                 owner:LagCompensation(false)
                 return
@@ -862,7 +862,7 @@ function SWEP:ShoveFront()
         local target = hg.RagdollOwner(ent) or ent
 
         if IsValid(ent) and IsValid(target) and target:IsPlayer() and target ~= owner then
-                sound.Play("raminto/ram" .. math_random(1, 3) .. ".wav", trace.HitPos, 75, 110)
+                sound.Play("physics/body/body_medium_impact_soft" .. math_random(1, 7) .. ".wav", trace.HitPos, 75, 110)
         elseif IsValid(ent) and not ent:IsWorld() then
                 PlayShoveBodyImpact(trace.HitPos, 72)
         end
@@ -950,6 +950,7 @@ function SWEP:AttackFront(special_attack, rand)
                                         sound.Play("pwb/weapons/knife/hit"..math_random(1,4)..".wav", HitPos, 60, math_random(90, 110))
                                 elseif special_attack then
                                         sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", HitPos, 60, math_random(90, 110))
+                                        PlayPunchSound(HitPos, 65)
                                 else
                                         PlayPunchSound(HitPos, 65)
                                 end
@@ -962,6 +963,7 @@ function SWEP:AttackFront(special_attack, rand)
                                         sound.Play("pwb/weapons/knife/hit"..math_random(1,4)..".wav", HitPos, 80, math_random(90, 110))
                                 elseif special_attack then
                                         sound.Play(snd, HitPos, 80, math_random(90, 110))
+                                        PlayPunchSound(HitPos, 75)
                                 else
                                         PlayPunchSound(HitPos, 75)
                                 end
@@ -1093,8 +1095,23 @@ end
 
 local hg_coolhands = CreateConVar("hg_coolhands", 1, {FCVAR_ARCHIVE, FCVAR_NOTIFY, FCVAR_REPLICATED}, "Give cool hands instead of default hands on spawn")
 hook.Add("PlayerSpawn", "Toggle_CoolHands", function(ply)
-        local hands = hg.GetHandsWeapon and hg.GetHandsWeapon(ply)
-        if IsValid(hands) then
-                ply:SelectWeapon(hands:GetClass())
-        end
+        timer.Simple(0, function()
+                if not IsValid(ply) then return end
+
+                local class = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hg_coolhands"
+                if class ~= "weapon_hg_coolhands" then return end
+
+                local hands = ply:GetWeapon(class)
+                if not IsValid(hands) then
+                        hands = ply:Give(class)
+                end
+
+                if ply:HasWeapon("weapon_hands_sh") then
+                        ply:StripWeapon("weapon_hands_sh")
+                end
+
+                if IsValid(hands) then
+                        ply:SelectWeapon(hands:GetClass())
+                end
+        end)
 end)
