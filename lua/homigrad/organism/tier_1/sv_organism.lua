@@ -47,6 +47,12 @@ hook.Add("Org Clear", "Main", function(org)
 	module.concussion[1](org)
 	module.trauma_combo[1](org)
 	org.brain = 0
+	org.brainFrontal = 0
+	org.brainParietal = 0
+	org.brainTemporal = 0
+	org.brainOccipital = 0
+	org.brainHemorrhage = 0
+	org.brainBleedRate = 0
 	org.eyeL = 0
 	org.eyeR = 0
 	org.consciousness = 1
@@ -166,6 +172,12 @@ local function send_organism(org, ply)
 	sendtable.pelvis = org.pelvis
 	sendtable.disorientation = org.disorientation
 	sendtable.brain = org.brain
+	sendtable.brainFrontal = org.brainFrontal
+	sendtable.brainParietal = org.brainParietal
+	sendtable.brainTemporal = org.brainTemporal
+	sendtable.brainOccipital = org.brainOccipital
+	sendtable.brainHemorrhage = org.brainHemorrhage
+	sendtable.brainBleedRate = org.brainBleedRate
 	sendtable.o2 = org.o2
 	sendtable.CO = org.CO
 	sendtable.blood = org.blood
@@ -280,6 +292,13 @@ local function send_bareinfo(org)
 	sendtable.seizureActive = org.seizureActive
 	sendtable.seizureStart = org.seizureStart
 	sendtable.seizureEnd = org.seizureEnd
+	sendtable.brainFrontal = org.brainFrontal
+	sendtable.brainParietal = org.brainParietal
+	sendtable.brainTemporal = org.brainTemporal
+	sendtable.brainOccipital = org.brainOccipital
+	sendtable.brainHemorrhage = org.brainHemorrhage
+	sendtable.brainBleedRate = org.brainBleedRate
+
 	local rf = RecipientFilter()
 	rf:AddPVS(org.owner:GetPos())
 	if org.owner:IsPlayer() then rf:RemovePlayer(org.owner) end

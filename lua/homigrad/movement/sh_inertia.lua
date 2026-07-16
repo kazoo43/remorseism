@@ -157,6 +157,9 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
                 end)
         end
 
+        hg.TriggerSprintCollisionRagdoll = hg_TriggerSprintCollisionRagdoll
+        hg.TriggerSprintCollisionStumble = hg_TriggerSprintCollisionStumble
+
         local function hg_CheckSprintCollisionRagdoll(ply, vel, velLen)
                 if not SERVER or not IsValid(ply) or not ply:Alive() or IsValid(ply.FakeRagdoll) then return end
                 if ply.hgSprintCollisionCooldown and ply.hgSprintCollisionCooldown > CurTime() then return end

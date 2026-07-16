@@ -18,8 +18,11 @@ local function drop(ply, wep, newWeapon, vel)
 		end
 		
 		if not IsValid(newWeapon) then
-			ply:SelectWeapon("weapon_hands_sh")
-			ply:SetActiveWeapon(ply:GetWeapon("weapon_hands_sh"))
+                        local hands = hg.GetHandsWeapon and hg.GetHandsWeapon(ply) or ply:GetWeapon("weapon_hands_sh")
+                        if IsValid(hands) then
+                                ply:SelectWeapon(hands:GetClass())
+                                ply:SetActiveWeapon(hands)
+                        end
 		else
 			ply:SelectWeapon(newWeapon:GetClass())
 			ply:SetActiveWeapon(newWeapon)

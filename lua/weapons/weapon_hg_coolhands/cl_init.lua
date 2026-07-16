@@ -3,7 +3,7 @@ SWEP.Category = "ZCity Other"
 SWEP.PrintName = "Cool Hands"
 SWEP.AdminOnly = true
 SWEP.Spawnable = true --// Use this hands if you like it more.. - Mannytko
-SWEP.Instructions = "LMB - raise fists\nRELOAD - lower fists\n\nIn the raised state:\nLMB - strike\nRMB - block\n\nIn the lowered state: RMB - raise the object, RMB+R - check the pulse (when used on someone's head or hand)\n\nWhen holding the object: RELOAD - fix the object in air, E - spin the object in the air."
+SWEP.Instructions = "LMB - raise fists\nRELOAD - lower fists\n\nIn the raised state:\nLMB - strike\nRMB - block\nE+LMB - hold heavy attack\nE+RMB - shove\n\nIn the lowered state: RMB - raise the object, RMB+R - check the pulse (when used on someone's head or hand)\n\nWhen holding the object: RELOAD - fix the object in air, E - spin the object in the air."
 SWEP.blockinganim = 0
 SWEP.animtime = 0
 SWEP.Slot = 0
@@ -17,6 +17,11 @@ SWEP.IconOverride = "vgui/wep_jack_hmcd_hands.png"
 SWEP.visualweight = 2
 local math = math -- owo
 local math_random, math_Clamp, CurTime, Color = math.random, math.Clamp, CurTime, Color
+local chargeHoldTime = 0.12
+local chargeAnimTime = 0.5
+local shoveAnimTime = 0.7
+local shoveCooldownPrimary = 1.1
+local shoveCooldownSecondary = 1.35
 
 local colWhite = Color(255, 255, 255, 255)
 local lerpthing = 1
@@ -30,7 +35,39 @@ local ang5 = Angle(0,0,0)
 local ang3 = Angle(0,0,180)
 local clamp = math_Clamp
 
+function SWEP:CanShove()
+        local owner = self:GetOwner()
+        if not IsValid(owner) or owner:InVehicle() then return false end
+        if not self:GetFists() or self:GetBlocking() or self.Charging then return false end
+        if owner:GetNetVar("handcuffed",false) then return false end
+        if (self.ShoveEnd or 0) > CurTime() then return false end
+        if (self.SpecialAttackUntil or 0) > CurTime() then return false end
+
+        return self:GetNextPrimaryFire() < CurTime() and self:GetNextSecondaryFire() < CurTime()
+end
+
 function SWEP:SecondaryAttack()
+        local owner = self:GetOwner()
+        if not self:CanShove() or not owner:KeyDown(IN_USE) then return end
+
+        if not IsFirstTimePredicted() then
+                self:PlayAnim("Shove",1)
+                return
+        end
+
+        self.ShoveEnd = CurTime() + shoveAnimTime
+        self.Charging = nil
+        self.ChargeStarted = nil
+        self.ChargeIdlePlayed = nil
+        self.attacked = CurTime() + 0.2
+        self:SetNextPrimaryFire(CurTime() + shoveCooldownPrimary)
+        self:SetNextSecondaryFire(CurTime() + shoveCooldownSecondary)
+        self:SetLastShootTime(CurTime())
+        self:PlayAnim("Shove",1)
+
+        if self.IsLocal and self:IsLocal() then
+                ViewPunch(Angle(2, 0, 0))
+        end
 end
 
 function SWEP:DrawHUD()
@@ -324,10 +361,14 @@ SWEP.rhandik = false
 SWEP.lhandik = false
 
 SWEP.KnuckleModel = "models/mosi/fallout4/props/weapons/melee/knuckles.mdl"
-SWEP.offsetVec = Vector(2.2, -0.5, 0)
-SWEP.offsetAng = Angle(0, 90, 90)
+SWEP.offsetVec = Vector(2.6, -0.85, -0.15)
+SWEP.offsetAng = Angle(-2, 100, 81)
 SWEP.idleVec = Vector(4.5, -2, -0.2)
 SWEP.idleAng = Angle(0, 0, -80)
+SWEP.offsetVecL = Vector(2, -1, 0)
+SWEP.offsetAngL = Angle(0, -70, -90)
+SWEP.idleVecL = Vector(4.5, 2, -0.2)
+SWEP.idleAngL = Angle(0, 0, 80)
 
 local blockingR = Vector()
 local blockingL = Vector()
@@ -347,8 +388,8 @@ function SWEP:SetHandPos(noset)
 	if IsValid(ply) and (not ply.shouldTransmit or ply.NotSeen) then return end
 	-- ply:SetupBones()
 
-	self.rhandik = (self:GetFists()) or (IsValid(ent) and twohands)
-	self.lhandik = (self:GetFists() and hg.CanUseLeftHand(ply)) or IsValid(ent)
+        self.rhandik = self:GetFists()
+        self.lhandik = self:GetFists() and hg.CanUseLeftHand(ply)
 
 	local bones2 = hg.TPIKBonesOther
 
@@ -362,12 +403,15 @@ function SWEP:SetHandPos(noset)
 	if !IsValid(wm) then return end
 
 	local inv = ply:GetNetVar("Inventory",{})
-	local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
+    local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
+    local kastetCount = isnumber(havekastet) and havekastet or (havekastet and 1 or 0)
 
-	if havekastet then
-		self.model = IsValid(self.model) and self.model or ClientsideModel(self.KnuckleModel)
-		self.model:SetNoDraw(true)
-	end
+         if kastetCount > 0 then
+                self.modelr = IsValid(self.modelr) and self.modelr or ClientsideModel(self.KnuckleModel)
+                self.modell = IsValid(self.modell) and self.modell or ClientsideModel(self.KnuckleModel)
+                self.modelr:SetNoDraw(true)
+                self.modell:SetNoDraw(true)
+        end
 
 	if ply:GetNetVar("handcuffed",false) then
 		hg.handcuffedhands(ply)
@@ -482,19 +526,35 @@ function SWEP:SetHandPos(noset)
 		end
 	end
 
-	if IsValid(ply) and havekastet then
-		local offsetVec = self:GetFists() and self.offsetVec or self.idleVec
-		local offsetAng = self:GetFists() and self.offsetAng or self.idleAng
-		if not rh then return end
-		local matrix = ply:GetBoneMatrix(rh)
-		if not matrix then return end
-		local newPos, newAng = LocalToWorld(offsetVec, offsetAng, matrix:GetTranslation(), matrix:GetAngles())
-		local kastet = self.model
-		kastet:SetPos(newPos)
-		kastet:SetAngles(newAng)
-		kastet:SetupBones()
-		kastet:DrawModel()
-		kastet:SetModelScale(0.9) -- с новыми руками можно будет 1 оставить
+         if IsValid(ply) and kastetCount > 0 then
+                local offsetVec = self:GetFists() and self.offsetVec or self.idleVec
+                local offsetAng = self:GetFists() and self.offsetAng or self.idleAng
+                if not rh then return end
+                local matrixR = ply:GetBoneMatrix(rh)
+                if not matrixR then return end
+                local newPosR, newAngR = LocalToWorld(offsetVec, offsetAng, matrixR:GetTranslation(), matrixR:GetAngles())
+                local kastetR = self.modelr
+                kastetR:SetPos(newPosR)
+                kastetR:SetAngles(newAngR)
+                kastetR:SetupBones()
+                kastetR:DrawModel()
+                kastetR:SetModelScale(0.9)
+
+                local canUseLeft = hg.CanUseLeftHand and hg.CanUseLeftHand(ply)
+                if kastetCount > 1 and canUseLeft and lh then
+                        local matrixL = ply:GetBoneMatrix(lh)
+                        if matrixL then
+                                local leftVec = self:GetFists() and self.offsetVecL or self.idleVecL
+                                local leftAng = self:GetFists() and self.offsetAngL or self.idleAngL
+                                local newPosL, newAngL = LocalToWorld(leftVec, leftAng, matrixL:GetTranslation(), matrixL:GetAngles())
+                                local kastetL = self.modell
+                                kastetL:SetPos(newPosL)
+                                kastetL:SetAngles(newAngL)
+                                kastetL:SetupBones()
+                                kastetL:DrawModel()
+                                kastetL:SetModelScale(0.9)
+                        end
+                end
 	end
 
 	hg.DragHands(self:GetOwner(),self)
@@ -562,8 +622,8 @@ function SWEP:Think()
 			self.WepSelectIcon = cqcicon
 		elseif owner.PlayerClassName == "furry" and self.PrintName ~= "Paws" then
 			self.PrintName = "Paws"
-			self.WepSelectIcon = paw
-			self.Instructions = "LMB - raise paws\nRELOAD - lower paws\n\nIn the raised state:\nLMB - strike\nRMB - block\n\n<color=91,121,229>As a bearer of a pathowogen infection, you have new abilities.\n\nIn lowered state, hold RMB to grab uninfected prey, then hold LMB to assimilate them.\n\nYou can press LMB to lick your fellow mates, doing so helps them alleviate their pain.\n\n:3<color=180,180,180>"
+                        self.WepSelectIcon = paw
+                        self.Instructions = "LMB - raise paws\nRELOAD - lower paws\n\nIn the raised state:\nLMB - strike\nRMB - block\nE+RMB - shove\n\n<color=91,121,229>As a bearer of a pathowogen infection, you have new abilities.\n\nIn lowered state, hold RMB to grab uninfected prey, then hold LMB to assimilate them.\n\nYou can press LMB to lick your fellow mates, doing so helps them alleviate their pain.\n\n:3<color=180,180,180>"
 		else
 			self.PrintName = "Hands"
 		end
@@ -586,8 +646,29 @@ function SWEP:Think()
 				ViewPunch2(-blockvp)
 			end
 		end
-		self.blockSound = nil
-	end
+                self.blockSound = nil
+        end
+
+        local wantsCharge = self:GetFists() and owner.PlayerClassName ~= "furry" and owner:KeyDown(IN_USE) and owner:KeyDown(IN_ATTACK)
+        if self.Charging and (not wantsCharge or self:GetBlocking() or owner:InVehicle()) then
+                local startedAt = self.ChargeStarted or CurTime()
+                self.Charging = nil
+                self.ChargeStarted = nil
+                self.ChargeIdlePlayed = nil
+
+                if not self:GetBlocking() and not owner:InVehicle() and CurTime() - startedAt >= chargeHoldTime then
+                        self:PrimaryAttack(true)
+                        return
+                end
+        elseif wantsCharge and not self.Charging and not self:GetBlocking() and self:GetNextPrimaryFire() < CurTime() and self:GetNextSecondaryFire() < CurTime() and (self.attacked or 0) <= CurTime() then
+                self.Charging = true
+                self.ChargeStarted = CurTime()
+                self.ChargeIdlePlayed = nil
+                self:PlayAnim("attack_charge_begin", chargeAnimTime)
+        elseif self.Charging and not self.ChargeIdlePlayed and (self.ChargeStarted or 0) + chargeAnimTime <= CurTime() then
+                self.ChargeIdlePlayed = true
+                self:PlayAnim("attack_charge_idle", 1)
+        end
 end
 
 local specang1, specang2, specangfur = Angle(-1, -3, 3), Angle(4, 12, 3), Angle(-15, 2, 2)
@@ -602,8 +683,9 @@ function SWEP:PrimaryAttack(forcespecial)
 	local inv = owner:GetNetVar("Inventory",{})
 	if not inv then return end
 	local havekastet = inv["Weapons"] and inv["Weapons"]["hg_brassknuckles"]
+        local kastetCount = isnumber(havekastet) and havekastet or (havekastet and 1 or 0)
 
-	if rand or (CLIENT and ((owner:GetTable().ChatGestureWeight and owner:GetTable().ChatGestureWeight >= 0.1) or twohands)) or havekastet then
+        if rand or (CLIENT and ((owner:GetTable().ChatGestureWeight and owner:GetTable().ChatGestureWeight >= 0.1) or twohands)) or kastetCount == 1 then
 		if isfur then
 			side = "fists_right"
 		else
@@ -612,7 +694,6 @@ function SWEP:PrimaryAttack(forcespecial)
 	end
 	if owner:KeyDown(IN_ATTACK2) and owner.PlayerClassName ~= "sc_infiltrator" then return end
 	if owner:GetNetVar("handcuffed",false) then return end
-	local olddown = self:GetNextDown()
 	self:SetNextDown(CurTime() + 7)
 	if not self:GetFists() then
 		return
@@ -621,26 +702,33 @@ function SWEP:PrimaryAttack(forcespecial)
 	if self:GetBlocking() then return end
 	--if owner:KeyDown(IN_SPEED) then return end
 
+        if not forcespecial and not isfur and owner:KeyDown(IN_USE) then
+                if not self.Charging then
+                        self.Charging = true
+                        self.ChargeStarted = CurTime()
+                        self.ChargeIdlePlayed = nil
+                end
+                return
+        end
+
 	if not IsFirstTimePredicted() then
-		self:PlayAnim(side,1)
+                self:PlayAnim(forcespecial and "attack_charge_end" or side,1)
 		return
 	end
 	self.attacked = CurTime() + 0.2
 
-	local special_attack = (olddown - 5) < CurTime()
-	if forcespecial then
-		special_attack = true
-	end
+        local special_attack = forcespecial and true or false
 	if owner.organism and owner.organism.rarmamputated then
 		special_attack = false
 	end
+        self.SpecialAttackUntil = special_attack and (CurTime() + 0.6) or 0
 
 	if CLIENT and self.IsLocal and self:IsLocal() then
 		ViewPunch(special_attack and specang1 or Angle(-1, -(rand and -3 or 3), (rand and -9 or 9)))
 		//ViewPunch2(special_attack and Angle(5, -2, 2) or Angle((-1), -(rand and 2 or -2), (rand and 6 or -6)))
 		if special_attack then
 			if not isfur then
-				timer.Simple(0.4, function()
+                                timer.Simple(0.08, function()
 					ViewPunch(specang2)
 				end)
 			else

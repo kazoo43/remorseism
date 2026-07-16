@@ -32,20 +32,44 @@ male["ValveBiped.Bip01_Head1"] = {
 		Color(0, 255, 0)
 	},
 	{
-		"brain", --brain
+		"brainFrontal",
 		nil,
-		Vector(5.4, -1.5, 0),
+		Vector(5.5, -3, 0),
 		Angle(0, 0, 0),
-		Vector(2.5, 4.3, 2.8),
-		Color(255, 0, 255)
+		Vector(2.3, 1.5, 2.7),
+		Color(255, 80, 120)
 	},
 	{
-		"brain", --brain niz
+		"brainParietal",
 		nil,
-		Vector(1.7, 0, 0),
+		Vector(6.2, 0, 0),
 		Angle(0, 0, 0),
-		Vector(1.6, 2.1, 1.7),
-		Color(255, 0, 255)
+		Vector(1.7, 1.8, 2.6),
+		Color(255, 180, 40)
+	},
+	{
+		"brainTemporal",
+		nil,
+		Vector(3.8, -0.5, 2.1),
+		Angle(0, 0, 0),
+		Vector(1.8, 2.4, 0.9),
+		Color(80, 160, 255)
+	},
+	{
+		"brainTemporal",
+		nil,
+		Vector(3.8, -0.5, -2.1),
+		Angle(0, 0, 0),
+		Vector(1.8, 2.4, 0.9),
+		Color(80, 160, 255)
+	},
+	{
+		"brainOccipital",
+		nil,
+		Vector(4.5, 2.4, 0),
+		Angle(0, 0, 0),
+		Vector(2, 1.1, 2.4),
+		Color(170, 80, 255)
 	},
 	{
 		"eyeL", --left eye
@@ -243,20 +267,44 @@ female["ValveBiped.Bip01_Head1"] = {
 		Color(0, 255, 0)
 	},
 	{
-		"brain", --brain
+		"brainFrontal",
 		nil,
-		Vector(4.4, -0, 0),
+		Vector(4.5, -1.8, 0),
 		Angle(0, 0, 0),
-		Vector(2.1, 4.3, 2.8),
-		Color(255, 0, 255)
+		Vector(2.1, 1.5, 2.7),
+		Color(255, 80, 120)
 	},
 	{
-		"brain", --brain niz
+		"brainParietal",
 		nil,
-		Vector(0.5, 2, 0),
+		Vector(5.2, 1.2, 0),
 		Angle(0, 0, 0),
-		Vector(1.6, 2.1, 1.7),
-		Color(255, 0, 255)
+		Vector(1.6, 1.7, 2.6),
+		Color(255, 180, 40)
+	},
+	{
+		"brainTemporal",
+		nil,
+		Vector(2.8, 0.7, 2.1),
+		Angle(0, 0, 0),
+		Vector(1.7, 2.3, 0.9),
+		Color(80, 160, 255)
+	},
+	{
+		"brainTemporal",
+		nil,
+		Vector(2.8, 0.7, -2.1),
+		Angle(0, 0, 0),
+		Vector(1.7, 2.3, 0.9),
+		Color(80, 160, 255)
+	},
+	{
+		"brainOccipital",
+		nil,
+		Vector(3.5, 3.5, 0),
+		Angle(0, 0, 0),
+		Vector(1.9, 1.1, 2.4),
+		Color(170, 80, 255)
 	},
 	{
 		"eyeL", --left eye
@@ -326,6 +374,10 @@ hg.organism.translationTbl = {
 	["skull"] = "Skull",
 	["jaw"] = "Jaw",
 	["brain"] = "Brain",
+	["brainFrontal"] = "Frontal Lobe",
+	["brainParietal"] = "Parietal Lobe",
+	["brainTemporal"] = "Temporal Lobe",
+	["brainOccipital"] = "Occipital Lobe",
 	["eyeL"] = "Left eye",
 	["eyeR"] = "Right eye",
 	["arteria"] = "Carotid artery",

@@ -1,5 +1,6 @@
 local blackList = {
     ["weapon_hands_sh"] = true,
+    ["weapon_hg_coolhands"] = true,
     ["weapon_zombclaws"] = true
 }
 
@@ -204,7 +205,17 @@ hook.Add("PlayerDropWeapon", "homigrad-inventory", function(ply)
 end)
 
 hook.Add("PlayerLoadout", "giveHands", function(ply)
-    ply:Give("weapon_hands_sh")
+    local class = hg.GetHandsWeaponClass and hg.GetHandsWeaponClass(ply) or "weapon_hg_coolhands"
+    local hands = ply:GetWeapon(class)
+    if not IsValid(hands) then
+        hands = ply:Give(class)
+    end
+    if class == "weapon_hg_coolhands" and ply:HasWeapon("weapon_hands_sh") then
+        ply:StripWeapon("weapon_hands_sh")
+    end
+    if IsValid(hands) then
+        ply:SelectWeapon(hands:GetClass())
+    end
     return true
 end)
 
@@ -419,8 +430,13 @@ hook.Add("Player Think", "loot-fellows",function(ply)
     if not ply:Alive() then return end
     ply.keypressed = ply.keypressed or false
     --if not ply:GetLookTrace() then return end
+    local wep = ply:GetActiveWeapon()
 
     local use = IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_WALK) and ply:KeyDown(IN_SPEED) and not ply:KeyDown(IN_ATTACK) and not ply:KeyDown(IN_ATTACK2)) or (not IsValid(ply.FakeRagdoll) and (ply:KeyDown(IN_ATTACK2) and ply:KeyDown(IN_USE)))
+    if use and not IsValid(ply.FakeRagdoll) and IsValid(wep) and wep.GetFists and wep:GetFists() then
+        ply.keypressed = false
+        return
+    end
     
     if use then
         local trace = hg.eyeTrace(ply, 60)

@@ -24,8 +24,10 @@ function ENT:TakeByPlayer(activator)
 	if activator:IsPlayer() and not table.HasValue(activator.inventory.Attachments, self.name) then
 		activator.inventory = activator:GetNetVar("Inventory",activator.inventory)
 		activator.inventory["Weapons"] = activator.inventory["Weapons"] or {}
-		if activator.inventory["Weapons"]["hg_brassknuckles"] then return end
-		activator.inventory["Weapons"]["hg_brassknuckles"] = true
+            local kastet = activator.inventory["Weapons"]["hg_brassknuckles"]
+            local count = isnumber(kastet) and kastet or (kastet and 1 or 0)
+            if count >= 2 then return end
+            activator.inventory["Weapons"]["hg_brassknuckles"] = count + 1
 		activator:SetNetVar("Inventory",activator.inventory)
 		activator:ViewPunch(AngleRand(-1, 1))
 		self:EmitSound("snd_jack_tinyequip.wav", 65, math.random(95, 105), 1, CHAN_BODY)
