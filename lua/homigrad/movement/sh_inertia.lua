@@ -222,9 +222,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 	local vomitVPAng, vecZero = Angle(1, 0, 0), Vector()
 	hook.Add("SetupMove", "HG(StartCommand)", function(ply, mv, cmd)
 		--\\ DeltaTime
-			ply.LastStartCommand = ply.LastStartCommand or SysTime()
-			local delta_time = SysTime() - ply.LastStartCommand--FrameTime()
-			ply.LastStartCommand = SysTime()
+			local delta_time = engine.TickInterval()
 		--//
 
 		if(not IsValid(ply) or not ply:Alive())then
@@ -271,7 +269,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 			return
 		end
 
-		local in_speed = ply:KeyDown(IN_SPEED)
+		local in_speed = cmd:KeyDown(IN_SPEED)
 		local speed_pressed = in_speed and not ply.was_in_speed
 		ply.was_in_speed = in_speed
 
@@ -280,7 +278,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
 
                 local hold_shift_sprint = hg_HoldShiftSprint(ply)
 
-                local runnin_held = in_speed and not ply:Crouching() and ply:KeyDown(IN_FORWARD)
+                local runnin_held = in_speed and not ply:Crouching() and cmd:KeyDown(IN_FORWARD)
                 if hold_shift_sprint then
                         ply.isSprintingState = false
                         ply.hg_isSprinting = runnin_held
@@ -315,7 +313,7 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
                         cmd:RemoveKey(IN_BACK)
                 end]]
 
-                if not IsValid(ply.FakeRagdoll) and ply:KeyDown(IN_SPEED) and not ply:Crouching() and ply:KeyDown(IN_BACK) then
+                if not IsValid(ply.FakeRagdoll) and cmd:KeyDown(IN_SPEED) and not ply:Crouching() and cmd:KeyDown(IN_BACK) then
                         cmd:RemoveKey(IN_SPEED)
                 end
 
@@ -326,8 +324,8 @@ local Angle, Vector, AngleRand, VectorRand, math, hook, util, game = Angle, Vect
                 local fm = cmd:GetForwardMove() * (org.brain and org.brain > 0.1 and math.sin(CurTime() / 2) or 1)
                 local sm = cmd:GetSideMove() * (org.brain and org.brain > 0.1 and math.sin(CurTime() / 2) or 1)
 
-                local slow_walking = ply:KeyDown(IN_WALK)
-                local aiming = ply:KeyDown(IN_ATTACK2) and wep and IsValid(wep) and ishgweapon(wep)
+                local slow_walking = cmd:KeyDown(IN_WALK)
+                local aiming = cmd:KeyDown(IN_ATTACK2) and wep and IsValid(wep) and ishgweapon(wep)
                 local walk_speed = ply:GetWalkSpeed()
                 local crouch_walk_speed = ply:GetCrouchedWalkSpeed()
                 local weightmul = hg.CalculateWeight(ply, 140)
