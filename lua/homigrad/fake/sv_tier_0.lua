@@ -473,14 +473,6 @@ local function RemoveRag(self, ply)
 	self._slideStartTime = nil
 	self._slideDir = nil
 	self._slideCooldown = nil
-	if self._slideLoopPath then
-		self:StopSound(self._slideLoopPath)
-		self._slideLoopPath = nil
-	end
-	if self._slideLoopTimer then
-		timer.Remove(self._slideLoopTimer)
-		self._slideLoopTimer = nil
-	end
 	
 	ply.FakeRagdoll = nil
 	ply.Removed = true

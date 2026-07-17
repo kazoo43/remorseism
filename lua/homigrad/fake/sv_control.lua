@@ -280,14 +280,6 @@ hook.Add("Fake", "Contorl", function(ply, ragdoll)
 	ragdoll._slideStartTime = nil
 	ragdoll._slideDir = nil
 	ragdoll._slideCooldown = nil
-	if ragdoll._slideLoopPath then
-		ragdoll:StopSound(ragdoll._slideLoopPath)
-		ragdoll._slideLoopPath = nil
-	end
-	if ragdoll._slideLoopTimer then
-		timer.Remove(ragdoll._slideLoopTimer)
-		ragdoll._slideLoopTimer = nil
-	end
 	
 	local plyVel = ply:GetVelocity()
 	ragdoll._slideEntrySpeed = Vector(plyVel.x, plyVel.y, 0):Length()
@@ -360,113 +352,6 @@ local tr = {
 }
 
 local hg_fake_stamina = CreateConVar("hg_fake_stamina", "1", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Enables stamina when ragdolled", 0, 1)
-
-local SOUND_DIR = ")player/slide/%s"
-local MAT_WATER = 91
-
-local slide_sfx = {
-	start = {
-		[MAT_CONCRETE] = {"concrete_start_01.ogg", "concrete_start_02.ogg", "concrete_start_03.ogg", "concrete_start_04.ogg"},
-		[MAT_DIRT] = {"dirt_start_01.ogg", "dirt_start_02.ogg", "dirt_start_03.ogg", "dirt_start_04.ogg"},
-		[MAT_GRASS] = {"grass_start_01.ogg", "grass_start_02.ogg", "grass_start_03.ogg", "grass_start_04.ogg"},
-		[MAT_METAL] = {"solidmetal_start_01.ogg", "solidmetal_start_02.ogg", "solidmetal_start_03.ogg", "solidmetal_start_04.ogg"},
-		[MAT_SAND] = {"sand_start_01.ogg", "sand_start_02.ogg", "sand_start_03.ogg"},
-		[MAT_SLOSH] = {"mud_start_01.ogg", "mud_start_02.ogg", "mud_start_03.ogg", "mud_start_04.ogg"},
-		[MAT_WOOD] = {"wood_start_01.ogg", "wood_start_02.ogg", "wood_start_03.ogg", "wood_start_04.ogg"},
-		[MAT_WATER] = {"water_start_01.ogg", "water_start_02.ogg", "water_start_03.ogg", "water_start_04.ogg"}
-	},
-	loop = {
-		[MAT_CONCRETE] = "concrete_loop_01.wav",
-		[MAT_DIRT] = "dirt_loop_01.wav",
-		[MAT_GRASS] = "grass_loop_01.wav",
-		[MAT_METAL] = "metal_loop_01.wav",
-		[MAT_SAND] = "sand_loop_01.wav",
-		[MAT_SLOSH] = "mud_loop_01.wav",
-		[MAT_WOOD] = "wood_loop_01.wav",
-		[MAT_WATER] = "water_loop_01.wav"
-	},
-	exit = {
-		[MAT_CONCRETE] = {"concrete_exit_01.ogg", "concrete_exit_02.ogg", "concrete_exit_03.ogg"},
-		[MAT_DIRT] = {"dirt_exit_01.ogg", "dirt_exit_02.ogg", "dirt_exit_03.ogg"},
-		[MAT_GRASS] = {"grass_exit_01.ogg", "grass_exit_02.ogg", "grass_exit_03.ogg"},
-		[MAT_METAL] = {"solidmetal_exit_01.ogg", "solidmetal_exit_02.ogg", "solidmetal_exit_03.ogg"},
-		[MAT_SAND] = {"sand_exit_01.ogg", "sand_exit_02.ogg", "sand_exit_03.ogg"},
-		[MAT_SLOSH] = {"mud_exit_01.ogg", "mud_exit_02.ogg", "mud_exit_03.ogg"},
-		[MAT_WOOD] = {"wood_exit_01.ogg", "wood_exit_02.ogg", "wood_exit_03.ogg"},
-		[MAT_WATER] = {"water_exit_01.ogg", "water_exit_02.ogg", "water_exit_03.ogg"}
-	}
-}
-
-slide_sfx.start[MAT_SNOW] = slide_sfx.start[MAT_SAND]
-slide_sfx.start[MAT_VENT] = slide_sfx.start[MAT_METAL]
-slide_sfx.loop[MAT_SNOW] = slide_sfx.loop[MAT_SAND]
-slide_sfx.loop[MAT_VENT] = slide_sfx.loop[MAT_METAL]
-slide_sfx.exit[MAT_SNOW] = slide_sfx.exit[MAT_SAND]
-slide_sfx.exit[MAT_VENT] = slide_sfx.exit[MAT_METAL]
-
-local function GetRagdollMaterial(ragdoll)
-	local tr = util.TraceLine({
-		start = ragdoll:GetPos(),
-		endpos = ragdoll:GetPos() - vector_up * 40,
-		filter = ragdoll
-	})
-
-	if bit.band(util.PointContents(tr.HitPos), CONTENTS_WATER) == CONTENTS_WATER then
-		return MAT_WATER
-	end
-
-	return tr.MatType
-end
-
-local function PlaySlideSFX(ragdoll, phase)
-	local mat = GetRagdollMaterial(ragdoll)
-
-	if phase == "start" then
-		if ragdoll._slideLoopPath then
-			ragdoll:StopSound(ragdoll._slideLoopPath)
-			ragdoll._slideLoopPath = nil
-		end
-		if ragdoll._slideLoopTimer then
-			timer.Remove(ragdoll._slideLoopTimer)
-			ragdoll._slideLoopTimer = nil
-		end
-
-		local snds = slide_sfx.start[mat] or slide_sfx.start[MAT_CONCRETE]
-		local snd = string.format(SOUND_DIR, snds[math.random(#snds)])
-		ragdoll:EmitSound(snd, 75, 100 + math.random(-4, 4), 0.75, CHAN_BODY)
-
-		ragdoll._slideExitPlayed = false
-
-		local loop = slide_sfx.loop[mat] or slide_sfx.loop[MAT_CONCRETE]
-		local loopPath = string.format(SOUND_DIR, loop)
-
-		ragdoll._slideLoopTimer = "slide_loop_" .. ragdoll:EntIndex() .. "_" .. CurTime()
-		timer.Create(ragdoll._slideLoopTimer, 0.18, 1, function()
-			if not IsValid(ragdoll) then return end
-			if not ragdoll._slideActive then return end
-			ragdoll._slideLoopPath = loopPath
-			ragdoll:EmitSound(loopPath, 65, 100, 0.75, CHAN_AUTO)
-		end)
-
-	elseif phase == "exit" then
-		if ragdoll._slideExitPlayed then return end
-		ragdoll._slideExitPlayed = true
-
-		if ragdoll._slideLoopTimer then
-			timer.Remove(ragdoll._slideLoopTimer)
-			ragdoll._slideLoopTimer = nil
-		end
-
-		if ragdoll._slideLoopPath then
-			ragdoll:StopSound(ragdoll._slideLoopPath)
-			ragdoll._slideLoopPath = nil
-		end
-
-		local snds = slide_sfx.exit[mat] or slide_sfx.exit[MAT_CONCRETE]
-		local snd = string.format(SOUND_DIR, snds[math.random(#snds)])
-		ragdoll:EmitSound(snd, 70, 100 + math.random(-4, 4), 0.75, CHAN_BODY)
-	end
-end
 
 local util_TraceLine, util_TraceHull = util.TraceLine, util.TraceHull
 local game_GetWorld = game.GetWorld
@@ -1366,9 +1251,9 @@ hook.Add("Think", "Fake", function()
 					shadowControl(ragdoll, 9, 0.001, calfAng2, 150, 10)
 
 				local slideMinStartSpeed = 150
-				local slideMinKeepSpeed = 120
-				local slideMaxDuration = 0.8
-				local slideCooldown = 1
+				local slideMinKeepSpeed = 40
+				local slideMaxDuration = 4
+				local slideCooldown = 3
 				local slideSlopeMult = 30
 
 				local curVel = spine:GetVelocity()
@@ -1387,15 +1272,6 @@ hook.Add("Think", "Fake", function()
 
 				if ragdoll._slideCooldown and CurTime() >= ragdoll._slideCooldown then
 					ragdoll._slideCooldown = nil
-				end
-
-				if not ragdoll._slideActive and ragdoll._slideLoopPath then
-					ragdoll:StopSound(ragdoll._slideLoopPath)
-					ragdoll._slideLoopPath = nil
-				end
-				if not ragdoll._slideActive and ragdoll._slideLoopTimer then
-					timer.Remove(ragdoll._slideLoopTimer)
-					ragdoll._slideLoopTimer = nil
 				end
 
 				local entrySpeed = 0
@@ -1422,8 +1298,6 @@ hook.Add("Think", "Fake", function()
 						ragdoll._slideDir = nil
 						ragdoll._slideCooldown = CurTime() + slideCooldown
 						ragdoll.isSliding = false
-
-						PlaySlideSFX(ragdoll, "exit")
 					end
 				end
 
@@ -1432,8 +1306,6 @@ hook.Add("Think", "Fake", function()
 					ragdoll._slideStartTime = CurTime()
 					local dir = horizontalVel:LengthSqr() > 1 and horizontalVel:GetNormalized() or entryDir
 					ragdoll._slideDir = dir
-
-					PlaySlideSFX(ragdoll, "start")
 
 					ragdoll.isSliding = true
 
@@ -1563,8 +1435,6 @@ hook.Add("Think", "Fake", function()
 						ragdoll._slideActive = false
 						ragdoll._slideStartTime = nil
 						ragdoll._slideDir = nil
-
-						PlaySlideSFX(ragdoll, "exit")
 					end
 					
 					ragdoll.isSliding = false

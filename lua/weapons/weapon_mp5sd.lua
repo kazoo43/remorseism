@@ -1,9 +1,9 @@
 SWEP.Base = "homigrad_base"
 SWEP.Spawnable = true
 SWEP.AdminOnly = false
-SWEP.PrintName = "HK MP5"
+SWEP.PrintName = "HK MP5SD"
 SWEP.Author = "Heckler & Koch"
-SWEP.Instructions = "Submachine gun chambered in 9x19 mm\n\nRate of fire 800 rounds per minute"
+SWEP.Instructions = "Integrally suppressed submachine gun chambered in 9x19 mm\n\nRate of fire 800 rounds per minute"
 SWEP.Category = "Weapons - Machine-Pistols"
 SWEP.Slot = 2
 SWEP.SlotPos = 10
@@ -25,13 +25,13 @@ SWEP.ARC9Parts = {
 	},
 }
 
-SWEP.FakePos = Vector(-12, 2.0, 7.5)
-SWEP.FakeAng = Angle(0, -0, 0)
+SWEP.FakePos = Vector(-11, 2.0, 7.5)
+SWEP.FakeAng = Angle(0, 0, 0)
 SWEP.AttachmentPos = Vector(1.5, 0.4, 0)
 SWEP.AttachmentAng = Angle(0, 0, 0)
 SWEP.FakeAttachment = "1"
-SWEP.FakeBodyGroups = "111111111"
-SWEP.ZoomPos = Vector(0, -2.2531, 5.7158)
+SWEP.FakeBodyGroups = "1210111130"
+SWEP.ZoomPos = Vector(0, -2.2637, 5.6717)
 
 SWEP.GunCamPos = Vector(4, -15, -6)
 SWEP.GunCamAng = Angle(190, -5, -100)
@@ -42,6 +42,7 @@ SWEP.FakeViewBobBone = "ValveBiped.Bip01_R_Hand"
 SWEP.FakeViewBobBaseBone = "ValveBiped.Bip01_L_UpperArm"
 SWEP.ViewPunchDiv = 70
 
+SWEP.FakeMagDropBone = 45
 
 local path = "weapons/darsu_eft/mp5/"
 
@@ -61,6 +62,7 @@ SWEP.AnimsEvents = {
 		[0.80] = function(self) self:EmitSound("weapons/darsu_eft/mp5/mp5_weap_bolt_in.ogg") end,
     },
 }
+
 
 SWEP.AnimList = {
 	["fire"] = "fire",
@@ -137,7 +139,7 @@ end
 SWEP.ReloadHold = nil
 SWEP.FakeVPShouldUseHand = false
 
-SWEP.HeldMagModel = "models/weapons/mag_mp5_hk_std_curved_9x19_30.mdl"
+SWEP.HeldMagModel = "models/weapons/arc9/darsu_eft/mods/mag_mp5_hk_std_curved_9x19_30.mdl"
 SWEP.HeldMagBone = "mod_magazine"
 SWEP.HeldMagOffsetPos = Vector(0, 0, 0)
 SWEP.HeldMagOffsetAng = Angle(0, -90, 0)
@@ -149,15 +151,16 @@ SWEP.Primary.DefaultClip = 30
 SWEP.Primary.Automatic = true
 SWEP.Primary.Ammo = "9x19 mm Parabellum"
 SWEP.Primary.Cone = 0
-SWEP.Primary.Damage = 22
+SWEP.Primary.Damage = 20
 SWEP.Primary.Spread = 0
-SWEP.Primary.Force = 20
+SWEP.Primary.Force = 18
 SWEP.animposmul = 2
-SWEP.Primary.Sound = {"weapons/darsu_eft/mp5/fire_new/mp5_outdoor_close_loop1.wav", 75, 120, 130}
-SWEP.SupressedSound = {"weapons/darsu_eft/mp5/fire_new/mp5_outdoor_close_silenced_loop1.wav", 65, 90, 100}
-SWEP.Primary.SoundEmpty = {"zcitysnd/sound/weapons/mp5k/mp5k_empty.wav", 75, 100, 105, CHAN_WEAPON, 2}
+SWEP.Primary.Sound = {"weapons/darsu_eft/mp5/fire_new/mp5sd_outdoor_close_silenced_loop1.wav", 65, 90, 100}
+SWEP.SupressedSound = {"weapons/darsu_eft/mp5/fire_new/mp5sd_outdoor_close_silenced_loop1.wav", 65, 90, 100}
 SWEP.Primary.Wait = 0.07
 SWEP.ReloadTime = 4.5
+SWEP.SetSupressor = true
+
 
 SWEP.PPSMuzzleEffect = "muzzleflash_mp5"
 
@@ -173,15 +176,10 @@ SWEP.HoldType = "rpg"
 SWEP.WepSelectIcon2 = Material("entities/arc9_eft_mp5.png")
 SWEP.IconOverride = "entities/arc9_eft_mp5.png"
 
-SWEP.weight = 2.5
+SWEP.weight = 2.8
 SWEP.ScrappersSlot = "Primary"
 
 SWEP.availableAttachments = {
-	barrel = {
-		[1] = {"supressor4", Vector(0, 0, 0), {}},
-		[2] = {"supressor6", Vector(0, 0, 0), {}},
-		["mount"] = Vector(-4, 0.45, 0),
-	},
 	sight = {
 		["mountType"] = {"picatinny"},
 		["mount"] = Vector(-13, 1, 0.05),
@@ -200,7 +198,7 @@ for i = 1, 30 do
 	SWEP.Spray[i] = Angle(-0.0, 0, 0) * 1
 end
 
-SWEP.Ergonomics = 1.15
+SWEP.Ergonomics = 1.1
 SWEP.WorldPos = Vector(4, -0.8, -0.5)
 SWEP.WorldAng = Angle(0, 0, 0)
 SWEP.UseCustomWorldModel = true
@@ -208,7 +206,6 @@ SWEP.attPos = Vector(1, 0, 0)
 SWEP.attAng = Angle(-0.02, 0, 0)
 SWEP.lengthSub = 25
 SWEP.handsAng = Angle(7, 2, 0)
-SWEP.DistSound = "weapons/darsu_eft/mp5/fire_new/mp5_outdoor_close_silenced_loop1.wav"
 
 -- tpik hand positions
 SWEP.RHPos = Vector(3, -7, 3.5)

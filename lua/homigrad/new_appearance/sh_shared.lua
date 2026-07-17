@@ -121,6 +121,7 @@ hg.Appearance.Clothes[1] = {
 	Lambda = "models/humans/male/group01/lambda",
 	leather_jacket = "models/humans/male/group01/jacket",
 	lonsdale_hoodie = "models/humans/male/group01/LondsdaleHoodie",
+	lifelover = "models/humans/male/group01/lifelover",
 	mailman = "models/humans/male/group01/mailman_colorable",
 	medic1 = "models/humans/male/group01/medic1",
 	miami = "models/humans/male/group01/miami_colorable",
