@@ -12,6 +12,8 @@ MODE.TypeSounds = {
 }
 local fade = 0
 local HMCD_ScreenDuration = 10
+local hmcd_show_associates
+local hmcd_clear_associates
 net.Receive("HMCD_RoundStart",function()
 	for i, ply in player.Iterator() do
 		ply.isTraitor = false
@@ -30,6 +32,7 @@ net.Receive("HMCD_RoundStart",function()
 	MODE.TraitorExpectedAmt = net.ReadUInt(MODE.TraitorExpectedAmtBits)
 	StartTime = CurTime()
 	MODE.TraitorsLocal = {}
+	MODE.TraitorAssociates = {}
 
 	if(lply.isTraitor and screen_time_is_default)then
 		if(MODE.TraitorExpectedAmt == 1)then
@@ -44,19 +47,31 @@ net.Receive("HMCD_RoundStart",function()
 			chat.AddText("Traitor secret words are: \"" .. MODE.TraitorWord .. "\" and \"" .. MODE.TraitorWordSecond .. "\".")
 		end
 
+		local associate_count = net.ReadUInt(4)
+		for key = 1, associate_count do
+			local traitor_info = {
+				color = net.ReadColor(false),
+				name = net.ReadString(),
+				ply = net.ReadEntity(),
+				model = net.ReadString(),
+				appearance = net.ReadTable(),
+				playerclass = net.ReadString()
+			}
+
+			MODE.TraitorAssociates[#MODE.TraitorAssociates + 1] = traitor_info
+
+			if(lply.MainTraitor)then
+				MODE.TraitorsLocal[#MODE.TraitorsLocal + 1] = {traitor_info.color, traitor_info.name}
+			end
+		end
+
 		if(lply.MainTraitor)then
 			if(MODE.TraitorExpectedAmt > 1)then
 				chat.AddText("Traitor names (only you, as a main traitor can see them):")
 			end
 
-			for key = 1, MODE.TraitorExpectedAmt do
-				local traitor_info = {net.ReadColor(false), net.ReadString()}
-
-				if(MODE.TraitorExpectedAmt > 1)then
-					MODE.TraitorsLocal[#MODE.TraitorsLocal + 1] = traitor_info
-
-					chat.AddText(traitor_info[1], "\t" .. traitor_info[2])
-				end
+			for _, traitor_info in ipairs(MODE.TraitorsLocal) do
+				chat.AddText(traitor_info[1], "\t" .. traitor_info[2])
 			end
 		end
 	end
@@ -91,6 +106,7 @@ net.Receive("HMCD_RoundStart",function()
 	MODE.CursorLerpY = 0
 
 	fade = 0
+	hmcd_show_associates()
 end)
 
 MODE.TypeNames = {
@@ -220,6 +236,187 @@ local function hmcd_draw_text(text, fontname, x, y, r, g, b, a, ang, xalign, yal
 	cam.PopModelMatrix()
 end
 
+local HMCD_AssociatePanels = {}
+local HMCD_AssociatePoses = {
+	"pose_standing_01",
+	"pose_standing_02",
+	"pose_standing_03",
+	"idle_all_01",
+	"idle_all_angry"
+}
+
+hmcd_clear_associates = function()
+	for _, pnl in ipairs(HMCD_AssociatePanels) do
+		if IsValid(pnl) then pnl:Remove() end
+	end
+
+	HMCD_AssociatePanels = {}
+end
+
+local function hmcd_appearance_model_data(appearance)
+	if not istable(appearance) or not hg or not hg.Appearance or not hg.Appearance.PlayerModels then return end
+	return hg.Appearance.PlayerModels[1][appearance.AModel] or hg.Appearance.PlayerModels[2][appearance.AModel]
+end
+
+local function hmcd_material_slot(mats, mat)
+	if not mat then return end
+	local want = string.lower(mat)
+	for i = 1, #mats do
+		if string.lower(mats[i] or "") == want then return i - 1 end
+	end
+end
+
+local function hmcd_appearance_color(clr)
+	if not clr then return Vector(1, 1, 1), Color(245, 245, 245) end
+	local r = clr.r or clr.x or clr[1] or 255
+	local g = clr.g or clr.y or clr[2] or 255
+	local b = clr.b or clr.z or clr[3] or 255
+	if r <= 1 and g <= 1 and b <= 1 then return Vector(r, g, b), Color(r * 255, g * 255, b * 255) end
+	return Vector(r / 255, g / 255, b / 255), Color(r, g, b)
+end
+
+local function hmcd_apply_associate_appearance(ent, data)
+	local appearance = data.appearance
+	if istable(appearance) and appearance.AColor then
+		local vec = hmcd_appearance_color(appearance.AColor)
+		ent.GetPlayerColor = function()
+			return vec
+		end
+	end
+
+	local model_data = hmcd_appearance_model_data(appearance)
+	if not model_data then
+		if IsValid(data.ply) then
+			ent:SetSkin(data.ply:GetSkin())
+			for _, bg in ipairs(ent:GetBodyGroups()) do
+				ent:SetBodygroup(bg.id, data.ply:GetBodygroup(bg.id))
+			end
+		end
+		return
+	end
+
+	ent:SetSubMaterial()
+	local mats = ent:GetMaterials()
+	local clothes = istable(appearance.AClothes) and appearance.AClothes or {}
+	local sex = model_data.sex and 2 or 1
+
+	for key, mat in SortedPairs(model_data.submatSlots or {}) do
+		local slot = hmcd_material_slot(mats, mat)
+		local set = hg.Appearance.Clothes and hg.Appearance.Clothes[sex]
+		local cloth = set and (set[clothes[key] or "normal"] or set.normal)
+		if slot and cloth then ent:SetSubMaterial(slot, cloth) end
+	end
+
+	if hg.Appearance.FacemapsSlots then
+		local facemap_slot = hg.Appearance.FacemapsModels and hg.Appearance.FacemapsModels[model_data.mdl]
+		if facemap_slot then
+			for i = 1, #mats do
+				local set = hg.Appearance.FacemapsSlots[mats[i]]
+				local facemap = set and set[appearance.AFacemap]
+				if facemap then ent:SetSubMaterial(i - 1, facemap) end
+			end
+		end
+	end
+
+	local bodygroups = istable(appearance.ABodygroups) and appearance.ABodygroups or {}
+	for _, bg in ipairs(ent:GetBodyGroups()) do
+		local selected = bodygroups[bg.name]
+		local bgdata = selected and hg.Appearance.Bodygroups and hg.Appearance.Bodygroups[bg.name]
+		local bgset = bgdata and bgdata[sex] and bgdata[sex][selected]
+		if not bgset then continue end
+		for i = 0, #bg.submodels do
+			if bgset[1] == bg.submodels[i] then
+				ent:SetBodygroup(bg.id, i)
+				break
+			end
+		end
+	end
+end
+
+hmcd_show_associates = function()
+	hmcd_clear_associates()
+	if not lply.isTraitor then return end
+
+	local associates = MODE.TraitorAssociates or {}
+	if #associates <= 0 then return end
+
+	local sw, sh = ScrW(), ScrH()
+	local w, h = math.floor(sw * 0.2), math.floor(sh * 0.55)
+	local y = math.floor(sh * 0.26)
+	local slots = {
+		{x = math.floor(sw * 0.055), off = -w - ScreenScale(30)},
+		{x = math.floor(sw - sw * 0.055 - w), off = sw + ScreenScale(30)},
+	}
+
+	for i = 1, math.min(#associates, 2) do
+		local data = associates[i]
+		local slot = slots[i]
+		local model_data = hmcd_appearance_model_data(data.appearance)
+		local model = model_data and model_data.mdl or data.model
+		if not model or model == "" or not util.IsValidModel(model) then continue end
+
+		local panel = vgui.Create("DPanel")
+		panel:SetSize(w, h)
+		panel:SetPos(slot.off, y)
+		panel:SetAlpha(255)
+		panel:SetPaintBackground(false)
+		panel:SetMouseInputEnabled(false)
+		panel:SetKeyboardInputEnabled(false)
+		panel.HMCDOffX = slot.off
+		panel.HMCDY = y
+		panel.Paint = function(self, pw, ph)
+			local a = self:GetAlpha()
+			local _, name_col = hmcd_appearance_color(istable(data.appearance) and data.appearance.AColor)
+			draw.SimpleTextOutlined("Assistant", "ZB_HomicideMedium", pw / 2, 0, Color(190, 0, 0, a), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, Color(0, 0, 0, a))
+			draw.SimpleTextOutlined(data.name, "ZB_HomicideMedium", pw / 2, ScreenScale(14), Color(name_col.r, name_col.g, name_col.b, a), TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, Color(0, 0, 0, a))
+		end
+		panel.Think = function(self)
+			if self.HMCDLeaving then return end
+			local fade_end_time = MODE.DynamicFadeScreenEndTime or 0
+			if fade_end_time - CurTime() <= 2.5 then
+				self.HMCDLeaving = true
+				self:MoveTo(self.HMCDOffX, self.HMCDY, 0.75, 0, 0.15)
+				self:AlphaTo(0, 0.35, 0)
+			end
+		end
+
+		local mp = vgui.Create("DModelPanel", panel)
+		mp:SetPos(0, ScreenScale(28))
+		mp:SetSize(w, h - ScreenScale(28))
+		mp:SetModel(model)
+		mp:SetFOV(32)
+		mp:SetCamPos(Vector(68, 0, 36))
+		mp:SetLookAng((Vector(0, 0, 37) - Vector(68, 0, 36)):Angle())
+		mp:SetMouseInputEnabled(false)
+		mp:SetAmbientLight(Color(90, 90, 100))
+		mp:SetDirectionalLight(BOX_FRONT, Color(210, 210, 215))
+		function mp:LayoutEntity(ent)
+			if not self.HMCDApplied then
+				hmcd_apply_associate_appearance(ent, data)
+				self.HMCDApplied = true
+			end
+
+			ent:SetAngles(Angle(0, i == 1 and -10 or 10, 0))
+			if not self.HMCDSeq then
+				for add = 0, #HMCD_AssociatePoses - 1 do
+					local seq = ent:LookupSequence(HMCD_AssociatePoses[((i + add - 1) % #HMCD_AssociatePoses) + 1])
+					if seq and seq >= 0 then
+						self.HMCDSeq = seq
+						break
+					end
+				end
+
+				self.HMCDSeq = self.HMCDSeq or 0
+				ent:ResetSequence(self.HMCDSeq)
+			end
+			ent:FrameAdvance(RealFrameTime())
+		end
+
+		panel:MoveTo(slot.x, y, 0.75, 0.45 + i * 0.15, 0.15)
+		HMCD_AssociatePanels[#HMCD_AssociatePanels + 1] = panel
+	end
+end
+
 function MODE:HUDPaint()
 	if not MODE.Type or not MODE.TypeObjectives[MODE.Type] then return end
 	if lply:Team() == TEAM_SPECTATOR then return end
@@ -230,6 +427,8 @@ function MODE:HUDPaint()
 			MODE.RoundBeginSound:Stop()
 			MODE.RoundBeginSound = nil
 		end
+
+		hmcd_clear_associates()
 
 		return
 	end
@@ -388,6 +587,8 @@ end
 local CreateEndMenu
 
 net.Receive("hmcd_roundend", function()
+	hmcd_clear_associates()
+
 	local traitors, gunners = {}, {}
 
 	for key = 1, net.ReadUInt(MODE.TraitorExpectedAmtBits) do

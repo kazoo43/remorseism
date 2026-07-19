@@ -101,6 +101,7 @@ SWEP.BlockTier = 1.5
 SWEP.BlockMaterial = "metal"
 SWEP.BlockSound = {"physics/metal/metal_solid_impact_hard1.wav", 68, {95, 102}}
 SWEP.UnNailables = {MAT_METAL, MAT_SAND, MAT_SLOSH, MAT_GLASS}
+SWEP.CantClash = true
 game.AddDecal("hmcd_jackanail", "decals/mat_jack_hmcd_nailhead")
 function hgCheckBindObjects(ent1)
 	if not ent1.Nails then return end

@@ -9,7 +9,7 @@ local hg_firstperson_death = CreateClientConVar("hg_firstperson_death", "0", tru
 local hg_font_default = "Lora"
 local hg_font = ConVarExists("hg_font") and GetConVar("hg_font") or CreateClientConVar("hg_font", hg_font_default, true, false, "change every text font to selected because ui customization is cool")
 local hg_oldradialmenu = CreateClientConVar("hg_oldradialmenu", "0", true, false, "use the old radial menu style", 0, 1)
-local hg_hold_shift_sprint = ConVarExists("hg_hold_shift_sprint") and GetConVar("hg_hold_shift_sprint") or CreateClientConVar("hg_hold_shift_sprint", "0", true, true, "Disable jogging, holding shift will make you sprint.", 0, 1)
+local hg_nojogging = CreateClientConVar("hg_nojogging", "0", true, true, "Automatically sprint when holding shift.", 0, 1)
 
 local function ForceHGFont()
 	if hg_font:GetString() != hg_font_default then
@@ -105,7 +105,7 @@ hg.settings:AddOpt("Gameplay","hg_showthoughts", "Show thoughts")
 hg.settings:AddOpt("Gameplay","hg_hints", "Show hints")
 hg.settings:AddOpt("Gameplay","hg_gary", "HG GARY")
 hg.settings:AddOpt("Gameplay","hg_deathfadeout", "Death fade out")
-hg.settings:AddOpt("Gameplay","hg_hold_shift_sprint", "Hold shift to sprint")
+hg.settings:AddOpt("Gameplay","hg_nojogging", "Disable jogging")
 if not game.IsDedicated() then
 	hg.settings:AddOpt("Serverside gameplay","hg_toughnpcs", "Tough npcs")
 	hg.settings:AddOpt("Serverside gameplay","hg_thirdperson", "Thirdperson (WIP)")

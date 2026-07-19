@@ -626,6 +626,7 @@ function GM:ScoreboardShow()
 	scoreBoardMenu:SetAlpha(0)
 	scoreBoardMenu.OpenAlpha = 0
 	scoreBoardMenu.Think = function(pnl)
+		if pnl.Closing then return end
 		pnl.OpenAlpha = math.Approach(pnl.OpenAlpha, 255, FrameTime() * 700)
 		pnl:SetAlpha(pnl.OpenAlpha)
 		pnl:SetPos(0, 0)
@@ -713,10 +714,13 @@ function GM:ScoreboardShow()
 	end
 
 	local function RequestPlayerXP(ply)
-		if not IsValid(ply) or ply.exp ~= nil then return end
+		if not IsValid(ply) or ply.exp ~= nil then return false end
+		if (ply.zcitySBXPRequested or 0) > CurTime() then return false end
+		ply.zcitySBXPRequested = CurTime() + 2
 		net.Start("zb_xp_get")
 			net.WriteEntity(ply)
 		net.SendToServer()
+		return true
 	end
 
 	local function MakeColumn()
@@ -774,8 +778,14 @@ function GM:ScoreboardShow()
 			surface.DrawOutlinedRect(0, 0, w, h, 1)
 
 			local xp = ply.exp or 0
+			local _, medal = zb.Experience.GetAwards(ply)
 			draw.SimpleText(ply:Name(), "ZCity_SB_Row", nameX, h / 2, spectator and SB.textDim or SB.text, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 			draw.SimpleText("XP  " .. xp, "ZCity_SB_Tiny", w - SB_Unit(155), h / 2, SB.textDim, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
+			if medal and medal.icon then
+				surface.SetMaterial(medal.icon)
+				surface.SetDrawColor(255, 255, 255, 220)
+				surface.DrawTexturedRect(w - SB_Unit(145), h / 2 - SB_Unit(7), SB_Unit(14), SB_Unit(14))
+			end
 			draw.SimpleText("PING  " .. ply:Ping(), "ZCity_SB_Tiny", w - SB_Unit(58), h / 2, SB.textDim, TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
 		end
 
@@ -812,6 +822,20 @@ function GM:ScoreboardShow()
 			menu:AddOption("Copy SteamID", function()
 				SetClipboardText(ply:SteamID())
 			end)
+			if lp:IsSuperAdmin() then
+				menu:AddOption("Set as assistant", function()
+					net.Start("HMCD_SetNextTraitorRole")
+						net.WriteEntity(ply)
+						net.WriteString("assistant")
+					net.SendToServer()
+				end)
+				menu:AddOption("Set as traitor", function()
+					net.Start("HMCD_SetNextTraitorRole")
+						net.WriteEntity(ply)
+						net.WriteString("traitor")
+					net.SendToServer()
+				end)
+			end
 			menu:Open()
 		end
 	end
@@ -821,7 +845,8 @@ function GM:ScoreboardShow()
 
 	RefreshRows = function()
 		playersCol.Scroll:Clear()
-		local count = 0
+		local players = {}
+		local requestedXP = false
 
 		for _, ply in player.Iterator() do
 			if not IsValid(ply) then continue end
@@ -829,12 +854,28 @@ function GM:ScoreboardShow()
 			if disappearance and ply ~= lp then continue end
 			if showingSpectators ~= (ply:Team() == TEAM_SPECTATOR) then continue end
 
-			RequestPlayerXP(ply)
-			AddPlayerRow(playersCol.Scroll, ply, showingSpectators)
-			count = count + 1
+			requestedXP = RequestPlayerXP(ply) or requestedXP
+			players[#players + 1] = ply
 		end
 
-		playersCol.TitleText = (showingSpectators and "SPECTATORS" or "PLAYERS") .. "  —  " .. count
+		table.sort(players, function(a, b)
+			local axp = a.exp or 0
+			local bxp = b.exp or 0
+			if axp == bxp then return a:Name():lower() < b:Name():lower() end
+			return axp > bxp
+		end)
+
+		for _, ply in ipairs(players) do
+			AddPlayerRow(playersCol.Scroll, ply, showingSpectators)
+		end
+
+		if requestedXP then
+			timer.Simple(0.35, function()
+				if IsValid(scoreBoardMenu) then RefreshRows() end
+			end)
+		end
+
+		playersCol.TitleText = (showingSpectators and "SPECTATORS" or "PLAYERS") .. "  —  " .. #players
 	end
 	RefreshRows()
 
@@ -849,7 +890,11 @@ end
 
 function GM:ScoreboardHide()
 	if IsValid(scoreBoardMenu) then
-		scoreBoardMenu:Close()
+		local menu = scoreBoardMenu
+		menu.Closing = true
+		menu:AlphaTo(0, 0.2, 0, function()
+			if IsValid(menu) then menu:Remove() end
+		end)
 		scoreBoardMenu = nil
 	end
 end

@@ -19,6 +19,7 @@ SWEP.SuicideCutAng = Angle(10, 0, 0)
 SWEP.SuicideTime = 0.5
 SWEP.CanSuicide = true
 SWEP.SuicidePunchAng = Angle(-5, -15, 0)
+SWEP.CantClash = true
 
 SWEP.WorldModel = "models/weapons/hammer/w.mdl"
 SWEP.WorldModelReal = "models/weapons/cs2/c_melee_knife_m7_bayo.mdl"

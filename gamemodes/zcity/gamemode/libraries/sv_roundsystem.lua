@@ -19,20 +19,36 @@ local ZB_FORCED_MODE_POOL = {
         ["dm"] = true,
         ["riot"] = true
 }
+local ZB_NO_BACK_TO_BACK_MODES = {
+        ["dm"] = true,
+        ["riot"] = true
+}
 local ZB_HAS_CHANGELEVEL
 
+local function ZB_NormalizeModeKey(mode)
+        if mode == "standard" or mode == "homicide/standard" or mode == "hmcd/standard" then return "hmcd" end
+
+        return mode
+end
+
+local function ZB_IsBackToBackBlocked(mode, previous)
+        return mode == previous and ZB_NO_BACK_TO_BACK_MODES[mode]
+end
+
 local function ZB_IsForcedModeAllowed(mode)
+        mode = ZB_NormalizeModeKey(mode)
         if !isstring(mode) or !ZB_FORCED_MODE_POOL[mode] then return false end
 
         local tbl = zb.modes[mode]
         return tbl and (!tbl.CanLaunch or tbl:CanLaunch())
 end
 
-local function ZB_GetForcedTempMode()
+local function ZB_GetForcedTempMode(previous)
         local total = 0
+        previous = ZB_NormalizeModeKey(previous)
 
         for mode, chance in pairs(ZB_FORCED_TEMP_MODE_WEIGHTS) do
-                if ZB_IsForcedModeAllowed(mode) then
+                if ZB_IsForcedModeAllowed(mode) and !ZB_IsBackToBackBlocked(mode, previous) then
                         total = total + chance
                 end
         end
@@ -43,7 +59,7 @@ local function ZB_GetForcedTempMode()
         local count = 0
 
         for mode, chance in pairs(ZB_FORCED_TEMP_MODE_WEIGHTS) do
-                if ZB_IsForcedModeAllowed(mode) then
+                if ZB_IsForcedModeAllowed(mode) and !ZB_IsBackToBackBlocked(mode, previous) then
                         count = count + chance
 
                         if random <= count then
@@ -56,8 +72,11 @@ local function ZB_GetForcedTempMode()
 end
 
 local function ZB_ResolveNextRound(round)
+	round = ZB_NormalizeModeKey(round)
+
 	if ZB_FORCE_LIMITED_MODE_POOL then
-                return ZB_IsForcedModeAllowed(round) and round or ZB_GetForcedTempMode()
+		local previous = ZB_NormalizeModeKey(zb.CROUND)
+                return (ZB_IsForcedModeAllowed(round) and !ZB_IsBackToBackBlocked(round, previous)) and round or ZB_GetForcedTempMode(previous)
 	end
 
 	return round
@@ -82,6 +101,8 @@ end)
 local forcemodeconvar = CreateConVar("zb_forcemode", "random", nil, "Set force mode (set to 'random' to disable)")
 forcemodeconvar:SetString("random")
 function zb:GetMode(round)
+	round = ZB_NormalizeModeKey(round)
+
 	if zb.modes[round] then return round end
 
 	for name, mode in pairs(zb.modes) do
@@ -532,6 +553,8 @@ function zb.RerollChances()
 
 	for i = 1, 20 do
 		local round = zb.WeightedChanceMode(chances)
+		local previous = zb.RoundList[i - 1] or zb.CROUND
+		if ZB_IsBackToBackBlocked(round, previous) then round = ZB_GetForcedTempMode(previous) end
 
 		zb.RoundList[i] = round
 	end
@@ -544,7 +567,15 @@ function zb.GetModesInfo()
 
 	for name, mode in pairs(zb.modes) do
 		if ZB_FORCE_LIMITED_MODE_POOL and !ZB_FORCED_MODE_POOL[name] then continue end
-		if mode.Types then
+		if name == "hmcd" then
+			table.insert(modesInfo, {
+				key = name,
+				name = mode.PrintName or mode.name or name,
+				description = mode.Description or "",
+				forBigMaps = mode.ForBigMaps or false,
+				canlaunch = (mode:CanLaunch() and 1 or 0)
+			})
+		elseif mode.Types then
 			for name2, mode2 in pairs(mode.Types) do
 				table.insert(modesInfo, {
 					key = name2,
@@ -571,6 +602,10 @@ end
 
 function zb.SetRoundList(newList)
 	local newLista = table.Copy(newList)
+	for i, modeKey in ipairs(newLista) do
+		newLista[i] = ZB_NormalizeModeKey(modeKey)
+	end
+
 	if #newLista > 0 then
 		zb.nextround = ZB_ResolveNextRound(table.remove(newLista, 1))
 		zb.RoundList = newLista
@@ -718,7 +753,7 @@ net.Receive("AdminSetGameMode", function(len, ply)
 	if not ply:IsAdmin() then return end
 
 	local command = net.ReadString()
-	local modeKey = net.ReadString()
+	local modeKey = ZB_NormalizeModeKey(net.ReadString())
 	local addToQueue = net.ReadBool() or false
 
 	if command == "setmode" then
@@ -933,6 +968,7 @@ if SERVER then
 		if not istable(modeQueue) then return end
 		local cleanQueue = {}
 		for _, modeKey in ipairs(modeQueue) do
+			modeKey = ZB_NormalizeModeKey(modeKey)
 			if #cleanQueue >= 12 then break end
 			if isstring(modeKey) and zb.modes[modeKey] then cleanQueue[#cleanQueue + 1] = modeKey end
 		end

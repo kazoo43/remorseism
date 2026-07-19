@@ -365,6 +365,9 @@ local function GiveContainedLaw(ply, lawIndex)
     GiveSling(ply)
     ply:Give("weapon_hands_sh")
     ply:Give("weapon_hg_tonfa")
+    if lawIndex <= 2 then
+        ply:Give("weapon_taser")
+    end
     ply:Give("weapon_walkie_talkie")
     ply:Give("weapon_handcuffs")
     ply:Give("weapon_handcuffs_key")
@@ -447,10 +450,17 @@ function MODE:GiveEquipment()
     table.Shuffle(players)
     self.HasAppliedLoadout = true
 
+    local selectedIntensity = self.CurrentIntensity and self.CurrentIntensity.id or "ESCALATED"
     local numPlayers = #players
     local numRioters = math.ceil(numPlayers / 2)
+
+    if selectedIntensity == "CONTAINED" then
+        numRioters = math.floor(numPlayers / 2)
+    elseif selectedIntensity == "ANARCHY" then
+        numRioters = math.ceil(numPlayers * 5 / 8)
+    end
+
     local numLawEnforcers = numPlayers - numRioters
-    local selectedIntensity = self.CurrentIntensity and self.CurrentIntensity.id or "ESCALATED"
     local glockIndex = numLawEnforcers > 0 and math.random(numLawEnforcers) or 1
     local shotgunIndex = numRioters > 0 and math.random(numRioters) or 1
 

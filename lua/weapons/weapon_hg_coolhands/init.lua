@@ -30,6 +30,17 @@ local specialDamageMul = 2.5
 local runningSpecialDamageMul = 3
 local incomingVelocityDamageMul = 2
 
+local function DMCounterActive()
+        local rnd = CurrentRound and CurrentRound()
+        return rnd and rnd.name == "dm" and (zb.ROUND_START or 0) + 20 > CurTime()
+end
+
+local function IsDMCounterPlayerTarget(ent)
+        if not DMCounterActive() or not IsValid(ent) then return false end
+        local target = hg.RagdollOwner(ent) or ent
+        return IsValid(target) and target:IsPlayer()
+end
+
 local function PlayPunchSound(pos, level)
         local id = math_random(1, 11)
         sound.Play("punch/Punch-" .. (id < 10 and "0" or "") .. id .. ".wav", pos, level or 70, math_random(110, 125))
@@ -153,7 +164,7 @@ function SWEP:SecondaryAttack()
                 self:GetOwner():ViewPunch(Angle(2, 0, 0))
                 sound.Play("player/shove_0"..math_random(5)..".wav", self:GetPos(), 65, math_random(105, 115))
                 if self:GetOwner().organism then
-                        self:GetOwner().organism.stamina.subadd = self:GetOwner().organism.stamina.subadd + 18
+                        self:GetOwner().organism.stamina.subadd = self:GetOwner().organism.stamina.subadd + 8
                 end
                 self:ShoveFront(sprintShove)
                 return
@@ -188,7 +199,7 @@ function SWEP:SecondaryAttack()
 				tr.Entity.Touched = true
 				self:ApplyForce()
 			--end
-		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() then
+		elseif IsValid(tr.Entity) and tr.Entity:IsPlayer() and not IsDMCounterPlayerTarget(tr.Entity) then
 			local Dist = (select(1, hg.eye(self:GetOwner())) - tr.HitPos):Length()
 			if Dist < self.ReachDistance then
 				sound.Play("weapons/melee/blunt_light"..math_random(8)..".wav", self:GetOwner():GetShootPos(), 65, math_random(90, 110))
@@ -901,6 +912,11 @@ function SWEP:ShoveFront(sprintShove)
         pushVel:Normalize()
         pushVel = pushVel * shoveForce * (sprintShove and 1.3 or 1)
 
+        if IsDMCounterPlayerTarget(ent) then
+                owner:LagCompensation(false)
+                return
+        end
+
         if IsValid(ent) and ent:IsRagdoll() then
                 sound.Play("physics/body/body_medium_impact_soft" .. math_random(1, 7) .. ".wav", trace.HitPos, 75, 110)
                 PushRagdoll(ent, trace.PhysicsBone or 0, pushVel * 0.45, trace.HitPos)
@@ -977,6 +993,11 @@ function SWEP:AttackFront(special_attack, rand)
         })
         Ent = trace.Entity
         HitPos = trace.HitPos
+
+        if IsDMCounterPlayerTarget(Ent) then
+                owner:LagCompensation(false)
+                return
+        end
 
         local AimVec = owner:GetAimVector()
         local isfur = owner.PlayerClassName == "furry"
@@ -1123,7 +1144,7 @@ function SWEP:AttackFront(special_attack, rand)
         end
 
         if SERVER then
-                owner.organism.stamina.subadd = owner.organism.stamina.subadd + (special_attack and owner:KeyDown(IN_SPEED) and 36 or 18)
+                owner.organism.stamina.subadd = owner.organism.stamina.subadd + (special_attack and owner:KeyDown(IN_SPEED) and 13 or 5)
         end
 
         owner:LagCompensation(false)

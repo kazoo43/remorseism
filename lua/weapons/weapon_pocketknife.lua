@@ -24,6 +24,7 @@ SWEP.SuicideTime = 0.5
 SWEP.CanSuicide = true
 SWEP.SuicideNoLH = true
 SWEP.SuicidePunchAng = Angle(5, -15, 0)
+SWEP.CantClash = true
 
 SWEP.BreakBoneMul = 0.25
 

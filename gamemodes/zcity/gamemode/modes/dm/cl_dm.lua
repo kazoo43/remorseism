@@ -193,8 +193,7 @@ function MODE:HUDPaint()
                 surface.SetFont("ZB_HomicideMediumLarge")
                 local tw, th = surface.GetTextSize(timerText)
 
-                draw.RoundedBox(8, sw * 0.5 - tw * 0.5 - 18, sh * 0.06 - th * 0.5 - 10, tw + 36, th + 20, Color(0, 0, 0, 150))
-                draw.SimpleTextOutlined(timerText, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.06, Color(255, 70, 70), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 2, Color(0, 0, 0, 220))
+                draw.SimpleTextOutlined(timerText, "ZB_HomicideMediumLarge", sw * 0.5, sh * 0.06, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 2, Color(0, 0, 0, 220))
         end
 
         if not lply:Alive() or lply:Team() == TEAM_SPECTATOR or not StartTime then return end

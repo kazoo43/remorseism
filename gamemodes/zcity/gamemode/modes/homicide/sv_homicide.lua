@@ -687,6 +687,21 @@ local modes = {
 }
 
 util.AddNetworkString("HMCD_RoundStart")
+util.AddNetworkString("HMCD_SetNextTraitorRole")
+
+MODE.NextRoundTraitorRoles = MODE.NextRoundTraitorRoles or {}
+
+net.Receive("HMCD_SetNextTraitorRole", function(_, ply)
+	if not IsValid(ply) or not ply:IsSuperAdmin() then return end
+
+	local target = net.ReadEntity()
+	local role = net.ReadString()
+	if not IsValid(target) or not target:IsPlayer() then return end
+	if role ~= "traitor" and role ~= "assistant" then return end
+
+	MODE.NextRoundTraitorRoles[target:SteamID()] = role
+	ply:ChatPrint(target:Nick() .. " will be " .. (role == "traitor" and "traitor" or "traitor assistant") .. " next round.")
+end)
 
 function MODE:GetPlySpawn(ply)
 end
@@ -696,15 +711,11 @@ function MODE:SubModes()
 end
 
 local function GetHomicideTraitorCount(player_count)
-        local traitors_needed = 1
+	if player_count < 2 then return 0 end
 
-        if player_count > 20 then
-                traitors_needed = 3
-        elseif player_count > 10 then
-                traitors_needed = 2
-        end
+	local traitors_needed = 1 + math.min(math.floor(player_count / 10), 2)
 
-        return math.max(0, math.min(player_count - 1, traitors_needed))
+	return math.max(0, math.min(player_count - 1, traitors_needed))
 end
 
 function MODE:Intermission()
@@ -740,11 +751,44 @@ function MODE:Intermission()
 	MODE.TraitorWord = MODE.TraitorWords[math.random(1, #MODE.TraitorWords)]
 	MODE.TraitorWordSecond = MODE.TraitorWords[math.random(1, #MODE.TraitorWords)]
 
-        local traitors_needed = GetHomicideTraitorCount(player_count)
-
-	MODE.TraitorExpectedAmt = traitors_needed
+	local traitors_needed = GetHomicideTraitorCount(player_count)
 	local main_traitor = nil
 	local traitors = {}
+	local forced_main
+	local forced_assistants = {}
+
+	for _, ply in player.Iterator() do
+		if ply:Team() == TEAM_SPECTATOR then continue end
+
+		local forced_role = MODE.NextRoundTraitorRoles and MODE.NextRoundTraitorRoles[ply:SteamID()]
+		if forced_role == "traitor" and not IsValid(forced_main) then
+			forced_main = ply
+		elseif forced_role == "assistant" and #forced_assistants < 2 then
+			forced_assistants[#forced_assistants + 1] = ply
+		end
+	end
+
+	traitors_needed = math.min(player_count - 1, math.max(traitors_needed, #forced_assistants + (IsValid(forced_main) and 1 or (#forced_assistants > 0 and 1 or 0))))
+	MODE.TraitorExpectedAmt = traitors_needed
+
+	if IsValid(forced_main) and traitors_needed > 0 then
+		forced_main.isTraitor = true
+		forced_main.MainTraitor = true
+		main_traitor = forced_main
+		traitors_needed = traitors_needed - 1
+		traitors[#traitors + 1] = forced_main
+	end
+
+	for _, ply in ipairs(forced_assistants) do
+		if traitors_needed <= 0 then break end
+		if ply.isTraitor or ply:Team() == TEAM_SPECTATOR then continue end
+
+		ply.isTraitor = true
+		traitors_needed = traitors_needed - 1
+		traitors[#traitors + 1] = ply
+	end
+
+	MODE.NextRoundTraitorRoles = {}
 
 	-- local players = {}
 	-- for i, ply in player.Iterator() do
@@ -764,8 +808,10 @@ function MODE:Intermission()
 			traitors_needed = traitors_needed - 1
 			traitors[#traitors + 1] = ply
 
-			main_traitor = ply
-			ply.MainTraitor = true
+			if not main_traitor then
+				main_traitor = ply
+				ply.MainTraitor = true
+			end
 		end
 	end
 
@@ -1270,6 +1316,10 @@ end
 --//
 
 function MODE:ShouldRoundEnd()
+	if(MODE.StartRoundTime and not MODE.RoleChooseRound and CurTime() - MODE.StartRoundTime < 10)then
+		return false
+	end
+
 	if(MODE.StartRoundTime and MODE.RoleChooseRound)then
 		if(MODE.StartRoundTime > CurTime())then
 			return false
@@ -1569,6 +1619,48 @@ end)
 
 util.AddNetworkString("HMCD_UpdateTraitorAssistants")
 
+local TraitorAssistantStarterItems = {
+	"weapon_painkillers",
+	"weapon_taser",
+	"weapon_hammer",
+	"weapon_ducttape",
+	"weapon_bigbandage_sh",
+	"weapon_bandage_sh",
+	"weapon_pocketknife",
+}
+
+local function GiveTraitorAssistantStarterItem(ply)
+	local item = TraitorAssistantStarterItems[math.random(#TraitorAssistantStarterItems)]
+	ply:Give(item)
+
+	if item == "weapon_taser" and ply:HasWeapon(item) then
+		local taser = ply:GetWeapon(item)
+		if IsValid(taser) and taser:GetPrimaryAmmoType() >= 0 then
+			ply:GiveAmmo(taser:GetMaxClip1(), taser:GetPrimaryAmmoType(), true)
+		end
+	end
+end
+
+local function GetTraitorAssociatesFor(ply)
+	local traitor_associates = {}
+
+	for _, other_ply in player.Iterator() do
+		if other_ply == ply or not other_ply.isTraitor or not other_ply.CurAppearance then continue end
+
+		local appearance = other_ply.CurAppearance
+		local color = appearance.AColor or color_white
+		local name = appearance.AName or other_ply:Nick()
+
+		if not IsColor(color) then
+			color = Color(color.r, color.g, color.b)
+		end
+
+		traitor_associates[#traitor_associates + 1] = {color, name, other_ply, other_ply:GetModel() or "", table.Copy(appearance), other_ply.PlayerClassName or ""}
+	end
+
+	return traitor_associates
+end
+
 function MODE.SpawnPlayers(spawn_with_subroles)
     local gunner_found = false
 
@@ -1697,7 +1789,7 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                     end
                 end
             else
-                if(current_ply.isTraitor)then
+                if(current_ply.isTraitor and current_ply.MainTraitor)then
                     MODE.Types[MODE.Type].TraitorLoot(current_ply)
                 end
 
@@ -1724,6 +1816,10 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 current_ply:SetNetVar("Inventory", inv)
             end
 
+			if current_ply.isTraitor and not current_ply.MainTraitor then
+				GiveTraitorAssistantStarterItem(current_ply)
+			end
+
             local hands = current_ply:Give("weapon_hands_sh")
             current_ply:SetActiveWeapon(hands)
             current_ply:SetNetVar("flashlight", false)
@@ -1741,28 +1837,16 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                 if not IsValid(this_player) then return end
 
                 local traitor_amt = 0
-                local traitor_assistants = {}
+                local traitor_associates = {}
                 
                 if (this_player.isTraitor) then
                     for _, other_ply in player.Iterator() do
                         if (other_ply.isTraitor) then
                             traitor_amt = traitor_amt + 1
-                            
-
-                            if this_player.MainTraitor and other_ply.CurAppearance then
-                                local Appearance = other_ply.CurAppearance
-                                local color = Appearance.AColor or color_white
-                                local name = Appearance.AName or "error"
-                                local steamID = other_ply:SteamID() or ""
-                                
-                                if not IsColor(color) then
-                                    color = Color(color.r, color.g, color.b)
-                                end
-                                
-                                table.insert(traitor_assistants, {color, name, steamID})
-                            end
                         end
                     end
+
+					traitor_associates = GetTraitorAssociatesFor(this_player)
                 end
                 
 
@@ -1778,6 +1862,17 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                         net.WriteString(MODE.TraitorWord)
                         net.WriteString(MODE.TraitorWordSecond)
                         net.WriteUInt(traitor_amt, MODE.TraitorExpectedAmtBits)
+						net.WriteUInt(math.min(#traitor_associates, 15), 4)
+
+						for i = 1, math.min(#traitor_associates, 15) do
+							local traitor_info = traitor_associates[i]
+							net.WriteColor(traitor_info[1], false)
+							net.WriteString(traitor_info[2])
+							net.WriteEntity(traitor_info[3])
+							net.WriteString(traitor_info[4])
+							net.WriteTable(traitor_info[5])
+							net.WriteString(traitor_info[6])
+						end
                     else
                         net.WriteString("")
                         net.WriteString("")
@@ -1785,21 +1880,15 @@ function MODE.SpawnPlayers(spawn_with_subroles)
                     end
                     
                     if (this_player.MainTraitor) then
-
-                        for _, traitor_info in ipairs(traitor_assistants) do
-                            net.WriteColor(traitor_info[1], false)
-                            net.WriteString(traitor_info[2])
-                        end
-
                         timer.Simple(0.5, function()
                             if IsValid(this_player) and this_player.isTraitor and this_player.MainTraitor then
                                 net.Start("HMCD_UpdateTraitorAssistants")
-                                    net.WriteUInt(#traitor_assistants, 8)
+                                    net.WriteUInt(#traitor_associates, 8)
                                     
-                                    for _, info in ipairs(traitor_assistants) do
+                                    for _, info in ipairs(traitor_associates) do
                                         net.WriteColor(info[1])
                                         net.WriteString(info[2])
-                                        net.WriteString(info[3])
+										net.WriteString(IsValid(info[3]) and (info[3]:SteamID() or "") or "")
                                     end
                                 net.Send(this_player)
                             end
