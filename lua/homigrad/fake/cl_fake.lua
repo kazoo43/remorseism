@@ -761,6 +761,19 @@ hook.Add("Move","PushAwayRagdolls",function(ply) --// lagging
     end
 end)]]
 
+hook.Add("ViewpunchThink", "SlideCameraShake", function(tbl)
+	local ply = LocalPlayer()
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	local rag = ply.FakeRagdoll
+	if not IsValid(rag) or not rag.isSliding then return end
+
+	local speed = rag:GetVelocity():Length()
+	local intensity = math.Clamp(speed / 500, 0, 1) * 0.3
+
+	ViewPunch(Angle(math.Rand(-intensity, intensity), math.Rand(-intensity, intensity), math.Rand(-intensity * 0.5, intensity * 0.5)))
+end)
+
 surface.CreateFont("HGWoundHoldPrompt", {
 	font = "Courier Prime",
 	size = 22,

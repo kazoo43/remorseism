@@ -267,28 +267,6 @@ function hg.ShadowControl(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos,
 	phys:ComputeShadowControl(shadowparams)
 end
 
-local function processPostureGunfire(ply, ragdoll, org, wep)
-	if not org then return end
-	if not (org.posturing or org.seizureActive) then org.postureGunfireWeapon = nil ragdoll.nextPostureGunFire = nil return end
-	wep = IsValid(org.postureGunfireWeapon) and org.postureGunfireWeapon or wep
-	if not IsValid(wep) then org.postureGunfireWeapon = nil return end
-	if not ishgweapon(wep) or wep.reload or wep.deploy then return end
-	if wep.Clip1 and wep:Clip1() <= 0 then return end
-	if not wep.TryDropMisfire then return end
-
-	local time = CurTime()
-	if (ragdoll.nextPostureGunFire or 0) > time then return end
-	ragdoll.nextPostureGunFire = time + math.Rand(0.08, 0.22)
-
-	if wep:GetOwner() == ply then
-		local hand = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 7))
-		local ang = IsValid(hand) and hand:GetAngles() or ply:EyeAngles()
-		local fireAng = Angle(math.Clamp(ang.p + math.Rand(-65, 65), -89, 89), ang.y + math.Rand(-140, 140), math.Rand(-45, 45))
-		ply:SetEyeAngles(fireAng)
-	end
-	wep:TryDropMisfire(1, 251, true)
-end
-
 local shadowControl = hg.ShadowControl
 
 hook.Add("Fake", "Contorl", function(ply, ragdoll)
@@ -297,6 +275,24 @@ hook.Add("Fake", "Contorl", function(ply, ragdoll)
 	if ply.otrubCollapseStart then
 		ragdoll.otrubCollapseStart = ply.otrubCollapseStart
 	end
+	
+	ragdoll._slideActive = false
+	ragdoll._slideStartTime = nil
+	ragdoll._slideDir = nil
+	ragdoll._slideCooldown = nil
+	if ragdoll._slideLoopPath then
+		ragdoll:StopSound(ragdoll._slideLoopPath)
+		ragdoll._slideLoopPath = nil
+	end
+	if ragdoll._slideLoopTimer then
+		timer.Remove(ragdoll._slideLoopTimer)
+		ragdoll._slideLoopTimer = nil
+	end
+	
+	local plyVel = ply:GetVelocity()
+	ragdoll._slideEntrySpeed = Vector(plyVel.x, plyVel.y, 0):Length()
+	ragdoll._slideEntryDir = Vector(plyVel.x, plyVel.y, 0):GetNormalized()
+	ragdoll._slideEntryTime = CurTime()
 end)
 
 hook.Add("HG_OnOtrub", "OtrubCollapseStart", function(ply)
@@ -365,6 +361,113 @@ local tr = {
 
 local hg_fake_stamina = CreateConVar("hg_fake_stamina", "1", FCVAR_ARCHIVE + FCVAR_NOTIFY, "Enables stamina when ragdolled", 0, 1)
 
+local SOUND_DIR = ")player/slide/%s"
+local MAT_WATER = 91
+
+local slide_sfx = {
+	start = {
+		[MAT_CONCRETE] = {"concrete_start_01.ogg", "concrete_start_02.ogg", "concrete_start_03.ogg", "concrete_start_04.ogg"},
+		[MAT_DIRT] = {"dirt_start_01.ogg", "dirt_start_02.ogg", "dirt_start_03.ogg", "dirt_start_04.ogg"},
+		[MAT_GRASS] = {"grass_start_01.ogg", "grass_start_02.ogg", "grass_start_03.ogg", "grass_start_04.ogg"},
+		[MAT_METAL] = {"solidmetal_start_01.ogg", "solidmetal_start_02.ogg", "solidmetal_start_03.ogg", "solidmetal_start_04.ogg"},
+		[MAT_SAND] = {"sand_start_01.ogg", "sand_start_02.ogg", "sand_start_03.ogg"},
+		[MAT_SLOSH] = {"mud_start_01.ogg", "mud_start_02.ogg", "mud_start_03.ogg", "mud_start_04.ogg"},
+		[MAT_WOOD] = {"wood_start_01.ogg", "wood_start_02.ogg", "wood_start_03.ogg", "wood_start_04.ogg"},
+		[MAT_WATER] = {"water_start_01.ogg", "water_start_02.ogg", "water_start_03.ogg", "water_start_04.ogg"}
+	},
+	loop = {
+		[MAT_CONCRETE] = "concrete_loop_01.wav",
+		[MAT_DIRT] = "dirt_loop_01.wav",
+		[MAT_GRASS] = "grass_loop_01.wav",
+		[MAT_METAL] = "metal_loop_01.wav",
+		[MAT_SAND] = "sand_loop_01.wav",
+		[MAT_SLOSH] = "mud_loop_01.wav",
+		[MAT_WOOD] = "wood_loop_01.wav",
+		[MAT_WATER] = "water_loop_01.wav"
+	},
+	exit = {
+		[MAT_CONCRETE] = {"concrete_exit_01.ogg", "concrete_exit_02.ogg", "concrete_exit_03.ogg"},
+		[MAT_DIRT] = {"dirt_exit_01.ogg", "dirt_exit_02.ogg", "dirt_exit_03.ogg"},
+		[MAT_GRASS] = {"grass_exit_01.ogg", "grass_exit_02.ogg", "grass_exit_03.ogg"},
+		[MAT_METAL] = {"solidmetal_exit_01.ogg", "solidmetal_exit_02.ogg", "solidmetal_exit_03.ogg"},
+		[MAT_SAND] = {"sand_exit_01.ogg", "sand_exit_02.ogg", "sand_exit_03.ogg"},
+		[MAT_SLOSH] = {"mud_exit_01.ogg", "mud_exit_02.ogg", "mud_exit_03.ogg"},
+		[MAT_WOOD] = {"wood_exit_01.ogg", "wood_exit_02.ogg", "wood_exit_03.ogg"},
+		[MAT_WATER] = {"water_exit_01.ogg", "water_exit_02.ogg", "water_exit_03.ogg"}
+	}
+}
+
+slide_sfx.start[MAT_SNOW] = slide_sfx.start[MAT_SAND]
+slide_sfx.start[MAT_VENT] = slide_sfx.start[MAT_METAL]
+slide_sfx.loop[MAT_SNOW] = slide_sfx.loop[MAT_SAND]
+slide_sfx.loop[MAT_VENT] = slide_sfx.loop[MAT_METAL]
+slide_sfx.exit[MAT_SNOW] = slide_sfx.exit[MAT_SAND]
+slide_sfx.exit[MAT_VENT] = slide_sfx.exit[MAT_METAL]
+
+local function GetRagdollMaterial(ragdoll)
+	local tr = util.TraceLine({
+		start = ragdoll:GetPos(),
+		endpos = ragdoll:GetPos() - vector_up * 40,
+		filter = ragdoll
+	})
+
+	if bit.band(util.PointContents(tr.HitPos), CONTENTS_WATER) == CONTENTS_WATER then
+		return MAT_WATER
+	end
+
+	return tr.MatType
+end
+
+local function PlaySlideSFX(ragdoll, phase)
+	local mat = GetRagdollMaterial(ragdoll)
+
+	if phase == "start" then
+		if ragdoll._slideLoopPath then
+			ragdoll:StopSound(ragdoll._slideLoopPath)
+			ragdoll._slideLoopPath = nil
+		end
+		if ragdoll._slideLoopTimer then
+			timer.Remove(ragdoll._slideLoopTimer)
+			ragdoll._slideLoopTimer = nil
+		end
+
+		local snds = slide_sfx.start[mat] or slide_sfx.start[MAT_CONCRETE]
+		local snd = string.format(SOUND_DIR, snds[math.random(#snds)])
+		ragdoll:EmitSound(snd, 75, 100 + math.random(-4, 4), 0.75, CHAN_BODY)
+
+		ragdoll._slideExitPlayed = false
+
+		local loop = slide_sfx.loop[mat] or slide_sfx.loop[MAT_CONCRETE]
+		local loopPath = string.format(SOUND_DIR, loop)
+
+		ragdoll._slideLoopTimer = "slide_loop_" .. ragdoll:EntIndex() .. "_" .. CurTime()
+		timer.Create(ragdoll._slideLoopTimer, 0.18, 1, function()
+			if not IsValid(ragdoll) then return end
+			if not ragdoll._slideActive then return end
+			ragdoll._slideLoopPath = loopPath
+			ragdoll:EmitSound(loopPath, 65, 100, 0.75, CHAN_AUTO)
+		end)
+
+	elseif phase == "exit" then
+		if ragdoll._slideExitPlayed then return end
+		ragdoll._slideExitPlayed = true
+
+		if ragdoll._slideLoopTimer then
+			timer.Remove(ragdoll._slideLoopTimer)
+			ragdoll._slideLoopTimer = nil
+		end
+
+		if ragdoll._slideLoopPath then
+			ragdoll:StopSound(ragdoll._slideLoopPath)
+			ragdoll._slideLoopPath = nil
+		end
+
+		local snds = slide_sfx.exit[mat] or slide_sfx.exit[MAT_CONCRETE]
+		local snd = string.format(SOUND_DIR, snds[math.random(#snds)])
+		ragdoll:EmitSound(snd, 70, 100 + math.random(-4, 4), 0.75, CHAN_BODY)
+	end
+end
+
 local util_TraceLine, util_TraceHull = util.TraceLine, util.TraceHull
 local game_GetWorld = game.GetWorld
 local ang, ang2, ang3 = Angle(0, 0, 0), Angle(0, 0, 0),  Angle(0, 0, 0)
@@ -428,10 +531,6 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-		local org = ply.organism
-		local wep = ply:GetActiveWeapon()
-		processPostureGunfire(ply, ragdoll, org, wep)
-
 		if hook_Run("CanControlFake", ply, ragdoll) ~= nil then
 			ply.lastFake = 0
 			//ply:SetNetVar("lastFake",0)
@@ -443,6 +542,8 @@ hook.Add("Think", "Fake", function()
 
 		local vellen = ragdoll:GetPhysicsObject():GetVelocity():Length()
 
+		local org = ply.organism
+		local wep = ply:GetActiveWeapon()
 		local floppyBones = ragdoll.hg_floppy_bones or org.fake_floppy_bones
 		local leftArmFloppy = floppyBones and (floppyBones["ValveBiped.Bip01_L_UpperArm"] or floppyBones["ValveBiped.Bip01_L_Forearm"])
 		local rightArmFloppy = floppyBones and (floppyBones["ValveBiped.Bip01_R_UpperArm"] or floppyBones["ValveBiped.Bip01_R_Forearm"])
@@ -1126,11 +1227,30 @@ hook.Add("Think", "Fake", function()
 			--print("huy")
 		end
 
-		if ply:KeyDown(IN_MOVELEFT) and ragdoll:IsOnFire() and not inmove and !ply:InVehicle() then
+		local keyLeft = false
+		local keyRight = false
+		local isNeckSlitRolling = false
+
+		if org.neckslit and not org.otrub and ply:Alive() and not ply:InVehicle() then
+			local phase = (CurTime() * 1.5) % 4
+			if phase < 1 then
+				keyLeft = true
+				isNeckSlitRolling = true
+			elseif phase >= 2 and phase < 3 then
+				keyRight = true
+				isNeckSlitRolling = true
+			end
+	else
+		keyLeft = ply:KeyDown(IN_ALT1)
+		keyRight = ply:KeyDown(IN_ALT2)
+	end
+
+	ply.lean = ply:KeyDown(IN_ALT1) and 1 or ply:KeyDown(IN_ALT2) and -1 or 0
+
+	if keyLeft and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
 			if org.canmove then
 				local angle = spine:GetAngles()
 				angle[3] = angle[3] - 20 * (ragdoll:IsOnFire() and 1.5 or 1)
-				--ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
 				shadowControl(ragdoll, 1, 0.001, angle, 490, 90)
 				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
 
@@ -1153,7 +1273,7 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
-		if ply:KeyDown(IN_MOVERIGHT) and ragdoll:IsOnFire() and not inmove and !ply:InVehicle() then
+		if keyRight and not inmove and !ply:InVehicle() and (isNeckSlitRolling or not ply:KeyDown(IN_USE)) then
 			if org.canmove and not org.otrub then
 				local angle = spine:GetAngles()
 				angle[3] = angle[3] + 20 * (ragdoll:IsOnFire() and 1.5 or 1)
@@ -1179,91 +1299,327 @@ hook.Add("Think", "Fake", function()
 			end
 		end
 
+	local rollLeft = ply:KeyDown(IN_MOVELEFT)
+	local rollRight = ply:KeyDown(IN_MOVERIGHT)
+
+	if (rollLeft or rollRight) and not inmove and !ply:InVehicle() and org.canmove then
+		local onground = util.TraceLine({
+			start = spine:GetPos(),
+			endpos = spine:GetPos() - vector_up * 36,
+			filter = {ply, ragdoll},
+			mask = MASK_SOLID,
+		}).Hit
+
+		if onground then
+			local dir = rollLeft and -1 or 1
+			local axis = spine:GetAngles():Forward()
+			local rollPhys = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+
+			for _, physNum in ipairs(rollPhys) do
+				if isFloppyPhys(ragdoll, physNum, true) then continue end
+
+				local phys = ragdoll:GetPhysicsObjectNum(physNum)
+				if IsValid(phys) then
+					local cur = phys:GetAngleVelocity():Dot(axis)
+					phys:AddAngleVelocity(axis * math.Clamp(dir * 6 * (ragdoll.power or 1) - cur, -2, 2))
+				end
+			end
+
+			if hg_fake_stamina:GetBool() and ply.organism then
+				ply.organism.stamina.subadd = ply.organism.stamina.subadd + 0.04
+			end
+		end
+	end
+
+	if org.canmove and ply.FakeRagdoll == ragdoll then
 		if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
-			if org.canmove and org.spine1 < hg.organism.fake_spine1 then
-				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
-				local angle = -(-angles2)
-				angle:RotateAroundAxis(angle:Forward(), -90)
+				local lthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 11))
+				local rthigh = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 8))
 
-				if ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -angle.p - 30)
+				if lthigh and rthigh then
+					local legAng1 = Angle(0, 0, 0)
+					local legAng2 = Angle(0, 0, 0)
+
+					legAng1:Set(angles)
+					legAng1:RotateAroundAxis(angles:Right(), 80)
+					legAng1:RotateAroundAxis(angles:Forward(), -40)
+					legAng1:RotateAroundAxis(angles:Up(), -70)
+
+					legAng2:Set(angles)
+					legAng2:RotateAroundAxis(angles:Right(), 65)
+					legAng2:RotateAroundAxis(angles:Forward(), -40)
+					legAng2:RotateAroundAxis(angles:Up(), -70)
+
+					shadowControl(ragdoll, 11, 0.001, legAng1, 200, 10)
+					shadowControl(ragdoll, 8, 0.001, legAng2, 200, 10)
+
+					local calfAng1 = Angle(0, 0, 0)
+					local calfAng2 = Angle(0, 0, 0)
+
+					calfAng1:Set(legAng1)
+					calfAng1:RotateAroundAxis(angles:Right(), -90)
+
+					calfAng2:Set(legAng2)
+					calfAng2:RotateAroundAxis(angles:Right(), -90)
+
+					shadowControl(ragdoll, 12, 0.001, calfAng1, 150, 10)
+					shadowControl(ragdoll, 9, 0.001, calfAng2, 150, 10)
+
+				local slideMinStartSpeed = 150
+				local slideMinKeepSpeed = 120
+				local slideMaxDuration = 0.8
+				local slideCooldown = 1
+				local slideSlopeMult = 30
+
+				local curVel = spine:GetVelocity()
+				local curSpeed = curVel:Length()
+				local horizontalVel = Vector(curVel.x, curVel.y, 0)
+				local horizontalSpeed = horizontalVel:Length()
+
+				local groundTrace = util.TraceLine({
+					start = spine:GetPos(),
+					endpos = spine:GetPos() - vector_up * 40,
+					filter = {ply, ragdoll},
+					mask = MASK_SOLID,
+				})
+				local onGround = groundTrace.Hit
+				local groundNormal = groundTrace.HitNormal or vector_up
+
+				if ragdoll._slideCooldown and CurTime() >= ragdoll._slideCooldown then
+					ragdoll._slideCooldown = nil
 				end
 
-				if ply:KeyDown(IN_ATTACK2) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 30)
+				if not ragdoll._slideActive and ragdoll._slideLoopPath then
+					ragdoll:StopSound(ragdoll._slideLoopPath)
+					ragdoll._slideLoopPath = nil
+				end
+				if not ragdoll._slideActive and ragdoll._slideLoopTimer then
+					timer.Remove(ragdoll._slideLoopTimer)
+					ragdoll._slideLoopTimer = nil
 				end
 
-				angle:RotateAroundAxis(angle:Right(), -15)
-				shadowControl(ragdoll, 8, 0.001, angle, 120, 30)
-
-				if ply:KeyDown(IN_ATTACK2) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -30)
+				local entrySpeed = 0
+				local entryDir = vector_up
+				if ragdoll._slideEntryTime and CurTime() - ragdoll._slideEntryTime < 0.1 then
+					entrySpeed = ragdoll._slideEntrySpeed or 0
+					entryDir = ragdoll._slideEntryDir or vector_up
 				end
 
-				if ply:KeyDown(IN_ATTACK) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 30)
+				local checkSpeed = math.max(horizontalSpeed, entrySpeed)
+
+				if ragdoll._slideActive then
+					local slideTime = CurTime() - ragdoll._slideStartTime
+					local falling = curVel.z < -80
+
+					local dirDot = 0
+					if horizontalSpeed > 1 then
+						dirDot = ragdoll._slideDir:GetNormalized():Dot(horizontalVel:GetNormalized())
+					end
+
+					if horizontalSpeed < slideMinKeepSpeed or slideTime > slideMaxDuration or not onGround or falling or dirDot < -0.1 then
+						ragdoll._slideActive = false
+						ragdoll._slideStartTime = nil
+						ragdoll._slideDir = nil
+						ragdoll._slideCooldown = CurTime() + slideCooldown
+						ragdoll.isSliding = false
+
+						PlaySlideSFX(ragdoll, "exit")
+					end
 				end
 
-				angle:RotateAroundAxis(angle:Right(), 30)
-				shadowControl(ragdoll, 11, 0.001, angle, 120, 30) -- ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp
+				if not ragdoll._slideActive and checkSpeed >= slideMinStartSpeed and not ragdoll._slideCooldown and onGround then
+					ragdoll._slideActive = true
+					ragdoll._slideStartTime = CurTime()
+					local dir = horizontalVel:LengthSqr() > 1 and horizontalVel:GetNormalized() or entryDir
+					ragdoll._slideDir = dir
 
-				if ply:KeyDown(IN_ATTACK) and !ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -30)
+					PlaySlideSFX(ragdoll, "start")
+
+					ragdoll.isSliding = true
+
+					local legAng1 = Angle(0, 0, 0)
+					local legAng2 = Angle(0, 0, 0)
+
+					legAng1:Set(angles)
+					legAng1:RotateAroundAxis(angles:Right(), 80)
+					legAng1:RotateAroundAxis(angles:Forward(), -40)
+					legAng1:RotateAroundAxis(angles:Up(), -70)
+
+					legAng2:Set(angles)
+					legAng2:RotateAroundAxis(angles:Right(), 65)
+					legAng2:RotateAroundAxis(angles:Forward(), -40)
+					legAng2:RotateAroundAxis(angles:Up(), -70)
+
+					shadowControl(ragdoll, 11, 0.001, legAng1, 500, 150)
+					shadowControl(ragdoll, 8, 0.001, legAng2, 500, 150)
+
+					local calfAng1 = Angle(0, 0, 0)
+					local calfAng2 = Angle(0, 0, 0)
+
+					calfAng1:Set(legAng1)
+					calfAng1:RotateAroundAxis(angles:Right(), -90)
+
+					calfAng2:Set(legAng2)
+					calfAng2:RotateAroundAxis(angles:Right(), -90)
+
+					shadowControl(ragdoll, 12, 0.001, calfAng1, 400, 120)
+					shadowControl(ragdoll, 9, 0.001, calfAng2, 400, 120)
 				end
 
-				//if vellen < 200 then
-				if !ply:KeyDown(IN_ATTACK2) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 90)
-				end
-				shadowControl(ragdoll, 9, 0.001, angle, 120, 30)
-				if !ply:KeyDown(IN_ATTACK2) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), -90)
-				end
-				if !ply:KeyDown(IN_ATTACK) or ishgweapon(wep) then
-					angle:RotateAroundAxis(angle:Up(), 90)
-				end
-				shadowControl(ragdoll, 12, 0.001, angle, 120, 30)
+				if ragdoll._slideActive then
+					ragdoll.isSliding = true
 
-				local rleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 13))
-				local lleg = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 14))
+					local slidePhys = {0, 1}
+					local frictionBones = {13, 14, 12, 9}
 
-				local force = angles2:Forward()
-				force:Normalize()
-				force = force * 100 * ragdoll.dtime / 0.015 * ragdoll.power
+					if not ragdoll._slideMaterialSet then
+						ragdoll._origMaterials = {}
+						for _, fNum in ipairs(frictionBones) do
+							local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, fNum))
+							if IsValid(phys) then
+								ragdoll._origMaterials[fNum] = phys:GetMaterial()
+								phys:SetMaterial("ice")
+							end
+						end
+						ragdoll._slideMaterialSet = true
+					end
 
-				if org.lleg >= 1 or org.rleg >= 1 then
-					org.painadd = org.painadd + ragdoll.dtime * 2 * (org.lleg + org.rleg)
+					local slideDir = ragdoll._slideDir
+
+					local slideForce = 1700 * (ragdoll.power or 1) * ragdoll.dtime / 0.015
+
+					for _, physNum in ipairs(slidePhys) do
+						local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, physNum))
+						if IsValid(phys) then
+							phys:Wake()
+							phys:ApplyForceCenter(slideDir * slideForce / #slidePhys)
+						end
+					end
+
+					local gravity = Vector(0, 0, -1)
+					local downhill = gravity - groundNormal * gravity:Dot(groundNormal)
+					downhill = Vector(downhill.x, downhill.y, 0)
+					if downhill:LengthSqr() > 0.0001 then
+						downhill:Normalize()
+						local slopeAngle = math.deg(math.acos(math.Clamp(groundNormal:Dot(vector_up), -1, 1)))
+						local slopeStrength = math.sin(math.rad(slopeAngle)) * slideSlopeMult * ragdoll.dtime / 0.015
+						local slopeDirDot = slideDir:Dot(downhill)
+						
+						if slopeDirDot > 0.1 then
+							for _, physNum in ipairs(slidePhys) do
+								local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, physNum))
+								if IsValid(phys) then
+									phys:ApplyForceCenter(downhill * slopeStrength * slopeDirDot * 700 / #slidePhys)
+								end
+							end
+						elseif slopeDirDot < -0.1 then
+							local decelForce = slopeStrength * math.abs(slopeDirDot) * 12000
+							for _, physNum in ipairs(slidePhys) do
+								local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, physNum))
+								if IsValid(phys) then
+									phys:ApplyForceCenter(downhill * decelForce / #slidePhys)
+								end
+							end
+						end
+					end
+
+					local dragForce = curVel * -2 * ragdoll.dtime / 0.015
+
+					for _, physNum in ipairs(slidePhys) do
+						local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, physNum))
+						if IsValid(phys) then
+							phys:ApplyForceCenter(dragForce / #slidePhys)
+						end
+					end
+
+					local pelvis = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 0))
+					if IsValid(pelvis) then
+						pelvis:ApplyForceCenter(vector_up * -800 * ragdoll.dtime / 0.015)
+					end
+
+					local spine1 = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, 1))
+					if IsValid(spine1) then
+						local spineAng = spine1:GetAngles()
+						shadowControl(ragdoll, 1, 0.4, spineAng, 30, 5)
+					end
+
+					if hg_fake_stamina:GetBool() then
+						org.stamina.subadd = org.stamina.subadd + 0.08
+					end
+				else
+					if ragdoll._slideMaterialSet then
+						local frictionBones = {13, 14, 12, 9}
+						for _, fNum in ipairs(frictionBones) do
+							local phys = ragdoll:GetPhysicsObjectNum(realPhysNum(ragdoll, fNum))
+							if IsValid(phys) and ragdoll._origMaterials and ragdoll._origMaterials[fNum] then
+								phys:SetMaterial(ragdoll._origMaterials[fNum])
+							end
+						end
+						ragdoll._origMaterials = nil
+						ragdoll._slideMaterialSet = false
+					end
+					
+					if ragdoll._slideActive then
+						ragdoll._slideActive = false
+						ragdoll._slideStartTime = nil
+						ragdoll._slideDir = nil
+
+						PlaySlideSFX(ragdoll, "exit")
+					end
+					
+					ragdoll.isSliding = false
+
+					local slidePending = checkSpeed >= slideMinStartSpeed and onGround and not ragdoll._slideCooldown
+
+					if ply:KeyDown(IN_ATTACK) and ply:KeyDown(IN_ATTACK2) and not slidePending and not onGround then
+						legAng1:Set(angles)
+						legAng1:RotateAroundAxis(angles:Right(), 75)
+						legAng1:RotateAroundAxis(angles:Forward(), -100)
+						legAng1:RotateAroundAxis(angles:Up(), -70)
+
+						legAng2:Set(angles)
+						legAng2:RotateAroundAxis(angles:Right(), 75)
+						legAng2:RotateAroundAxis(angles:Forward(), -100)
+						legAng2:RotateAroundAxis(angles:Up(), -70)
+
+						calfAng1:Set(legAng1)
+						calfAng1:RotateAroundAxis(angles:Right(), 20)
+
+						calfAng2:Set(legAng2)
+						calfAng2:RotateAroundAxis(angles:Right(), 20)
+
+						local foot1 = Angle(0, 0, 0)
+						local foot2 = Angle(0, 0, 0)
+
+						foot1:Set(calfAng1)
+						foot1:RotateAroundAxis(angles:Right(), 90)
+
+						foot2:Set(calfAng2)
+						foot2:RotateAroundAxis(angles:Right(), 90)
+
+						shadowControl(ragdoll, 11, 0.001, legAng1, 600, 200)
+						shadowControl(ragdoll, 8, 0.001, legAng2, 600, 200)
+
+						shadowControl(ragdoll, 13, 0.001, foot1, 600, 200)
+						shadowControl(ragdoll, 14, 0.001, foot2, 600, 200)
+
+						shadowControl(ragdoll, 12, 0.001, calfAng1, 600, 200)
+						shadowControl(ragdoll, 9, 0.001, calfAng2, 600, 200)
+					end
 				end
-				//rleg:ApplyForceCenter(force)
-				//lleg:ApplyForceCenter(force)
+
+					if org.lleg >= 1 or org.rleg >= 1 then
+						org.painadd = org.painadd + ragdoll.dtime * 2 * (org.lleg + org.rleg)
+					end
+				end
+			else
+				if IsValid(ragdoll) then ragdoll.isSliding = false end
 			end
 		end
 		local vel = ragdoll:GetVelocity()
 		local vellen = vel:Length()
-		if org.canmove and vellen > 350 and !ply:InVehicle() then
-			--[[
-			
-				local defaultBones = {
-					[0] = "ValveBiped.Bip01_Pelvis",
-					[1] = "ValveBiped.Bip01_Spine2",
-					[2] = "ValveBiped.Bip01_R_UpperArm",
-					[3] = "ValveBiped.Bip01_L_UpperArm",
-					[4] = "ValveBiped.Bip01_L_Forearm",
-					[5] = "ValveBiped.Bip01_L_Hand",
-					[6] = "ValveBiped.Bip01_R_Forearm",
-					[7] = "ValveBiped.Bip01_R_Hand",
-					[8] = "ValveBiped.Bip01_R_Thigh",
-					[9] = "ValveBiped.Bip01_R_Calf",
-					[10] = "ValveBiped.Bip01_Head1",
-					[11] = "ValveBiped.Bip01_L_Thigh",
-					[12] = "ValveBiped.Bip01_L_Calf",
-					[13] = "ValveBiped.Bip01_L_Foot",
-					[14] = "ValveBiped.Bip01_R_Foot",
-				}
-
-				(ragdoll, physNumber, ss, ang, maxang, maxangdamp, pos, maxspeed, maxspeeddamp)
-			--]]
-			local mul = (vellen - 350) / 750
+		if org.canmove and vellen > 700 and !ply:InVehicle() then
+			local mul = (vellen - 700) / 750
 			local maxangdamp = 500 * mul
 			local maxangspeed = 950 *  mul
 			local rand = 360 * mul
@@ -1280,26 +1636,72 @@ hook.Add("Think", "Fake", function()
 			shadowControl(ragdoll, 12, 0.001, AngleRand(-rand,rand), maxangspeed, maxangdamp)
 		end
 
-		/*if ply:KeyDown(IN_DUCK) and !ply:InVehicle() then
-			if org.canmove then
-				local head = ragdoll:GetPhysicsObject(ragdoll:TranslateBoneToPhysBone(ragdoll:LookupBone("ValveBiped.Bip01_Head1")))
-				local angle = spine:GetAngles()
-
-				//shadowControl(ragdoll, 13, 0.001, angle, 0, 0, spine:GetPos() + head:GetAngles():Forward() * 10, 5050, 100)
-				//shadowControl(ragdoll, 14, 0.001, angle, 0, 0, spine:GetPos() + head:GetAngles():Forward() * 10, 5050, 100)
-
-				local rleg = ragdoll:GetPhysicsObject(realPhysNum(ragdoll, 13))
-				local lleg = ragdoll:GetPhysicsObject(realPhysNum(ragdoll, 14))
-
-				local force = angles2:Forward()
-				force:Normalize()
-				force = force * 1200 * ragdoll.dtime / 0.015 * ragdoll.power
-
-				rleg:ApplyForceCenter(force)
-				lleg:ApplyForceCenter(force)
-			end
-		end*/
 	end
+end)
+
+hook.Add("Ragdoll Collide", "SlideDamage", function(ragdoll, data)
+	if not ragdoll.isSliding then return end
+
+	local hitEnt = data.HitEntity
+	if not IsValid(hitEnt) or hitEnt == game.GetWorld() then return end
+	if hitEnt == ragdoll then return end
+
+	local physObj = data.PhysObject
+	if not IsValid(physObj) then return end
+
+	local physBone = -1
+	for i = 0, ragdoll:GetPhysicsObjectCount() - 1 do
+		if ragdoll:GetPhysicsObjectNum(i) == physObj then
+			physBone = i
+			break
+		end
+	end
+	if physBone < 0 then return end
+
+	local bone = ragdoll:TranslatePhysBoneToBone(physBone)
+	if bone < 0 then return end
+
+	local boneName = ragdoll:GetBoneName(bone)
+	if not boneName then return end
+
+	local slideBones = {
+		["ValveBiped.Bip01_L_Foot"] = true,
+		["ValveBiped.Bip01_R_Foot"] = true,
+		["ValveBiped.Bip01_L_Calf"] = true,
+		["ValveBiped.Bip01_R_Calf"] = true,
+		["ValveBiped.Bip01_L_Thigh"] = true,
+		["ValveBiped.Bip01_R_Thigh"] = true,
+	}
+
+	if not slideBones[boneName] then return end
+
+	local ply = hg.RagdollOwner(ragdoll)
+	if not IsValid(ply) or not ply:Alive() then return end
+
+	ragdoll.slideHits = ragdoll.slideHits or {}
+	if (ragdoll.slideCd or 0) > CurTime() then return end
+	if (ragdoll.slideHits[hitEnt] or 0) > CurTime() then return end
+	ragdoll.slideHits[hitEnt] = CurTime() + 0.5
+	ragdoll.slideCd = CurTime() + 1
+
+	local speed = data.OurOldVelocity:Length()
+	local dmg = math.Clamp(speed / 25, 2, 20)
+
+	local dmgInfo = DamageInfo()
+	dmgInfo:SetDamage(dmg)
+	dmgInfo:SetDamageType(DMG_CLUB)
+	dmgInfo:SetAttacker(ply)
+	dmgInfo:SetInflictor(ragdoll)
+	dmgInfo:SetDamagePosition(physObj:GetPos())
+	dmgInfo:SetDamageForce(data.OurOldVelocity:GetNormalized() * dmg * 50)
+
+	hitEnt:TakeDamageInfo(dmgInfo)
+
+	if hg_fake_stamina:GetBool() and ply.organism then
+		ply.organism.stamina.subadd = ply.organism.stamina.subadd + 26
+	end
+
+	ragdoll:EmitSound("kickland" .. math.random(1, 2) .. ".mp3", 60, math.random(95, 110))
 end)
 
 hook.Add("PlayerDeath", "homigrad-fake-control", function(ply)
