@@ -144,7 +144,7 @@ local function SendAdminStatsRows(ply, rows)
             net.WriteUInt(total, 16)
             net.WriteUInt(chunks, 16)
             net.WriteUInt(index, 16)
-            net.WriteTable(part)
+            net.WriteString(util.TableToJSON(part))
         net.Send(ply)
     end
 end

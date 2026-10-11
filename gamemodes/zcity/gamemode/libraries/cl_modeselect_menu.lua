@@ -481,9 +481,11 @@ if CLIENT then
     local adminStatsChunks = {}
 
     net.Receive("ZB_AdminStatsSend", function()
+        local total = net.ReadUInt(16)
         local chunks = net.ReadUInt(16)
         local index = net.ReadUInt(16)
-        local part = net.ReadTable() or {}
+        local json = net.ReadString()
+        local part = util.JSONToTable(json) or {}
 
         adminStatsChunks[index] = part
 
