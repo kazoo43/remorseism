@@ -30,7 +30,8 @@ function hg.RenderHeadcrab(ent, ply)
     end
     local model = ply.headcrabmodel
 
-    local head = ent:GetBoneMatrix(ent:LookupBone("ValveBiped.Bip01_Head1"))
+    local bone = ent:LookupBone("ValveBiped.Bip01_Head1")
+    local head = bone and ent:GetBoneMatrix(bone)
     if not head then
         if IsValid(model) then
             model:Remove()

@@ -110,6 +110,7 @@ end)
 
 local lastcall = SysTime()
 hook.Add("Org Think Call", "homigrad-organism", function(owner, org)
+	if not IsValid(owner) or not org or org.owner ~= owner then return end
 	local sysTime = SysTime()
 	if (sysTime - lastcall) < tickrate then return end
 	lastcall = sysTime

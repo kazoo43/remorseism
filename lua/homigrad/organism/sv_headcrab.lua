@@ -3,6 +3,7 @@ local PLAYER = FindMetaTable("Player")
 util.AddNetworkString("hg_headcrab")
 function PLAYER:AddHeadcrab(headcrab)
 	if self.PlayerClassName == "headcrabzombie" then return end
+	if not self.organism then return end
     --self.organism.headcrabon = headcrab
     self:SetNetVar("headcrab",headcrab)
    
@@ -59,8 +60,12 @@ hook.Add("Org Think", "Headcrab",function(owner, org, timeValue)
 	if (org.headcrabon + 30) < curTime and org.brain != 1 and owner.organism.spine3 != 1 then
 		local ent = hg.GetCurrentCharacter(owner) or owner
 		local mul = ((org.headcrabon + 60) - curTime) / 60
-		if mul > 0 then
-			ent:GetPhysicsObjectNum(math.random(ent:GetPhysicsObjectCount()) - 1):ApplyForceCenter(VectorRand(-750 * mul,750 * mul))
+		if mul > 0 and IsValid(ent) then
+			local count = ent:GetPhysicsObjectCount()
+			if count > 0 then
+				local phys = ent:GetPhysicsObjectNum(math.random(count) - 1)
+				if IsValid(phys) then phys:ApplyForceCenter(VectorRand(-750 * mul,750 * mul)) end
+			end
 		end
 	end
 

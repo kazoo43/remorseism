@@ -9,9 +9,10 @@ local RandomEvents = {
     ["Sneeze"] = function( owner, org )
         owner:EmitSound(ThatPlyIsFemale(owner) and "zcitysnd/female/sneez_"..math.random(1,4)..".mp3" or "zcitysnd/male/sneez_"..math.random(1,4)..".mp3", nil, 100 + (owner.PlayerClassName == "furry" and 20 or 0))
         timer.Simple(.5,function()
+            if not IsValid(owner) or not owner:Alive() then return end
             owner:ViewPunch(Angle(-2,0,0))
             timer.Simple(.3,function()
-                owner:ViewPunch(Angle(5,0,0))
+                if IsValid(owner) and owner:Alive() then owner:ViewPunch(Angle(5,0,0)) end
             end)
         end)
     end,
@@ -22,7 +23,7 @@ local RandomEvents = {
         owner:EmitSound("snd_jack_hmcd_burp.wav", nil, 100 + (owner.PlayerClassName == "furry" and 20 or 0))
         for i = 1, 10 do
             timer.Simple(i/20,function()
-                owner:ViewPunch(AngleRand(-.3,.3))
+                if IsValid(owner) and owner:Alive() then owner:ViewPunch(AngleRand(-.3,.3)) end
             end)
         end
     end,
@@ -38,17 +39,18 @@ local RandomEvents = {
     ["Cough"] = function( owner, org )
         owner:EmitSound(ThatPlyIsFemale(owner) and "zcitysnd/female/cough_"..math.random(1,6)..".mp3" or "zcitysnd/male/cough_"..math.random(1,6)..".mp3",75,100 + (owner.PlayerClassName == "furry" and 20 or 0),1)
         timer.Simple(.3,function()
+            if not IsValid(owner) or not owner:Alive() then return end
             owner:ViewPunch(Angle(3,0,0))
             timer.Simple(.3,function()
-                owner:ViewPunch(Angle(2,0,0))
+                if IsValid(owner) and owner:Alive() then owner:ViewPunch(Angle(2,0,0)) end
             end)
         end) -- жаль что сломалось, а ради этого неты делать ну, такое... | update уже неважно
     end,
 } 
 
 function module.TriggerRandomEvent(owner, eventName)
-    if RandomEvents[eventName] then
-        if owner:IsRagdoll() then return end
+    if IsValid(owner) and RandomEvents[eventName] and owner:IsPlayer() then
+        if owner:IsRagdoll() or not owner:Alive() then return end
         RandomEvents[eventName](owner, owner.organism)
     end
 end

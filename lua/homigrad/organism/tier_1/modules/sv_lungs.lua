@@ -394,11 +394,9 @@ module[2] = function(owner, org, timeValue)
 		org.skull = math.Approach(org.skull, 0, timeValue / 600)
 	end
 
-        if org.brain >= 0.5 then
-		if org.brain >= 0.5 then
-			if math.random(60) == 1 then
-				org.heartstop = true
-			end
+	if org.brain >= 0.5 then
+		if math.random(60) == 1 then
+			org.heartstop = true
 		end
 
 		if org.brain > 0.35 and !org.heartstop then

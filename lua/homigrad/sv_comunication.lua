@@ -145,6 +145,27 @@ hook.Add("HG_PlayerCanHearPlayersVoice","BrainDamage", function(listener, speake
 	if speaker.organism.brain > 0.05 or speaker.organism.seizureActive then return false, false end
 end)
 
+local function hasNeckSlit(org)
+	if org.arteria == 1 then return true end
+
+	for _, wound in pairs(org.arterialwounds or {}) do
+		if wound[7] == "arteria" then return true end
+	end
+
+	return false
+end
+
+hook.Add("PlayerCanHearPlayersVoice", "NeckSlitVoiceCough", function(_, speaker)
+	if not IsValid(speaker) or not speaker:IsPlayer() or not speaker:IsSpeaking() then return end
+
+	local org = speaker.organism
+	if not org or not org.alive or org.otrub or not hasNeckSlit(org) then return end
+	if (speaker.remNeckVoiceCough or 0) > CurTime() then return end
+
+	speaker.remNeckVoiceCough = CurTime() + 2
+	hg.organism.Vomit(speaker)
+end)
+
 local braindeadphrase_male = {
 	"vo/episode_1/npc/male01/cit_behindyousfx01.wav",
 	"vo/episode_1/npc/male01/cit_behindyousfx02.wav",

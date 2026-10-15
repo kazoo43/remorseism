@@ -7,7 +7,7 @@ module[1] = function(org)
 end
 
 module[2] = function(owner, org, mulTime)
-	if not org.alive or org.hearstop then return end
+	if not org.alive or org.heartstop then return end
 
 	--fuckass
 end

@@ -363,7 +363,10 @@ function REM_DrawDepressionEffect(org)
 		["$pp_colour_mulb"] = 0
 	}
 
-	local depressionValue = math.Clamp(org.depression or 0, 0, 1) * screenEffectMul
+	local depression = math.Clamp(org.depression or 0, 0, 1)
+	local adrenaline = math.max(org.adrenaline or 0, 0)
+	local adrenalineFade = 1 - math.Clamp(math.Remap(adrenaline, 1, 2.5, 0, 0.65), 0, 0.65)
+	local depressionValue = depression * adrenalineFade * screenEffectMul
 	state.lerp = LerpFT(0.01, state.lerp or 0, depressionValue)
 
 	if state.lerp > 0.00005 then
@@ -425,7 +428,7 @@ function REM_DrawDepressionEffect(org)
 		end
 	end
 
-	REM_UpdateDepressionAudio(state, math.Clamp(org.depression or 0, 0, 1), org.otrub)
+	REM_UpdateDepressionAudio(state, depression * adrenalineFade, org.otrub)
 end
 
 local PainLerp = 0

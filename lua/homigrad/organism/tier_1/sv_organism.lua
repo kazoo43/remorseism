@@ -224,6 +224,9 @@ local function send_organism(org, ply)
 	sendtable.hurt = org.hurt
 	sendtable.pain = org.pain
 	sendtable.shock = org.shock
+	sendtable.shockScore = org.shockScore
+	sendtable.shockStage = org.shockStage
+	sendtable.painUnconscious = org.painUnconscious
 	sendtable.pulse = org.pulse
 	sendtable.heartbeat = org.heartbeat
 	sendtable.bloodPressure = org.bloodPressure
@@ -889,7 +892,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		org.owner.fullsend = true
 	end
 
-	if org.brain > 0.05 then
+	if org.brain > 0.05 and isPly and alive then
 		if math.random(600) < org.brain * 20 then
 			org.needfake = true
 		end
@@ -905,7 +908,7 @@ hook.Add("Org Think", "Main", function(owner, org, timeValue)
 		owner:TakeDamageInfo(dmgInfo)
 	end
 
-	if owner:IsPlayer() and (org.healthRegen or 0) < CurTime() then
+	if owner:IsPlayer() and org.bleed <= 0 and org.internalBleed <= 0 and (org.healthRegen or 0) < CurTime() then
 		org.healthRegen = CurTime() + 30
 		owner:SetHealth(math.min(owner:GetMaxHealth(), owner:Health() + math.max(1.5 - org.hurt, 0)))
 	end
@@ -1180,6 +1183,7 @@ end)
 
 hook.Add("HG_OnOtrub", "fearful", function( plya )// ЧЕ
 	local ent = hg.GetCurrentCharacter(plya)
+	if not IsValid(ent) then return end
 	for i,ply in ipairs(ents.FindInSphere(ent:GetPos(),256)) do
 		if not ply:IsPlayer() or not ply.organism or plya == ply then continue end
 
@@ -1248,34 +1252,38 @@ end
 
 concommand.Add("hg_fixdislocation", function(ply, cmd, args)
 	local fixer = ply
+	local limb = tonumber(args[1])
+	local targetMode = tonumber(args[2])
+	if not IsValid(fixer) or not fixer:IsPlayer() or not fixer:Alive() or not limb then return end
 
-	if math.Round(tonumber(args[2])) == 1 then
+	if math.Round(targetMode or 0) == 1 then
 		ply = hg.eyeTrace(fixer).Entity
 	end
 
 	if !IsValid(ply) or !ply.organism then return end
 
 	ply = ply.organism.owner
+	if not IsValid(ply) or not ply.organism then return end
 
 	local org = ply.organism
-	if !fixer:Alive() or !org or fixer.organism.otrub then return end
+	if !fixer.organism or !fixer:Alive() or !org or fixer.organism.otrub then return end
 	if (fixer.tried_fixing_limb or 0) > CurTime() then return end
 	if !fixer.organism.canmove or !fixer.organism.canmovehead or fixer.organism.pain > 60 then return end
 	fixer.tried_fixing_limb = CurTime() + fixer.organism.pain / 30
 
-	if math.Round(tonumber(args[1])) == 1 then
+	if math.Round(limb) == 1 then
 		if org.llegdislocation then
 			fixlimb(org, "lleg", fixer)
 		elseif org.rlegdislocation then
 			fixlimb(org, "rleg", fixer)
 		end
-	elseif math.Round(tonumber(args[1])) == 2 then
+	elseif math.Round(limb) == 2 then
 		if org.larmdislocation then
 			fixlimb(org, "larm", fixer)
 		elseif org.rarmdislocation then
 			fixlimb(org, "rarm", fixer)
 		end
-	elseif math.Round(tonumber(args[1])) == 3 then
+	elseif math.Round(limb) == 3 then
 		if org.jawdislocation then
 			fixlimb(org, "jaw", fixer)
 		end

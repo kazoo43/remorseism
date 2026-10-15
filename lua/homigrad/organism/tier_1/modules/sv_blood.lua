@@ -238,7 +238,11 @@ module[2] = function(owner, org, mulTime)
 		bleedoutspeed2 = bleedoutspeed2 + arterialBleed
 
 		if wound[5] + next_arterypump * 2 < time then
-			local pos, ang = ent:GetBonePosition(ent:LookupBone(wound[4]))
+			local bone = ent:LookupBone(wound[4])
+			local pos, ang = ent:GetBonePosition(bone or 0)
+			if not ang then
+				ang = ent:GetAngles()
+			end
 			wound[5] = time
 			local pumpBleed = wound[1] * mulTime * 4.5 * math.max(org.pulse, 20) / 80
 			pumpBleed = pumpBleed * getHeldWoundBleedMul(org, wound)
@@ -290,10 +294,10 @@ module[2] = function(owner, org, mulTime)
 
 	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)--в секунду
 	
-	local timetouncon = (org.blood - 2500) / org.bleed
+	local timetouncon = org.bleed > 0 and (org.blood - 2500) / org.bleed or math.huge
 	
 	local bleeding_will_stop = (timetouncon ~= timetouncon) or ((coagulatespeed * timetouncon - org.bleed) > 0)
-	local canwakeup_pain = ((org.pain - 5) / (org.painlessen)) < timetouncon
+	local canwakeup_pain = org.painlessen > 0 and ((org.pain - 5) / org.painlessen) < timetouncon
 	org.timetouncon = (timetouncon ~= timetouncon) and timetouncon or Lerp(hg.lerpFrameTime2(0.01,mulTime), org.timetouncon or 10000, timetouncon)
 	
 	if org.otrub and ((not bleeding_will_stop and not (canwakeup_pain and org.blood > 3000)) or (org.brain > 0.4) or (org.pulse < 15) or (org.o2[1] < 5) or (org.trachea >= 0.5) or org.heartstop or (org.spine3 >= hg.organism.fake_spine3) or (org.spine2 >= hg.organism.fake_spine2)) then
@@ -308,7 +312,7 @@ module[2] = function(owner, org, mulTime)
 		org.critical = false
 	end
 
-	org.bleed = (bleedoutspeed + bleedoutspeed2)
+	org.bleed = (bleedoutspeed + bleedoutspeed2 + bleed)
 	updateHoldWound(org)
 end
 
@@ -318,12 +322,14 @@ function hg.organism.Vomit(owner, snd)
 	if !hg.IsValidPlayer(owner) then return end
 	
 	local org = owner.organism
+	if not org then return end
 	org.blood = math.max(org.blood - 200, 0)
 	local ent = hg.GetCurrentCharacter(owner)
+	if not IsValid(ent) then return end
 
 	local bon = "ValveBiped.Bip01_Head1"
 	local bone = ent:LookupBone(bon)
-	local mat = ent:GetBoneMatrix(bone)
+	local mat = bone and ent:GetBoneMatrix(bone)
 
 	if not mat then return end
 
@@ -337,7 +343,8 @@ function hg.organism.Vomit(owner, snd)
 	ent:EmitSound(snd or "zcitysnd/real_sonar/"..(ThatPlyIsFemale(ent) and "female" or "male").."_cough"..math.random(4)..".mp3")
 	if !on_spine then ent:EmitSound("vomit/vomit5.mp3") end
 	
-	if owner.armors and owner.armors.face and hg.armor.face[owner.armors.face].voice_change then
+	local faceArmor = owner.armors and owner.armors.face and hg.armor and hg.armor.face and hg.armor.face[owner.armors.face]
+	if faceArmor and faceArmor.voice_change then
 		owner:SetNetVar("zableval_masku", true)
 	else
 		if !on_spine then
@@ -354,12 +361,18 @@ end
 
 function hg.organism.CoughBlood(org)
 	local ply = org.owner
+	if not IsValid(ply) then return end
+	local ent = hg.GetCurrentCharacter(ply)
+	if not IsValid(ent) then return end
+	local bon = "ValveBiped.Bip01_Head1"
+	local bone = ent:LookupBone(bon)
+	local mat = bone and ent:GetBoneMatrix(bone)
 	local phr = "zcitysnd/real_sonar/" .. (ThatPlyIsFemale(ply) and "female" or "male") .. "_cough" .. math.random(4) .. ".mp3"
 	ply:EmitSound(phr)
 	ply.phrCld = CurTime() + 2
 	ply.lastPhr = phr
 
-	if math.random(5) == 1 then
+	if math.random(5) == 1 and mat then
 		org.vomitInThroat = nil
 
 		net.Start("bloodsquirt2")

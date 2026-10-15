@@ -4,26 +4,89 @@ hg.organism.module.pain = {}
 local module = hg.organism.module.pain
 local consciousness_otrub_threshold = 0.3
 local consciousness_fake_threshold = 0.38
-local shock_consciousness_soft_target = 0.5
-local shock_consciousness_hard_target = 0
-local shock_consciousness_drain_start = 10
-local shock_consciousness_drain_end = 4
 local consciousness_recovery_speed = 12
 local low_consciousness_recovery_speed = 16
 local otrub_consciousness_recovery_speed = 20
-local shock_consciousness_threshold = 25
-local shock_consciousness_max = 85
-local pain_shock_threshold = 80
-local pain_shock_target = 55
-local pain_shock_gain = 2
-local pain_shock_ramp_end = 120
-local pain_shock_max_target = 85
-local pain_shock_max_gain = 10
 local pain_tolerance = 120
 local otrub_pain_tolerance = 90
 local pain_fake_threshold = 0.9
 local pain_drain_base = 20
 local pain_drain_otrub_mul = 4.5
+local pain_unconscious_threshold = 112
+local pain_unconscious_time = 1.5
+local pain_unconscious_cooldown = 12
+local shock_stage_thresholds = {15, 35, 60, 80}
+
+local function getShockScore(org)
+	local blood = Clamp((5000 - (org.blood or 5000)) / 2500, 0, 1)
+	local pressure = 1 - Clamp(((org.bloodPressure or 90) - 35) / 55, 0, 1)
+	local output = 1 - Clamp(org.cardiacOutput or 1, 0, 1)
+	local oxygen = 1 - Clamp(((org.o2 and org.o2[1] or 30) - 8) / 22, 0, 1)
+	local bleeding = Clamp((org.bleed or 0) / 3, 0, 1)
+	local pain = Clamp(((org.pain or 0) - 70) / 80, 0, 1)
+
+	return Clamp((blood * 0.38 + pressure * 0.28 + output * 0.14 + oxygen * 0.12 + bleeding * 0.08 + pain * 0.08) * 100, 0, 100)
+end
+
+local function getShockStage(score)
+	if score >= shock_stage_thresholds[4] then return 4 end
+	if score >= shock_stage_thresholds[3] then return 3 end
+	if score >= shock_stage_thresholds[2] then return 2 end
+	if score >= shock_stage_thresholds[1] then return 1 end
+	return 0
+end
+
+local function updateShock(owner, org, timeValue)
+	local score = getShockScore(org)
+	local total = math.max(score, org.shock or 0)
+	local stage = getShockStage(total)
+	local target = stage == 4 and 0.04 or stage == 3 and 0.2 or stage == 2 and 0.52 or stage == 1 and 0.78 or 1
+
+	org.shockScore = score
+	org.shockStage = stage
+	if stage >= 1 then
+		org.fearadd = math.max(org.fearadd or 0, stage * 0.25)
+		org.disorientation = math.max(org.disorientation or 0, stage * 0.2)
+	end
+	if stage >= 2 then
+		org.immobilization = math.max(org.immobilization or 0, (stage - 1) * 2)
+	end
+	if stage >= 3 then
+		org.needfake = true
+	end
+	if stage > 0 then
+		org.consciousness = Approach(org.consciousness, target, timeValue / (stage == 4 and 3 or stage == 3 and 7 or stage == 2 and 14 or 30))
+	end
+
+	if stage >= 4 then
+		org.needotrub = true
+	end
+end
+
+local function updatePainUnconscious(owner, org, timeValue)
+	if org.otrub or not org.alive then
+		return
+	end
+	org.painUnconscious = false
+
+	local now = CurTime()
+	if org.pain >= pain_unconscious_threshold and org.consciousness > 0.08 then
+		org.painUnconsciousTime = (org.painUnconsciousTime or 0) + timeValue
+	else
+		org.painUnconsciousTime = math.max((org.painUnconsciousTime or 0) - timeValue * 0.5, 0)
+	end
+
+	if org.painUnconsciousTime >= pain_unconscious_time and now >= (org.painUnconsciousCooldown or 0) then
+		org.painUnconsciousCooldown = now + pain_unconscious_cooldown
+		org.painUnconsciousTime = 0
+		org.needotrub = true
+		org.consciousness = math.min(org.consciousness, 0.18)
+		org.painUnconscious = true
+	else
+		org.painUnconscious = false
+	end
+end
+
 module[1] = function(org)
 	org.shock = 0
 	org.pain = 0
@@ -41,6 +104,11 @@ module[1] = function(org)
 	org.painlessen = 0
 	org.tranquilizer = 0
 	org.shock_turn = 0
+	org.shockScore = 0
+	org.shockStage = 0
+	org.painUnconscious = false
+	org.painUnconsciousTime = 0
+	org.painUnconsciousCooldown = 0
 
 	org.stun = 0
 	org.lightstun = 0
@@ -50,13 +118,8 @@ module[2] = function(owner, org, timeValue)
 	local adrenalineMul = min(max(1 + org.adrenaline, 1), 1.2)
 	local adrenaline = org.adrenaline
 	local analgesiaMul = (org.analgesia * 4 + 1)
-	local painkillerMul = (org.painkiller * 0.5 + 1)
 
 	org.shock_turn = 10 * (!org.otrub and 1 or 0.1)
-
-	if org.shock > org.shock_turn * 1.5 * analgesiaMul * painkillerMul then
-		--org.needfake = true
-	end
 
 	org.pain_turn = org.otrub and adrenalineMul * otrub_pain_tolerance or adrenalineMul * pain_tolerance
 
@@ -89,26 +152,13 @@ module[2] = function(owner, org, timeValue)
 
 	org.disorientation = math.min(org.disorientation, 10)
 
-	if org.pain > pain_shock_threshold then
-		local painShockTarget = Clamp(math.Remap(org.pain, pain_shock_threshold, pain_shock_ramp_end, pain_shock_target, pain_shock_max_target), pain_shock_target, pain_shock_max_target)
-		local painShockGain = Clamp(math.Remap(org.pain, pain_shock_threshold, pain_shock_ramp_end, pain_shock_gain, pain_shock_max_gain), pain_shock_gain, pain_shock_max_gain)
-		org.shock = math.Approach(org.shock, painShockTarget, timeValue * painShockGain)
-	end
-
-	local shockThreshold = shock_consciousness_threshold * analgesiaMul * painkillerMul
-	local shockActive = org.shock > shockThreshold
-	if shockActive then
-		local shockTarget = Clamp(math.Remap(org.shock, shockThreshold, shock_consciousness_max, shock_consciousness_soft_target, shock_consciousness_hard_target), shock_consciousness_hard_target, shock_consciousness_soft_target)
-		local shockDrain = Clamp(math.Remap(org.shock, shockThreshold, shock_consciousness_max, shock_consciousness_drain_start, shock_consciousness_drain_end), shock_consciousness_drain_end, shock_consciousness_drain_start)
-		org.consciousness = Approach(org.consciousness, shockTarget, timeValue / shockDrain)
-	end
 	if org.tranquilizer > 0 then
 		org.tranquilizer = math.Approach(org.tranquilizer, 0, org.tranquilizer > 1 and timeValue / 5 or timeValue / 30)
 		--org.shock = math.Approach(org.shock, 50, timeValue * org.tranquilizer * 5)
 		--org.shock = math.Approach(org.shock, 50, timeValue * org.tranquilizer * 5)
 		org.consciousness = math.Approach(org.consciousness, 0, timeValue / 30 * org.tranquilizer)
-	elseif not shockActive then
-		local target = org.blood < 3000 and (org.blood - 2500) / 500 or 1
+	else
+		local target = org.blood < 3000 and Clamp((org.blood - 2500) / 500, 0, 1) or 1
 		local recovery_speed = consciousness_recovery_speed
 		if org.otrub or org.consciousness < consciousness_otrub_threshold then
 			recovery_speed = otrub_consciousness_recovery_speed
@@ -138,6 +188,8 @@ module[2] = function(owner, org, timeValue)
 	end
 
 	org.painadd = min(max(org.painadd - add * analgesiaMul, 0), 150)
+	updateShock(owner, org, timeValue)
+	updatePainUnconscious(owner, org, timeValue)
 
 	//org.painkiller = Approach(org.painkiller, 0, timeValue / 240 * (org.naloxone * 25 + 1))
 

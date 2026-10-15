@@ -2,7 +2,7 @@ if SERVER then
     local painaddDrainRate = 16
     local adrenalinePainaddPassiveRate = 20
     local adrenalinePainaddPassiveCap = 2
-    local adrenalinePainaddPassiveMin = 15
+    local adrenalinePainaddPassiveMin = 1.5
 
     hook.Add("Org Think", "ImmediatePainApply", function(owner, org, timeValue)
         if not org.painadd or org.painadd <= 0 then return end
@@ -10,14 +10,13 @@ if SERVER then
         local add = math.min(org.painadd, timeValue * painaddDrainRate)
         local passiveDrain = 0
         if adrenaline > adrenalinePainaddPassiveMin then
-            passiveDrain = math.min(org.painadd - add, timeValue * adrenalinePainaddPassiveRate * adrenaline)
+            passiveDrain = math.min(math.max(org.painadd - add, 0), timeValue * adrenalinePainaddPassiveRate * adrenaline)
         end
         local isHero = IsValid(owner) and owner:IsPlayer() and owner.RealishIsHero
         if isHero then
             org.avgpain = 0
             org.painadd = 0
             org.pain = 0
-            org.shock = 0
             return
         end
         org.avgpain = math.min(org.avgpain + add, 150)
@@ -31,7 +30,6 @@ if SERVER then
         if isHero then
             org.avgpain = 0
             org.pain = 0
-            org.shock = 0
             org.painadd = 0
             return
         end
