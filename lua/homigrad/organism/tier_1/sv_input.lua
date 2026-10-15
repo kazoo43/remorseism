@@ -1738,40 +1738,75 @@ local function velocityDamage(ent, data)
 	//end
 end
 
+local function applyBrokenNeckToRagdoll(rag)
+	if not IsValid(rag) or not rag:IsRagdoll() or rag.__hgNeckBroken then return end
+
+	local headBone = rag:LookupBone("ValveBiped.Bip01_Head1")
+	local spineBone = rag:LookupBone("ValveBiped.Bip01_Spine2")
+	if not headBone or not spineBone then return end
+
+	local spine = rag:TranslateBoneToPhysBone(spineBone)
+	local head = rag:TranslateBoneToPhysBone(headBone)
+	local pspine = rag:GetPhysicsObjectNum(spine)
+	local phead = rag:GetPhysicsObjectNum(head)
+	if not IsValid(pspine) or not IsValid(phead) then return end
+
+	rag.__hgNeckBroken = true
+	local headPhysBone = rag:TranslateBoneToPhysBone(headBone)
+	rag:RemoveInternalConstraint(headPhysBone)
+
+	local lpos = WorldToLocal(phead:GetPos() + phead:GetAngles():Forward() * -2 + phead:GetAngles():Up() * -1.5, angle_zero, pspine:GetPos(), pspine:GetAngles())
+	phead:SetPos(pspine:GetPos() + pspine:GetAngles():Forward() * 12.9 + pspine:GetAngles():Right() * -1)
+
+	constraint.AdvBallsocket(rag, rag, spine, head, lpos, nil, 0, 0, -55, -90, -50, 55, 35, 50, 0, 0, 0, 0, 0)
+end
+
+hook.Add("RagdollDeath", "hg_break_neck_admin_physics", function(ply, rag)
+	if not IsValid(ply) or not ply.__hgBreakNeckPending then return end
+	ply.__hgBreakNeckPending = nil
+
+	timer.Simple(0, function()
+		if not IsValid(rag) then return end
+		if istable(rag.organism) then rag.organism.spine3 = 1 end
+		applyBrokenNeckToRagdoll(rag)
+	end)
+end)
+
 function hg.BreakNeck(ent)
-	if !IsValid(ent) then return end
+	if not IsValid(ent) then return end
 
 	local ply = ent:IsRagdoll() and hg.RagdollOwner(ent) or ent
-	if IsValid(ply) and ply:Alive() then ply:Kill() end
+	local org = IsValid(ply) and ply.organism or ent.organism
+	if not istable(org) then return end
 
-	ent.organism.spine3 = 1
-	ent:EmitSound("neck_snap_01.wav", 60, 100, 1, CHAN_AUTO)
-	local target = ent
-	
+	org.spine3 = 1
+	local owner = IsValid(ply) and ply or nil
+	if ent:IsRagdoll() and org.alive == false then
+		ent:EmitSound("neck_snap_01.wav", 60, 100, 1, CHAN_AUTO)
+		applyBrokenNeckToRagdoll(ent)
+		return
+	end
+
+	local soundTarget = ent
+	if IsValid(soundTarget) then soundTarget:EmitSound("neck_snap_01.wav", 60, 100, 1, CHAN_AUTO) end
+
+	if IsValid(owner) and owner:IsPlayer() and owner:Alive() then
+		-- The death hooks copy the injured organism to the death ragdoll.
+		owner.__hgBreakNeckPending = true
+		owner:Kill()
+	end
+
 	timer.Simple(0.1, function()
-		if !IsValid(target) then return end
-		local ent = target:IsRagdoll() and target or target:GetNWEntity("RagdollDeath")
-
-		if IsValid(ent) then
-			local headBone = ent:LookupBone("ValveBiped.Bip01_Head1")
-			local spineBone = ent:LookupBone("ValveBiped.Bip01_Spine2")
-			if !headBone or !spineBone then return end
-
-			ent:RemoveInternalConstraint(ent:TranslateBoneToPhysBone(headBone))
-
-			local spine = ent:TranslateBoneToPhysBone(spineBone)
-			local head = ent:TranslateBoneToPhysBone(headBone)
-
-			local pspine = ent:GetPhysicsObjectNum(spine)
-			local phead = ent:GetPhysicsObjectNum(head)
-			if !IsValid(pspine) or !IsValid(phead) then return end
-
-			local lpos, lang = WorldToLocal(phead:GetPos() + phead:GetAngles():Forward() * -2 + phead:GetAngles():Up() * -1.5, angle_zero, pspine:GetPos(), pspine:GetAngles())
-			
-			phead:SetPos(pspine:GetPos() + pspine:GetAngles():Forward() * 12.9 + pspine:GetAngles():Right() * -1)
-
-			local cons = constraint.AdvBallsocket(ent, ent, spine, head, lpos, nil, 0, 0, -55, -90, -50, 55, 35, 50, 0, 0, 0, 0, 0)
+		local rag
+		if IsValid(owner) then
+			rag = IsValid(owner.RagdollDeath) and owner.RagdollDeath or owner:GetNWEntity("RagdollDeath")
+			if not IsValid(rag) then rag = owner.FakeRagdoll end
 		end
+		if not IsValid(rag) and IsValid(ent) and ent:IsRagdoll() then rag = ent end
+		if not IsValid(rag) then return end
+
+		if istable(rag.organism) then rag.organism.spine3 = 1 end
+		applyBrokenNeckToRagdoll(rag)
 	end)
 end
 

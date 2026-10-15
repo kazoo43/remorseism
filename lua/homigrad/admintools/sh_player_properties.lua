@@ -1,9 +1,31 @@
 local function check(self, ent, ply)
-    if not ply:ZCTools_GetAccess() then return false end 
+	if not IsValid(ply) or not ply:ZCTools_GetAccess() then return false end
 	if ( !IsValid( ent ) ) then return false end
 	if ( ent:IsPlayer() ) then return true end
     local pEnt = hg.RagdollOwner( ent )
     if ( ent:IsRagdoll() ) and pEnt and pEnt:IsPlayer() and pEnt:Alive() then return true end
+end
+
+local function getOrganismTarget(ent)
+	if not IsValid(ent) then return end
+
+	ent = hg.RagdollOwner(ent) or hg.GetCurrentCharacter(ent) or ent
+	if not IsValid(ent) then return end
+
+	return ent, istable(ent.organism) and ent.organism or nil
+end
+
+local function sendOrganismToPlayer(org)
+	if not istable(org) or not hg.send_organism or not IsValid(org.owner) then return end
+
+	local owner = org.owner
+	if not owner:IsPlayer() then
+		owner = hg.RagdollOwner(owner) or owner:GetNWEntity("ply")
+	end
+
+	if IsValid(owner) and owner:IsPlayer() then
+		hg.send_organism(org, owner)
+	end
 end
 properties.Add( "notify", {
 	MenuLabel = "Notify", -- Name to display on the context menu
@@ -161,9 +183,11 @@ properties.Add( "reset_org", {
 
 		--if ( !properties.CanBeTargeted( ent, ply ) ) then return end
 		if ( !self:Filter( ent, ply ) ) then return end
-        ent = hg.RagdollOwner( ent ) or ent
-        
-		hg.organism.Clear( ent.organism )
+		ent = hg.RagdollOwner( ent ) or ent
+		if not istable(ent.organism) then return end
+
+		hg.organism.Clear(ent.organism)
+		sendOrganismToPlayer(ent.organism)
 		print(tostring(ply:Nick() or ply) .." reset the health of ".. tostring(ent:Nick() or ent))
 	end 
 } )
@@ -280,6 +304,7 @@ properties.Add( "vomit", {
 
 		if not self:Filter(ent, ply) then return end
         ent = hg.RagdollOwner(ent) or ent
+		if not istable(ent.organism) or not hg.organism or not hg.organism.Vomit then return end
 
 		hg.organism.Vomit(ent)
 		print(tostring(ply:Nick() or ply) .." forced ".. tostring(ent:Nick() or ent) .." to vomit.")
@@ -302,8 +327,10 @@ properties.Add( "lobotomize", {
         
 		if not self:Filter(ent, ply) then return end
         ent = hg.RagdollOwner(ent) or ent
-        
-        ent.organism.brain = ent.organism.brain + 0.05
+		if not istable(ent.organism) then return end
+
+		ent.organism.brain = math.min((ent.organism.brain or 0) + 0.05, 1)
+		sendOrganismToPlayer(ent.organism)
         ply:ChatPrint("Lobotomized brain to "..math.Round(ent.organism.brain * 100).."%")
         print(tostring(ply:Nick() or ply) .." has lobotomized ".. tostring(ent:Nick() or ent))
 
@@ -405,55 +432,57 @@ properties.Add( "break_limb", {
 
 	Filter = check,
 	MenuOpen = function( self, option, ent, tr )
-		ent = hg.RagdollOwner(ent) or hg.GetCurrentCharacter(ent) or ent
+		local org
+		ent, org = getOrganismTarget(ent)
+		if not org then return end
 
 		local submenu = option:AddSubMenu()
 
 		local neck = submenu:AddOption("Neck")
 		neck:SetRadio(true)
-		neck:SetChecked(ent.organism.larm > 0)
+		neck:SetChecked((org.spine3 or 0) > 0)
 		neck:SetIsCheckable(true)
 		neck.OnChecked = function(s, checked) self:BreakLimb(ent, 0) end
 
 		local larm = submenu:AddOption("Left Arm")
 		larm:SetRadio(true)
-		larm:SetChecked(ent.organism.larm > 0)
+		larm:SetChecked((org.larm or 0) > 0)
 		larm:SetIsCheckable(true)
 		larm.OnChecked = function(s, checked) self:BreakLimb(ent, 1) end
 
 		local rarm = submenu:AddOption("Right Arm")
 		rarm:SetRadio(true)
-		rarm:SetChecked(ent.organism.rarm > 0)
+		rarm:SetChecked((org.rarm or 0) > 0)
 		rarm:SetIsCheckable(true)
 		rarm.OnChecked = function(s, checked) self:BreakLimb(ent, 2) end
 
 		local lleg = submenu:AddOption("Left Leg")
 		lleg:SetRadio(true)
-		lleg:SetChecked(ent.organism.lleg > 0)
+		lleg:SetChecked((org.lleg or 0) > 0)
 		lleg:SetIsCheckable(true)
 		lleg.OnChecked = function(s, checked) self:BreakLimb(ent, 3) end
 
 		local rleg = submenu:AddOption("Right Leg")
 		rleg:SetRadio(true)
-		rleg:SetChecked(ent.organism.rleg > 0)
+		rleg:SetChecked((org.rleg or 0) > 0)
 		rleg:SetIsCheckable(true)
 		rleg.OnChecked = function(s, checked) self:BreakLimb(ent, 4) end
 
 		local spine1 = submenu:AddOption("Spine 1")
 		spine1:SetRadio(true)
-		spine1:SetChecked(ent.organism.rleg > 0)
+		spine1:SetChecked((org.spine1 or 0) > 0)
 		spine1:SetIsCheckable(true)
 		spine1.OnChecked = function(s, checked) self:BreakLimb(ent, 5) end
 
 		local spine2 = submenu:AddOption("Spine 2")
 		spine2:SetRadio(true)
-		spine2:SetChecked(ent.organism.rleg > 0)
+		spine2:SetChecked((org.spine2 or 0) > 0)
 		spine2:SetIsCheckable(true)
 		spine2.OnChecked = function(s, checked) self:BreakLimb(ent, 6) end
 
 		local spine3 = submenu:AddOption("Spine 3")
 		spine3:SetRadio(true)
-		spine3:SetChecked(ent.organism.rleg > 0)
+		spine3:SetChecked((org.spine3 or 0) > 0)
 		spine3:SetIsCheckable(true)
 		spine3.OnChecked = function(s, checked) self:BreakLimb(ent, 7) end
 	end,
@@ -470,26 +499,43 @@ properties.Add( "break_limb", {
 		local limb = net.ReadUInt( 8 )
         
 		if not self:Filter(ent, ply) then return end
-       	ent = hg.RagdollOwner(ent) or hg.GetCurrentCharacter(ent) or ent
-        
-        local dmgInfo = DamageInfo()
+		local org
+		ent, org = getOrganismTarget(ent)
+		if not ent or not org or not hg.organism or not hg.organism.input_list then return end
+		if limb < 0 or limb > 7 then return end
+
+		local dmgInfo = DamageInfo()
+		dmgInfo:SetDamage(100)
+		-- The bone handlers treat generic/crush damage as blunt impact, which
+		-- is intentionally damped or may amputate limbs instead of breaking them.
+		dmgInfo:SetDamageType(DMG_BULLET)
+		dmgInfo:SetAttacker(game.GetWorld())
+		dmgInfo:SetInflictor(game.GetWorld())
 		if limb == 0 then
             hg.BreakNeck(ent)
-        elseif limb == 1 then
-            hg.organism.input_list.larmup(ent.organism, 0, 1, dmgInfo)
+		elseif limb == 1 then
+			if not hg.organism.input_list.larmup then return end
+			hg.organism.input_list.larmup(org, 0, 100, dmgInfo)
 		elseif limb == 2 then
-			hg.organism.input_list.rarmup(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.rarmup then return end
+			hg.organism.input_list.rarmup(org, 0, 100, dmgInfo)
 		elseif limb == 3 then
-			hg.organism.input_list.llegup(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.llegup then return end
+			hg.organism.input_list.llegup(org, 0, 100, dmgInfo)
 		elseif limb == 4 then
-			hg.organism.input_list.rlegup(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.rlegup then return end
+			hg.organism.input_list.rlegup(org, 0, 100, dmgInfo)
 		elseif limb == 5 then
-			hg.organism.input_list.spine1(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.spine1 then return end
+			hg.organism.input_list.spine1(org, 0, 100, dmgInfo)
 		elseif limb == 6 then
-			hg.organism.input_list.spine2(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.spine2 then return end
+			hg.organism.input_list.spine2(org, 0, 100, dmgInfo)
 		elseif limb == 7 then
-			hg.organism.input_list.spine3(ent.organism, 0, 1, dmgInfo)
+			if not hg.organism.input_list.spine3 then return end
+			hg.organism.input_list.spine3(org, 0, 100, dmgInfo)
 		end
+		if limb ~= 0 and ent:Alive() then sendOrganismToPlayer(org) end
 	end
 } )
 
@@ -500,37 +546,39 @@ properties.Add( "amputate_limb", {
 
 	Filter = check,
 	MenuOpen = function( self, option, ent, tr )
-		ent = hg.RagdollOwner(ent) or hg.GetCurrentCharacter(ent) or ent
+		local org
+		ent, org = getOrganismTarget(ent)
+		if not org then return end
 
 		local submenu = option:AddSubMenu()
 
 		local head = submenu:AddOption("Head")
 		head:SetRadio(true)
-		head:SetChecked(ent.organism.larm > 0)
+		head:SetChecked(org.headamputated == true)
 		head:SetIsCheckable(true)
 		head.OnChecked = function(s, checked) self:AmputateLimb(ent, 0) end
 
 		local larm = submenu:AddOption("Left Arm")
 		larm:SetRadio(true)
-		larm:SetChecked(ent.organism.larm > 0)
+		larm:SetChecked(org.larmamputated == true)
 		larm:SetIsCheckable(true)
 		larm.OnChecked = function(s, checked) self:AmputateLimb(ent, 1) end
 
 		local rarm = submenu:AddOption("Right Arm")
 		rarm:SetRadio(true)
-		rarm:SetChecked(ent.organism.rarm > 0)
+		rarm:SetChecked(org.rarmamputated == true)
 		rarm:SetIsCheckable(true)
 		rarm.OnChecked = function(s, checked) self:AmputateLimb(ent, 2) end
 
 		local lleg = submenu:AddOption("Left Leg")
 		lleg:SetRadio(true)
-		lleg:SetChecked(ent.organism.lleg > 0)
+		lleg:SetChecked(org.llegamputated == true)
 		lleg:SetIsCheckable(true)
 		lleg.OnChecked = function(s, checked) self:AmputateLimb(ent, 3) end
 
 		local rleg = submenu:AddOption("Right Leg")
 		rleg:SetRadio(true)
-		rleg:SetChecked(ent.organism.rleg > 0)
+		rleg:SetChecked(org.rlegamputated == true)
 		rleg:SetIsCheckable(true)
 		rleg.OnChecked = function(s, checked) self:AmputateLimb(ent, 4) end
 
@@ -553,6 +601,9 @@ properties.Add( "amputate_limb", {
         
 		if not self:Filter(ent, ply) then return end
         ent = hg.RagdollOwner(ent) or ent
+		if not IsValid(ent) or not hg.organism then return end
+		if limb < 0 or limb > 5 then return end
+		if limb >= 1 and limb <= 4 and not istable(ent.organism) then return end
         
         local dmgInfo = DamageInfo()
 		if limb == 0 then
@@ -560,16 +611,22 @@ properties.Add( "amputate_limb", {
 				hg.ExplodeHead(ent)
 			end
         elseif limb == 1 then
-            hg.organism.AmputateLimb(ent.organism, "larm")
+			if not hg.organism.AmputateLimb then return end
+			hg.organism.AmputateLimb(ent.organism, "larm")
 		elseif limb == 2 then
+			if not hg.organism.AmputateLimb then return end
 			hg.organism.AmputateLimb(ent.organism, "rarm")
 		elseif limb == 3 then
+			if not hg.organism.AmputateLimb then return end
 			hg.organism.AmputateLimb(ent.organism, "lleg")
 		elseif limb == 4 then
+			if not hg.organism.AmputateLimb then return end
 			hg.organism.AmputateLimb(ent.organism, "rleg")
 		elseif limb == 5 then
+			if not hg.AmputateTorso then return end
 			hg.AmputateTorso(ent, VectorRand(-250, 250), false)
 		end
+		if limb >= 1 and limb <= 4 then sendOrganismToPlayer(ent.organism) end
 	end
 } )
 

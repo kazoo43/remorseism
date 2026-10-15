@@ -205,7 +205,7 @@ hook.Add("HG_MovementCalc_2", "HG_PTRDReloading_Slow", function(mul, ply, cmd, m
 			mv:RemoveKey(IN_JUMP)
 		end
 
-		mul[1] = 0.5
+		mul[1] = mul[1] * 0.5
 
 		if cmd:KeyDown(IN_DUCK) or ply:Crouching() then
 			cmd:AddKey(IN_DUCK)

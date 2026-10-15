@@ -9,7 +9,7 @@ hook.Add("HG_MovementCalc_2","HG-LegKickAnim",function(mul, ply, cmd, mv)
             mv:RemoveKey(IN_JUMP)
         end
 
-        mul[1] = math.min(math.max(0.001,1 - (ply:GetNWFloat("InLegKick",0) - CurTime()) * 2 ),1)
+        mul[1] = mul[1] * math.min(math.max(0.001,1 - (ply:GetNWFloat("InLegKick",0) - CurTime()) * 2 ),1)
 
         if cmd:KeyDown(IN_DUCK) or ply:Crouching() then
             cmd:AddKey(IN_DUCK)
