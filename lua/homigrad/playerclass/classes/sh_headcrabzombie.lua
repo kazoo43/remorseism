@@ -329,7 +329,10 @@ end)
 --// Player speed & animation speed stuff
 hook.Add("HG_MovementCalc_2", "ZombSpeed", function(mul, ply, cmd, mv)
 	if IsValid(ply) and ply.PlayerClassName == "headcrabzombie" then
-		mul[1] = mul[1] * (ply:IsSprinting() and 1.2 or 0.8)
+        mul[1] = 0.8
+		if ply:IsSprinting() then
+			mul[1] = 1.2
+		end
 		if ply.SpeedGainMul ~= 70 then
 			ply.SpeedGainMul = 70
 		end

@@ -7,7 +7,6 @@ local urge_duration = 4
 local urge_presses_needed = 12
 local urge_initial_delay = 8
 local urge_adrenaline_threshold = 1.5
-local urge_adrenaline_delay = 3
 
 util.AddNetworkString("rem_urges_press")
 util.AddNetworkString("rem_urges_end")
@@ -182,17 +181,13 @@ timer.Create("rem_suicideurges_roll", 1, 0, function()
 		if ply.remUrgeEnd then
 			if (org.adrenaline or 0) >= urge_adrenaline_threshold then
 				endUrge(ply, true)
-				ply.remUrgeNextRoll = now + urge_adrenaline_delay
 			end
 
 			continue
 		end
 		if (ply.remUrgeCooldown or 0) > now then continue end
 		if ply.suiciding or ply.selfharming then continue end
-		if (org.adrenaline or 0) >= urge_adrenaline_threshold then
-			ply.remUrgeNextRoll = now + urge_adrenaline_delay
-			continue
-		end
+		if (org.adrenaline or 0) >= urge_adrenaline_threshold then continue end
 
 		local dep = org.depression or 0
 		if dep <= urge_threshold then continue end

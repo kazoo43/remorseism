@@ -2638,7 +2638,7 @@ hook.Add("HG_MovementCalc_2", "moveWithWeapon", function(mul, ply, cmd, mv)
         if wep:IsResting() then
             local restent = wep:GetNWEntity("RestEntity")
 
-			if not IsValid(restent) then
+            if !IsValid(restent) and !restent:IsWorld() then
                 wep:SetNWBool("IsResting", false)
 
                 return

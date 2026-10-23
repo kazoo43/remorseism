@@ -302,18 +302,10 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		local in_speed = cmd:KeyDown(IN_SPEED)
 		local crouching = ply:Crouching()
 		local slow_walk_speed = ply:GetSlowWalkSpeed()
-		local moving_backwards = cmd:KeyDown(IN_BACK)
-		if not IsValid(ply.FakeRagdoll) and in_speed and not crouching and moving_backwards then
-			cmd:RemoveKey(IN_SPEED)
-			in_speed = false
-		end
-		local runnin_held = in_speed and not crouching and cmd:KeyDown(IN_FORWARD) and not moving_backwards
+		local runnin_held = in_speed and not crouching and cmd:KeyDown(IN_FORWARD)
 		local no_jogging = hg_NoJogging(ply)
 		local command_number = cmd:CommandNumber()
 		local process_input = command_number <= 0 or command_number > (ply.hg_LastMovementCommand or -1)
-		if command_number > 0 then
-			delta_time = process_input and tick_interval or 0
-		end
 
 		if process_input then
 			local speed_pressed = in_speed and not ply.was_in_speed
@@ -323,6 +315,9 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 			if speed_pressed then
 				if no_jogging or (ply.lastInSpeed and move_time - ply.lastInSpeed < 0.3) then
 					ply.isSprintingState = true
+					if (ply.CurrentSpeed or 0) <= slow_walk_speed * 1.5 then
+						ply.sprintDebuff = move_time + 0.3
+					end
 				end
 				ply.lastInSpeed = move_time
 			end
@@ -354,6 +349,10 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 			cmd:RemoveKey(IN_BACK)
 		end]]
 
+		if not IsValid(ply.FakeRagdoll) and ply:KeyDown(IN_SPEED) and not crouching and ply:KeyDown(IN_BACK) then
+			cmd:RemoveKey(IN_SPEED)
+		end
+
 		local wep = ply:GetActiveWeapon()
 		local vel = ply:GetVelocity()
 		local velLen = vel:Length()
@@ -368,10 +367,9 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		local brainSway = org.brain and org.brain > 0.1 and math_sin(curTime / 2) or 1
 		local fm = cmd:GetForwardMove() * brainSway
 		local sm = cmd:GetSideMove() * brainSway
-		local inputForward, inputSide = fm, sm
 
-		local slow_walking = cmd:KeyDown(IN_WALK)
-		local aiming = cmd:KeyDown(IN_ATTACK2) and wep and IsValid(wep) and ishgweapon(wep)
+		local slow_walking = ply:KeyDown(IN_WALK)
+		local aiming = ply:KeyDown(IN_ATTACK2) and wep and IsValid(wep) and ishgweapon(wep)
 		local walk_speed = ply:GetWalkSpeed()
 		local crouch_walk_speed = ply:GetCrouchedWalkSpeed()
 		local run_speed = ply:GetRunSpeed()
@@ -437,19 +435,14 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		ply.FrictionGainMul = 0.01
 		ply.FrictionLoseMul = 0.2
 
-		ply.SpeedGainMul = 600 * weightmul * (ply.organism.superfighter and 5 or 1) * (ply:GetNWInt("SpeedGainClassMul", 1) or 1)
+		ply.SpeedGainMul = 240 * weightmul * (ply.organism.superfighter and 5 or 1) * (ply:GetNWInt("SpeedGainClassMul", 1) or 1)
 		ply.SpeedGainMul = ply.SpeedGainMul * hg_movement_speed_gain_mul:GetFloat()
-		local sprintDebuff = 1
-		if ply.hg_isSprinting and ply.lastInSpeed and move_time - ply.lastInSpeed < 0.3 then
-			sprintDebuff = 0.1
-		end
-		ply.SpeedGainMul = ply.SpeedGainMul * sprintDebuff
 
 		ply.SpeedLoseMul = 10000
 		ply.SpeedLoseMul = ply.SpeedLoseMul * hg_movement_speed_lose_mul:GetFloat()
 
 		ply.SpeedSharpLoseMul = 0.007
-		ply.InertiaBlend = 4000 * weightmul * (ply.organism.superfighter and 100 or 1)
+		ply.InertiaBlend = 2000 * weightmul * (ply.organism.superfighter and 100 or 1)
 		ply.DuckingSlowdown = ply.DuckingSlowdown or 0
 		-- ply.InertiaBlend = 15 * weightmul * ply.CurrentFrictionMul
 		local inertia_blend_mul = 1
@@ -491,8 +484,11 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		local tauntStopMoving = ply:GetNWBool("TauntStopMoving", false)
 		mul = mul * (tauntStopMoving and 0.01 or 1)
 
-		if runnin then
-			ply.CurrentSpeed = math_Approach(ply.CurrentSpeed, target_run_speed * mul, delta_time * ply.SpeedGainMul)
+		if ply.hg_isSprinting and runnin and velLen >= 10 then
+			local sprint_mul = ply.sprintDebuff and ply.sprintDebuff > move_time and 0.5 or 1
+			ply.CurrentSpeed = math_Approach(ply.CurrentSpeed, (ply.move or run_speed) * mul * sprint_mul, delta_time * ply.SpeedGainMul)
+		elseif ply.hg_isJogging and runnin and velLen >= 10 then
+			ply.CurrentSpeed = math_Approach(ply.CurrentSpeed, (ply.move or (run_speed * 0.55)) * mul, delta_time * ply.SpeedGainMul)
 		else
 			if(crouching)then
 				ply.CurrentSpeed = math_Approach(ply.CurrentSpeed, crouch_walk_speed * mul, delta_time * ply.SpeedLoseMul)
@@ -507,7 +503,31 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		--//
 
 		--\\ Speed acceleration & deceleration
+		ply.LastVelocity = ply.LastVelocity or vel
+		ply.LastVelocityLen = ply.LastVelocityLen or velLen
+		local vel1 = velLen
+		local vel2 = ply.LastVelocityLen
+
+		if(vel1 == 0)then
+			vel1 = 1
+		end
+
+		if(vel2 == 0)then
+			vel2 = 1
+		end
+
+		local change = math_abs(math_AngleDifference(calc_vector2d_angle(ply.LastVelocity), calc_vector2d_angle(vel))) // * (SERVER and 0 or 5)
+
+		if ply.LastVelocity == vel and ply.LastChangeVelocity then // this is so bullshit but it works
+			change = ply.LastChangeVelocity
+		end
+
+		local change_mul = math_abs(ply.CurrentSpeed - slow_walk_speed)
+
+		ply.LastChangeVelocity = change
+		ply.CurrentSpeed = math_Approach(ply.CurrentSpeed, slow_walk_speed * mul, delta_time * change * change_mul * ply.SpeedSharpLoseMul * 0.25 * 200)
 		ply.LastVelocity = vel
+		ply.LastVelocityLen = velLen
 		--//
 
 		local speed = ply.CurrentSpeed
@@ -737,10 +757,8 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 
 		--// Dive jump
 		if hg_divejump:GetBool() then
-			ply.lastInDuck = cmd:KeyDown(IN_DUCK) and not ply.hg_wasDucking and curTime or ply.lastInDuck or 0
-			ply.lastInJump = cmd:KeyDown(IN_JUMP) and not ply.hg_wasJumping and curTime or ply.lastInJump or 0
-			ply.hg_wasDucking = cmd:KeyDown(IN_DUCK)
-			ply.hg_wasJumping = cmd:KeyDown(IN_JUMP)
+			ply.lastInDuck = ply:KeyPressed(IN_DUCK) and curTime or ply.lastInDuck or 0
+			ply.lastInJump = ply:KeyPressed(IN_JUMP) and curTime or ply.lastInJump or 0
 			if(SERVER && rag == ply && (ply.lastInJump + 0.1 > curTime) && (ply.lastInDuck + 0.1 > curTime))then
 				local force = ply:GetAimVector() * 400
 				force[3] = 0
@@ -751,11 +769,8 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 			end
 		end
 
-		if not hg_inertiaenabled:GetBool() then
-			inertia_len = math_max(ply.CurrentSpeed, 1)
-			forward_move = inputForward
-			side_move = inputSide
-		end
+		--print(speed.." "..(CLIENT and "c" or "s"))
+		--speed = SERVER and speed + 50 or speed
 
 		if moveType == MOVETYPE_LADDER or moveType == MOVETYPE_NONE then
 			inertia_len = 100
@@ -768,12 +783,26 @@ local math_abs, math_Approach, math_AngleDifference, math_Clamp, math_cos, math_
 		if CLIENT and ply:Ping() >= 45 and ply.hg_LastLandingTime and ply.hg_LastLandingTime + 0.35 > curTime then
 			inertia_len = math_min(inertia_len, run_speed * 1.1)
 		end
+		
 		mv:SetMaxSpeed(inertia_len)
 		mv:SetMaxClientSpeed(inertia_len)
+		ply:SetMaxSpeed(math_max(100, inertia_len))
 		ply:SetJumpPower(DEFAULT_JUMP_POWER * math_min(k, 1.1) * (not tauntStopMoving and 1 or 0) * (ply.organism.superfighter and 1.5 or 1) * (ply.JumpPowerMul or 1))
 
-		mv:SetForwardSpeed(forward_move * inertia_len)
-		mv:SetSideSpeed(side_move * inertia_len)
+		if(CLIENT)then
+			local fwangs = math_rad(GetViewPunchAngles2()[2] + GetViewPunchAngles3()[2])
+
+			forward_move = forward_move * math_cos(fwangs) + side_move * math_sin(fwangs)
+			side_move = side_move * math_cos(fwangs) + forward_move * math_sin(fwangs)
+
+			cmd:SetForwardMove(forward_move * inertia_len)
+			cmd:SetSideMove(side_move * inertia_len)
+		end
+
+		if hg_inertiaenabled:GetBool() then
+			mv:SetForwardSpeed(forward_move * inertia_len)
+			mv:SetSideSpeed(side_move * inertia_len)
+		end
 	end)
 --//
 

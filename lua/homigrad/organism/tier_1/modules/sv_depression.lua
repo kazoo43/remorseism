@@ -12,8 +12,9 @@ local depression_fear_gain = 0.015
 local depression_blood_threshold = 3500
 local depression_blood_gain = 0.005
 local depression_blood_cap = 0.15
+local depression_adrenaline_suppress_start = 0.5
+local depression_adrenaline_suppress_min = 0.1
 local selfharm_adrenaline_threshold = 1.5
-local selfharm_adrenaline_delay = 3
 local depression_bleedrate_threshold = 5
 local depression_bleedrate_gain = 0.015
 local depression_bleedrate_maxmul = 4
@@ -379,11 +380,8 @@ local function updatePending(owner, org)
 end
 
 local function rollSelfHarm(owner, org)
-	if hasStrongAdrenaline(org) then
-		org.selfharmNextRoll = CurTime() + selfharm_adrenaline_delay
-		return
-	end
 	if (org.depression or 0) < selfharm_threshold then return end
+	if hasStrongAdrenaline(org) then return end
 	if (org.selfharmNextRoll or 0) > CurTime() then return end
 
 	org.selfharmNextRoll = CurTime() + math.Rand(selfharm_roll_time_min, selfharm_roll_time_max)
@@ -500,6 +498,11 @@ module[2] = function(owner, org, timeValue)
 		local applied = min(org.depressionadd, timeValue / 5)
 		org.depressionadd = max(org.depressionadd - applied, 0)
 		add = add + applied
+	end
+
+	local adrenaline = org.adrenaline or 0
+	if adrenaline > depression_adrenaline_suppress_start then
+		add = add * max(1 - adrenaline * 0.2, depression_adrenaline_suppress_min)
 	end
 
 	org.depression = Clamp((org.depression or 0) + add, 0, depression_max)
