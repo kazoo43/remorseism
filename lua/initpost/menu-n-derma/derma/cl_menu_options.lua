@@ -1046,6 +1046,7 @@ function hg.DrawSettings(ParentPanel)
     headerTitle:SetFont("ZCity_Menu_Settings_Medium")
     headerTitle:SetTextColor(settings_color_whitey)
     headerTitle:SetText(settings_active_category and settings_active_category:upper() or "SETTINGS")
+    headerTitle:SizeToContents()
     headerTitle:SetWide(settings_sw - sidebarWidth - MenuUnit(50))
     settings_header_label = headerTitle
 
@@ -1286,6 +1287,7 @@ function hg.DrawKeybinds(ParentPanel)
     headerTitle:SetFont("ZCity_Menu_Settings_Medium")
     headerTitle:SetTextColor(settings_color_whitey)
     headerTitle:SetText("KEYBINDS")
+    headerTitle:SizeToContents()
     headerTitle:SetWide(settings_sw - MenuUnit(50))
     keybinds_header_label = headerTitle
 
@@ -2356,6 +2358,7 @@ function hg.DrawInformation(ParentPanel)
     headerTitle:SetFont("ZCity_Menu_Settings_Medium")
     headerTitle:SetTextColor(settings_color_whitey)
     headerTitle:SetText("RANK")
+    headerTitle:SizeToContents()
     headerTitle:SetWide(settings_sw - sidebarWidth - MenuUnit(50))
     info_header_label = headerTitle
 
