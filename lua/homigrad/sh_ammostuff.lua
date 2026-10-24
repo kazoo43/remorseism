@@ -2032,6 +2032,39 @@ hg.ammotypes = {
 			Icon = matPistolAmmo
 		}
 	},
+	[".500s&wmagnum"] = {
+		name = ".500 S&W Magnum",
+		allowed = true,
+		dmgtype = DMG_BULLET,
+		tracer = TRACER_LINE,
+		plydmg = 0,
+		npcdmg = 0,
+		force = 150,
+		maxcarry = 100,
+		minsplash = 6,
+		maxsplash = 6,
+		TracerSetings = {
+			TracerBody = Material("particle/fire"),
+			TracerTail = Material("effects/laser_tracer"),
+			TracerHeadSize = 5,
+			TracerLength = 35,
+			TracerWidth = 1.5,
+			TracerColor = Color(255, 237, 155),
+			TracerTPoint1 = 0.25,
+			TracerTPoint2 = 1,
+			TracerSpeed = 25000
+		},
+		BulletSettings = {
+			Damage = 60,
+			Force = 60,
+			Penetration = 16,
+			Shell = "50ae",
+			Speed = 600,
+			Diameter = 12.7,
+			Mass = 26,
+			Icon = matPistolAmmo
+		}
+	},
 	[".357magnum"] = {
 		name = ".357 Magnum",
 		allowed = true,
@@ -3128,6 +3161,13 @@ local ammoents = {
 		Material = "models/hmcd_ammobox_22",
 		Color = Color(125, 155, 95),
 		Scale = 0.8,
+		Count = 20,
+	},
+	[".500s&wmagnum"] = {
+		Icon = "vgui/hud/50fmj.png",
+		Material = "models/hmcd_ammobox_22",
+		Color = Color(255, 255, 125),
+		Scale = 1,
 		Count = 20,
 	},
 	[".357magnum"] = {

@@ -282,10 +282,9 @@ if SERVER then
 		local val = tonumber(args[1])
 		local wep = ply:GetActiveWeapon() 
 		if not IsValid(wep) then return end
+		if not wep.Drum or not val or val % 1 != 0 or val < 1 or val > #wep.Drum then return end
 		local primaryammo = wep:GetPrimaryAmmoType()
 		local primaryammocount = ply:GetAmmoCount(primaryammo)
-
-		if not wep.Drum then return end
 
 		wep:AttachAnim()
 		if wep.Drum[val] != 0 then
@@ -312,7 +311,7 @@ if SERVER then
 		local wep = ply:GetActiveWeapon()
 		if IsValid(wep) and wep.Drum and (ply.DrumCD or 0) < CurTime() then
 			wep:AttachAnim()
-			wep:ShiftDrum(math.random(6))
+			wep:ShiftDrum(math.random(#wep.Drum))
 			ply:EmitSound("weapons/357/357_spin1.wav")
 			wep.Rolled = true
 			ply.DrumCD = CurTime() + 0.5
