@@ -9,6 +9,19 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/tec9/w_tec9.mdl"
+SWEP.WorldModelFake = "models/weapons/arccw/c_uc_tec9.mdl"
+SWEP.FakeAttachment = "1"
+SWEP.FakePos = Vector(-12.6, 3.4, -2.7)
+SWEP.FakeAng = Angle(0 , 0, 0)
+SWEP.FakeDropPos = Vector(-12.6, 3.4, -2.7)
+SWEP.FakeDropAng = Angle(0, 0, 0)
+SWEP.AttachmentPos = Vector(0, 0, 0)
+SWEP.AttachmentAng = Angle(0, 0, 0)
+SWEP.AnimList = {
+	idle = "idle",
+	reload = "reload",
+	reload_empty = "reload_empty"
+}
 
 SWEP.WepSelectIcon2 = Material("entities/zcity/tec9.png")
 SWEP.IconOverride = "entities/zcity/tec9.png"
@@ -25,8 +38,8 @@ SWEP.podkid = 0.5
 
 SWEP.ScrappersSlot = "Secondary"
 
-SWEP.LocalMuzzlePos = Vector(10.703,-0.007,3.073)
-SWEP.LocalMuzzleAng = Angle(0.6,0.002,0)
+SWEP.LocalMuzzlePos = Vector(9, 0.1, 2.7)
+SWEP.LocalMuzzleAng = Angle(0, 0, 0)
 SWEP.WeaponEyeAngles = Angle(0,0,0)
 
 SWEP.weaponInvCategory = 2
@@ -37,30 +50,29 @@ SWEP.Primary.Automatic = false
 SWEP.Primary.Ammo = "9x19 mm Parabellum"
 SWEP.Primary.Cone = 0
 SWEP.Primary.Damage = 20
-SWEP.Primary.Sound = {"hndg_beretta92fs/beretta92_fire1.wav", 75, 90, 100}
+SWEP.Primary.Sound = {"weapons/uc_tec9/fire-04.ogg", 75, 100, 100}
 SWEP.Primary.SoundEmpty = {"zcitysnd/sound/weapons/makarov/handling/makarov_empty.wav", 75, 100, 105, CHAN_WEAPON, 2}
-SWEP.Primary.Force = 20
+SWEP.Primary.Force = 25
 SWEP.Primary.Wait = PISTOLS_WAIT
 SWEP.ReloadTime = 4.3
-SWEP.ReloadSoundes = {
-	"none",
-	"none",
-	"weapons/tfa_ins2/mp5k/mp5k_magout.wav",
-	"none",
-	"weapons/tfa_ins2/browninghp/magin.wav",
-	"weapons/tfa_ins2/browninghp/maghit.wav",
-	"weapons/tfa_ins2/browninghp/boltback.wav",
-	"none",
-	"weapons/tfa_ins2/browninghp/boltrelease.wav",
-	"none",
-	"none",
-	"none",
-	"none"
+SWEP.FakeReloadSounds = {
+	[0.16] = "weapons/uc_tec9/mech-01.ogg",
+	[0.40] = "weapons/uc_tec9/magout.ogg",
+	[0.63] = "weapons/uc_tec9/magin.ogg"
 }
+SWEP.FakeEmptyReloadSounds = {
+	[0.16] = "weapons/uc_tec9/mech-01.ogg",
+	[0.40] = "weapons/uc_tec9/magout.ogg",
+	[0.63] = "weapons/uc_tec9/magin.ogg",
+	[0.88] = "weapons/uc_tec9/chback.ogg",
+	[0.96] = "weapons/uc_tec9/chforward.ogg"
+}
+SWEP.FakeReloadEvents = {}
 SWEP.DeploySnd = {"homigrad/weapons/draw_pistol.mp3", 55, 100, 110}
 SWEP.HolsterSnd = {"homigrad/weapons/holster_pistol.mp3", 55, 100, 110}
-SWEP.HoldType = "rpg"
-SWEP.ZoomPos = Vector(-3, 0.0245, 3.8013)
+SWEP.HoldType = "revolver"
+SWEP.ZoomPos = Vector(0, 0.1048, 3.5972)
+
 SWEP.RHandPos = Vector(-5, -0.5, -1)
 SWEP.LHandPos = false
 SWEP.OpenBolt = true
@@ -68,12 +80,12 @@ SWEP.SprayRand = {Angle(-0.03, -0.03, 0), Angle(-0.05, 0.03, 0)}
 SWEP.Ergonomics = 1.2
 SWEP.Penetration = 7
 function SWEP:ModelCreated(model)
-	self.bodyGroups = "00020"
-	self:SetBodyGroups("00020")
-	model:SetBodyGroups("00020")
+	model:SetBodyGroups("000000000")
+	local bone = model:LookupBone("mag2")
+	if bone then model:ManipulateBoneScale(bone, vector_origin) end
 end
 
-SWEP.WorldPos = Vector(4, -1, -1)
+SWEP.WorldPos = Vector(1, -1, -1)
 SWEP.WorldAng = Angle(0, 0, 0)
 SWEP.UseCustomWorldModel = true
 SWEP.lengthSub = 25
@@ -90,86 +102,82 @@ SWEP.RHAng = Angle(0,-5,90)
 SWEP.LHPos = Vector(4.5,-2,-2.5)
 SWEP.LHAng = Angle(-5,0,-90)
 
-local finger1 = Angle(0,0, 0)
+if CLIENT then
+	concommand.Add("tec9_compare_worldmodel", function()
+		local ply = LocalPlayer()
+		local wep = IsValid(ply) and ply:GetActiveWeapon()
+		if not IsValid(wep) or wep:GetClass() ~= "weapon_tec9" then return end
 
-function SWEP:AnimHoldPost(model)
-	self:BoneSet("l_finger0", Vector(0, 0, 0), Angle(-5, -10, 0))
-	self:BoneSet("l_finger02", Vector(0, 0, 0), Angle(0, 25, 0))
-	self:BoneSet("l_finger01", Vector(0, 0, 0), Angle(-25, 40, 0))
-	self:BoneSet("l_finger1", Vector(0, 0, 0), Angle(-10, -40, 0))
-	self:BoneSet("l_finger11", Vector(0, 0, 0), Angle(-10, -40, 0))
-	self:BoneSet("l_finger2", Vector(0, 0, 0), Angle(-5, -50, 0))
-	self:BoneSet("l_finger21", Vector(0, 0, 0), Angle(0, -10, 0))
+		wep.Tec9CompareWorldModel = not wep.Tec9CompareWorldModel
+		if not wep.Tec9CompareWorldModel and IsValid(wep.Tec9WorldModelPreview) then
+			wep.Tec9WorldModelPreview:Remove()
+			wep.Tec9WorldModelPreview = nil
+		end
+	end)
+
+	function SWEP:DrawPost()
+		local model = self:GetWM()
+		if self.Tec9CompareWorldModel and IsValid(model) then
+			local preview = self.Tec9WorldModelPreview
+			if not IsValid(preview) then
+				preview = ClientsideModel(self.WorldModel, RENDERGROUP_BOTH)
+				if not IsValid(preview) then return end
+				self.Tec9WorldModelPreview = preview
+				preview:SetNoDraw(true)
+				preview:SetMaterial("models/wireframe")
+				preview:SetColor(Color(80, 220, 255, 180))
+				self:CallOnRemove("tec9_worldmodel_preview", function()
+					if IsValid(preview) then preview:Remove() end
+				end)
+			end
+
+			local _, _, pos, ang = self:WorldModel_Transform(true)
+			if pos and ang then
+				local previewPos, previewAng = LocalToWorld(self.WorldPos, self.WorldAng + (self.WorldAng2 or angle_zero), pos, ang)
+				previewAng:RotateAroundAxis(previewAng:Forward(), 180)
+				preview:SetPos(previewPos)
+				preview:SetAngles(previewAng)
+				preview:SetupBones()
+				preview:DrawModel()
+			end
+		elseif IsValid(self.Tec9WorldModelPreview) then
+			self.Tec9WorldModelPreview:Remove()
+			self.Tec9WorldModelPreview = nil
+		end
+
+		if IsValid(model) then
+			self.boltAnim = LerpFT(0.25, self.boltAnim or 0, 0)
+			model:ManipulateBonePosition(41, Vector(0, -self.boltAnim, 0), false)
+		end
+
+		if self.mag2Reload and not self.reload then
+			self.mag2Reload = nil
+			self:SetMag2Visible(false)
+		end
+	end
+
+	function SWEP:SetMag2Visible(visible)
+		local model = self:GetWM()
+		if not IsValid(model) then return end
+		local bone = model:LookupBone("mag2")
+		if bone then model:ManipulateBoneScale(bone, visible and Vector(1, 1, 1) or vector_origin) end
+	end
+
+	function SWEP:ReloadStartPost()
+		self.mag2Reload = self:Clip1() > 0
+		if self.mag2Reload then self:SetMag2Visible(true) end
+	end
+
 end
 
---RELOAD ANIMS SMG????
+function SWEP:ShouldUseFakeModel()
+	return IsValid(self:GetOwner()) and self.WorldModelFake
+end
 
-SWEP.ReloadAnimLH = {
-	Vector(0,0,0),
-	Vector(0,-2,-2),
-	Vector(-15,5,-7),
-	Vector(-15,5,-15),
-	Vector(0,0,0),
-	Vector(0,0,0),
-	"fastreload",
-	Vector(0,0,0),
-	Vector(5,0,5),
-	Vector(-2,1,1),
-	Vector(-2,1,1),
-	Vector(-2,1,1),
-	Vector(0,0,0),
-	"reloadend",
-	Vector(0,0,0)
-}
-SWEP.ReloadAnimLHAng = {
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(0,0,0),
-	Angle(-35,0,0),
-	Angle(-55,0,0),
-	Angle(-75,0,0),
-	Angle(-75,0,0),
-	Angle(-75,0,0),
-	Angle(-25,0,0),
-	Angle(0,0,0),
-}
+function SWEP:PrimaryShootPost()
+	self.boltAnim = 7
+end
 
-SWEP.ReloadAnimRH = {
-	Vector(0,0,0)
-}
-SWEP.ReloadAnimRHAng = {
-	Angle(0,0,0)
-}
-SWEP.ReloadAnimWepAng = {
-	Angle(0,0,0),
-	Angle(0,25,45),
-	Angle(15,25,45),
-	Angle(-15,25,45),
-	Angle(0,0,-25),
-	Angle(0,0,-45),
-	Angle(-35,0,-25),
-	Angle(-35,2,-24),
-	Angle(-15,0,-45),
-	Angle(0,0,0)
-}
-
--- Inspect Assault
-
-SWEP.InspectAnimWepAng = {
-	Angle(0,0,0),
-	Angle(4,4,15),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(10,15,25),
-	Angle(-6,-15,-15),
-	Angle(1,15,-45),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(15,25,-55),
-	Angle(0,0,0),
-	Angle(0,0,0)
-}
+function SWEP:PrimaryShootEmpty()
+	if SERVER then self:PlaySnd(self.Primary.SoundEmpty, true, CHAN_AUTO) end
+end

@@ -11,6 +11,10 @@ SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_ins2_revolver_sw500.mdl"
 SWEP.WorldModelFake = "models/weapons/c_ins2_revolver_sw500.mdl"
 
+function SWEP:ShouldUseFakeModel()
+	return IsValid(self:GetOwner()) and self.WorldModelFake
+end
+
 SWEP.FakePos = Vector(-16, 0, 4)
 SWEP.FakeAng = Angle(0, 0.1, 3)
 SWEP.AttachmentPos = Vector(0, 0, 0)
@@ -104,7 +108,7 @@ SWEP.ShellEject = false
 SWEP.Primary.ClipSize = 5
 SWEP.Primary.DefaultClip = 5
 SWEP.Primary.Automatic = false
-SWEP.Primary.Ammo = ".50 Action Express"
+SWEP.Primary.Ammo = ".500 S&W Magnum"
 SWEP.Primary.Cone = 0
 SWEP.Primary.Damage = 60
 SWEP.DamageMultiplier = 1.35
@@ -112,7 +116,7 @@ SWEP.Primary.Spread = 0
 SWEP.Primary.Force = 60
 SWEP.Primary.Sound = {"weapons/sw500/sw500_fire.wav", 75, 90, 100}
 SWEP.Primary.SoundEmpty = {"weapons/sw500/revolver_empty.wav", 75, 100, 105, CHAN_WEAPON, 2}
-SWEP.Primary.Wait = 0.25
+SWEP.Primary.Wait = 0.55
 SWEP.ReloadTime = 4
 
 local function finishFire(self)
@@ -232,6 +236,12 @@ if CLIENT then
 	function SWEP:DrawPost()
 		local model = self:GetWM()
 		if not IsValid(model) then return end
+		local wanted = IsValid(self:GetOwner()) and self.WorldModelFake or self.WorldModel
+		if model:GetModel() ~= wanted then
+			model:SetModel(wanted)
+			model.boneStage = nil
+			self:ModelCreated(model)
+		end
 
 		setBones(model, getBoneStage(getReloadPart(self)))
 	end

@@ -657,8 +657,8 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional, model)
 	else
 		local pos, ang = self:GetPos(), self:GetAngles()
 
-		if self:ShouldUseFakeModel() then
-			pos, ang = LocalToWorld(self.FakePos, self.FakeAng, pos, ang)
+		if self.WorldModelFake then
+			pos, ang = LocalToWorld(self.FakeDropPos or self.FakePos, self.FakeDropAng or self.FakeAng, pos, ang)
 		end
 		
 		model:SetRenderOrigin(pos)
