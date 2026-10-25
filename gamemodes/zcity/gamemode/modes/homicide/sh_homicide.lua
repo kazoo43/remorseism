@@ -23,6 +23,7 @@ local HeroWeaponData = {
 	["weapon_kar98"] = {extraClips = 0, sling = true},
 	["weapon_vpo209"] = {extraClips = 0},
 	["weapon_vpo136"] = {extraClips = 0},
+	["weapon_revolverm500"] = {extraClips = 0},
 	["weapon_mosin"] = {extraClips = 0, sling = true},
 }
 
@@ -52,6 +53,7 @@ local HeroUpgradeData = {
 	["hero_mosin_silencer"] = {parent = "weapon_mosin", type = "attachment", attachment = "supressor1"},
 	["hero_mosin_scope"] = {parent = "weapon_mosin", type = "attachment", attachment = "optic12"},
 	["hero_mosin_ammo"] = {parent = "weapon_mosin", type = "ammo", extraClips = 1},
+	["hero_m500_ammo"] = {parent = "weapon_revolverm500", type = "ammo", amount = 5},
 }
 
 local function ParseLoadoutString(dataStr)
@@ -214,7 +216,7 @@ local function ApplyHeroLoadout(ply)
 
 		if upgradeInfo.type == "ammo" then
 			if weapon:GetPrimaryAmmoType() >= 0 then
-				ply:GiveAmmo(weapon:GetMaxClip1() * (upgradeInfo.extraClips or 0), weapon:GetPrimaryAmmoType(), true)
+				ply:GiveAmmo(upgradeInfo.amount or weapon:GetMaxClip1() * (upgradeInfo.extraClips or 0), weapon:GetPrimaryAmmoType(), true)
 			end
 		elseif upgradeInfo.type == "attachment" and upgradeInfo.attachment then
 			attachments[#attachments + 1] = upgradeInfo.attachment

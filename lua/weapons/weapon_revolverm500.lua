@@ -9,6 +9,7 @@ SWEP.Slot = 2
 SWEP.SlotPos = 10
 SWEP.ViewModel = ""
 SWEP.WorldModel = "models/weapons/w_ins2_revolver_sw500.mdl"
+SWEP.UseWorldModelOnDrop = true
 SWEP.WorldModelFake = "models/weapons/c_ins2_revolver_sw500.mdl"
 
 function SWEP:ShouldUseFakeModel()
@@ -93,9 +94,9 @@ function SWEP:InsertAmmo(need)
 	owner:SetAmmo(count - need, ammo)
 end
 
-SWEP.WepSelectIcon2 = Material("entities/tfa_ins2_s&w_500.png")
+SWEP.WepSelectIcon2 = Material("entities/tfa_ins2_s&w_500_2.png")
 SWEP.WepSelectIcon2box = true
-SWEP.IconOverride = "entities/tfa_ins2_s&w_500.png"
+SWEP.IconOverride = "entities/tfa_ins2_s&w_500_2.png"
 SWEP.PPSMuzzleEffect = "muzzleflash_pistol_rbull"
 SWEP.weight = 4
 SWEP.ScrappersSlot = "Secondary"
@@ -194,9 +195,9 @@ if CLIENT then
 	local loaded = {"sw500-loaded3", "sw500-loaded4", "sw500-loaded2", "sw500-loaded1"}
 	local shells = {"sw500-shell1", "sw500-shell2", "sw500-shell4", "sw500-shell3", "sw500-shell5"}
 	local full = Vector(1, 1, 1)
-	local boneTime = CreateClientConVar("hg_m500_bone_time", "0.31", true, false, "M500 reload bone switch time", 0.15, 1.1)
-	local boneReturn = CreateClientConVar("hg_m500_bone_return", "0.90", true, false, "M500 reload bone return time", 0.15, 1.1)
-	local loaderEnd = CreateClientConVar("hg_m500_loader_end", "0.90", true, false, "M500 reload loader hide time", 0.15, 1.1)
+	local boneTime = CreateClientConVar("hg_m500_bone_time", "0.72", true, false, "M500 reload bone switch time", 0.15, 1.1)
+	local boneReturn = CreateClientConVar("hg_m500_bone_return", "0.88", true, false, "M500 reload bone return time", 0.15, 1.1)
+	local loaderEnd = CreateClientConVar("hg_m500_loader_end", "0.94", true, false, "M500 reload loader hide time", 0.15, 1.1)
 
 	local function getReloadPart(wep)
 		if not wep.reload or not wep.StaminaReloadTime or wep.StaminaReloadTime <= 0 then return end
@@ -333,12 +334,12 @@ if CLIENT then
 		reset:Dock(BOTTOM)
 		reset:SetText("Reset timings")
 		reset.DoClick = function()
-			RunConsoleCommand("hg_m500_bone_time", "0.31")
-			RunConsoleCommand("hg_m500_loader_end", "0.90")
-			RunConsoleCommand("hg_m500_bone_return", "0.90")
-			slider:SetValue(0.31)
-			loaderSlider:SetValue(0.90)
-			returnSlider:SetValue(0.90)
+			RunConsoleCommand("hg_m500_bone_time", "0.72")
+			RunConsoleCommand("hg_m500_loader_end", "0.94")
+			RunConsoleCommand("hg_m500_bone_return", "0.88")
+			slider:SetValue(0.72)
+			loaderSlider:SetValue(0.94)
+			returnSlider:SetValue(0.88)
 		end
 	end)
 end

@@ -272,6 +272,7 @@ local RoleConfigs = {
             ["weapon_remington870_sawed_off"] = {cost = 6, name = "Remington 870 Sawed-off", desc = "Compact sawed-off pump-action shotgun."},
             ["weapon_vpo209"] = {cost = 12, name = "VPO-209", desc = "Semi-auto carbine chambered in .366 TKM."},
             ["weapon_vpo136"] = {cost = 12, name = "VPO-136", desc = "Semi-auto carbine chambered in 7.62x39mm."},
+            ["weapon_revolverm500"] = {cost = 12, name = "M500 Revolver", desc = "Five-shot revolver chambered in .500 S&W Magnum."},
             ["weapon_mosin"] = {cost = 8, name = "Mosin-Nagant M38", desc = "Bolt-action rifle chambered in 7.62x54mm."}
         },
         addons = {
@@ -299,7 +300,8 @@ local RoleConfigs = {
             ["hero_vpo136_ammo"] = {cost = 2, name = "VPO-136 Extra Ammo", parent = "weapon_vpo136", desc = "Start with extra magazine."},
             ["hero_mosin_silencer"] = {cost = 2, name = "Mosin Suppressor", parent = "weapon_mosin", attachment = "supressor1", desc = "Suppress the Mosin."},
             ["hero_mosin_scope"] = {cost = 2, name = "Mosin Scope", parent = "weapon_mosin", attachment = "optic12", desc = "Adds a scope to the Mosin."},
-            ["hero_mosin_ammo"] = {cost = 2, name = "Mosin Extra Ammo", parent = "weapon_mosin", desc = "Start with extra rounds."}
+            ["hero_mosin_ammo"] = {cost = 2, name = "Mosin Extra Ammo", parent = "weapon_mosin", desc = "Start with extra rounds."},
+            ["hero_m500_ammo"] = {cost = 4, name = "M500 Extra Ammo", parent = "weapon_revolverm500", desc = "Start with 5 extra .500 S&W Magnum rounds."}
         },
         addonOrder = {
             ["weapon_px4beretta"] = {"hero_px4_silencer", "hero_px4_ammo"},
@@ -311,7 +313,8 @@ local RoleConfigs = {
             ["weapon_kar98"] = {"hero_kar98_scope", "hero_kar98_ammo"},
             ["weapon_vpo209"] = {"hero_vpo209_silencer", "hero_vpo209_optic", "hero_vpo209_ammo"},
             ["weapon_vpo136"] = {"hero_vpo136_silencer", "hero_vpo136_optic", "hero_vpo136_ammo"},
-            ["weapon_mosin"] = {"hero_mosin_silencer", "hero_mosin_scope", "hero_mosin_ammo"}
+            ["weapon_mosin"] = {"hero_mosin_silencer", "hero_mosin_scope", "hero_mosin_ammo"},
+            ["weapon_revolverm500"] = {"hero_m500_ammo"}
         },
         exclusions = {},
         defaultPresets = {
@@ -363,6 +366,7 @@ do
         "weapon_kar98",
         "weapon_vpo209",
         "weapon_vpo136",
+        "weapon_revolverm500",
         "weapon_mosin"
     }
 

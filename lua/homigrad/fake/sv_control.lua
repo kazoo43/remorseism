@@ -700,7 +700,9 @@ hook.Add("Think", "Fake", function()
 
 						physobj:Wake()
 						
-						if hg.RagdollCombatInUse(ply) and ply:KeyDown(IN_JUMP) then
+						if ply:KeyDown(IN_SPEED) and ply:KeyDown(IN_WALK) and (name == defaultBones[2] or name == defaultBones[3] or name == defaultBones[4] or name == defaultBones[5] or name == defaultBones[6] or name == defaultBones[7]) then
+							physobj:Wake()
+						elseif hg.RagdollCombatInUse(ply) and ply:KeyDown(IN_JUMP) then
 							if !ply.jumpedfake then
 								ply.jumpedfake = true
 

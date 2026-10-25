@@ -561,6 +561,14 @@ end)
 function SWEP:WorldModel_Transform(bNoApply, bNoAdditional, model)
 	local model, owner = model or self.worldModel, self:GetOwner()
 	if not IsValid(model) then self.worldModel = self:CreateWorldModel() model = self.worldModel end
+	if self.UseWorldModelOnDrop then
+		local wanted = IsValid(owner) and self.WorldModelFake or self.WorldModel
+		if model:GetModel() ~= wanted then
+			model:SetModel(wanted)
+			model.boneStage = nil
+			if self.ModelCreated then self:ModelCreated(model) end
+		end
+	end
 	
 	if IsValid(owner) and (owner:IsNPC() or owner:IsPlayer()) then
 		local ent = IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
@@ -657,7 +665,7 @@ function SWEP:WorldModel_Transform(bNoApply, bNoAdditional, model)
 	else
 		local pos, ang = self:GetPos(), self:GetAngles()
 
-		if self.WorldModelFake then
+		if self.WorldModelFake and not self.UseWorldModelOnDrop then
 			pos, ang = LocalToWorld(self.FakeDropPos or self.FakePos, self.FakeDropAng or self.FakeAng, pos, ang)
 		end
 		
