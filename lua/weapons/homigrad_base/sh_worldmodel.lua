@@ -376,8 +376,9 @@ local function DrawWorldModel(self, force)
 			
 			if self.seq then self:GetWM():SetSequence(self.seq) end
 			local timing
+			local animTime = hg.HitstopVisualTime and hg.HitstopVisualTime(self) or CurTime()
 			if not self.cycling then
-				timing = (1 - math.Clamp((self.animtime - CurTime()) / self.animspeed, 0, 1))
+				timing = (1 - math.Clamp((self.animtime - animTime) / self.animspeed, 0, 1))
 				timing = self.reverseanim and (1 - timing) or timing
 				self.worldModel:SetCycle(timing)
 
@@ -386,7 +387,7 @@ local function DrawWorldModel(self, force)
 					self.callback = nil
 				end
 			else
-				timing = ((CurTime() - (self.animtime - self.animspeed)) % self.animspeed) / self.animspeed
+				timing = ((animTime - (self.animtime - self.animspeed)) % self.animspeed) / self.animspeed
 				self.worldModel:SetCycle(timing)
 			end
 		end

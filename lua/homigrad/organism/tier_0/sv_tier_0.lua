@@ -11,7 +11,11 @@ function hg.organism.EnsureO2(org)
 		if not isnumber(o2.regen) then o2.regen = 4 end
 		if not isnumber(o2.k) then o2.k = 0.5 end
 		if not isnumber(o2[1]) then o2[1] = o2.range end
-		if not isnumber(o2.curregen) then o2.curregen = o2.regen end
+		o2.range = math.Clamp(o2.range, 1, 100)
+		o2.regen = math.Clamp(o2.regen, 0, 30)
+		o2.k = math.Clamp(o2.k, 0, 1)
+		o2[1] = math.Clamp(o2[1], 0, o2.range)
+		o2.curregen = math.Clamp(isnumber(o2.curregen) and o2.curregen or o2.regen, 0, 30)
 		return o2
 	end
 
@@ -97,7 +101,7 @@ timer.Create("homigrad-organism", tickrate, 0, function()
 	end
 	
 	local sysTime = SysTime()
-	mulTime = (sysTime - start) * game.GetTimeScale()
+	mulTime = math.Clamp((sysTime - start) * math.max(game.GetTimeScale(), 0), 0, 0.25)
 
 	start = sysTime
 	for owner, org in pairs(hg.organism.list) do -- теперь ясно почему от трупов лагает...

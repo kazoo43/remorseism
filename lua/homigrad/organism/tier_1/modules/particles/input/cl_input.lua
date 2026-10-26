@@ -201,6 +201,12 @@ end)
 
 hg.explode = explode
 
+net.Receive("hg_skullfracture", function()
+	local pos = net.ReadVector()
+	local force = net.ReadVector()
+	explode(pos, 0.5, force)
+end)
+
 net.Receive("hg_gib_bloodspill", function()
 	local entIndex = net.ReadUInt(16)
 	net.ReadFloat()

@@ -54,9 +54,12 @@ module[2] = function(owner, org, timeValue)
 		local walk = owner:KeyDown(IN_FORWARD) or owner:KeyDown(IN_BACK) or owner:KeyDown(IN_MOVELEFT) or owner:KeyDown(IN_MOVERIGHT)
 		velLen = max(min(owner:GetVelocity():Length(), org.moveMaxSpeed), 0) / (owner:GetRunSpeed() / hg_organism_stamina_sprint_mul:GetFloat())-- / ((IsValid(wep) and wep ~= NULL and wep:GetClass() == "weapon_hands_sh" and owner:KeyDown(IN_WALK)) and 1.3 or 0.58))
 		--print(velLen)
-		if (owner:OnGround() or owner:WaterLevel() >= 2) and walk and not owner:InVehicle() and owner.hg_isJogging and org.stamina[1] > 20 then
-			stamina.sub = (owner:WaterLevel() >= 2 and 2 or 1) * (velLen ^ 0.5) * 1.1 
-		elseif (owner:OnGround() or owner:WaterLevel() >= 2) and walk and not owner:InVehicle() and owner.hg_isSprinting and org.stamina[1] > 20 then
+		local moving = walk or owner:GetVelocity():LengthSqr() > 100
+		local sprinting = owner.hg_isSprinting or owner:GetNWBool("hg_isSprinting", false)
+		local jogging = owner.hg_isJogging or owner:GetNWBool("hg_isJogging", false) or not sprinting and owner:KeyDown(IN_SPEED) and owner:GetVelocity():Length() > owner:GetWalkSpeed()
+		if (owner:OnGround() or owner:WaterLevel() >= 2) and moving and not owner:InVehicle() and jogging and not sprinting and org.stamina[1] > 20 then
+			stamina.sub = (owner:WaterLevel() >= 2 and 2 or 1) * (velLen ^ 0.5) * 2
+		elseif (owner:OnGround() or owner:WaterLevel() >= 2) and moving and not owner:InVehicle() and sprinting and org.stamina[1] > 20 then
 			stamina.sub = (owner:WaterLevel() >= 2 and 2 or 1) * (velLen ^ 0.5) * 1.51 
 		end
 	end

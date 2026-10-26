@@ -457,6 +457,7 @@ end)
 --util.AddNetworkString("tracePosesSend")
 --util.AddNetworkString("wound_debug")
 util.AddNetworkString("hg_bloodimpact")
+util.AddNetworkString("hg_skullfracture")
 --util.AddNetworkString("blood particle explode")
 util.AddNetworkString("bloodsquirt")
 
@@ -1259,12 +1260,11 @@ hook.Add("EntityTakeDamage", "homigrad-damage", function(ent, dmgInfo)
 		end
 	end
 
-	local brokenSkullHeadImpact = hitgroup == HITGROUP_HEAD and org.skull == 1
-	if brokenSkullHeadImpact or (dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) and dmgBlood > 1 and #inputHole > 0) then
+	if dmgInfo:IsDamageType(DMG_BULLET + DMG_BUCKSHOT) and dmgBlood > 1 and #inputHole > 0 then
 		net.Start("hg_bloodimpact")
 		net.WriteVector(dmgPos)
 		net.WriteVector(dirCool / 15)
-		net.WriteFloat(brokenSkullHeadImpact and math.max(dmg / 8, 1) or dmg / 10)
+		net.WriteFloat(dmg / 10)
 		net.WriteInt(1, 8)
 		net.Broadcast()
 	end

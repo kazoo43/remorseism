@@ -461,14 +461,12 @@ input_list.skull = function(org, bone, dmg, dmgInfo, boneindex, dir, hit, ricoch
 			//org.owner:Notify(huyasd["skull"],true,"skull",4)
 		end
 
-		--[[if dir then
-			net.Start("hg_bloodimpact")
+		if oldDmg < 1 and dir then
+			net.Start("hg_skullfracture")
 			net.WriteVector(dmgInfo:GetDamagePosition())
-			net.WriteVector(dir / 10)
-			net.WriteFloat(3)
-			net.WriteInt(1,8)
+			net.WriteVector(dir)
 			net.Broadcast()
-		end--]]
+		end
 	end
 
 	org.disorientation = org.disorientation + (isCrush(dmgInfo) and dmg * 1 or dmg * 1)

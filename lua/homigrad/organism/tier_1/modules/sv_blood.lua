@@ -233,8 +233,14 @@ module[2] = function(owner, org, mulTime)
 	local next_arterypump = 1 / math.max(org.pulse, 10)
 	local ent = owner:IsPlayer() and IsValid(owner.FakeRagdoll) and owner.FakeRagdoll or owner
 	for i, wound in pairs(org.arterialwounds) do
+		local holdMul = getHeldWoundBleedMul(org, wound)
+		if holdMul < 1 then
+			local hands = org.manualHoldWoundHands or 1
+			wound[1] = math.max(wound[1] - mulTime * 0.18 * hands * (1 - holdMul), 0)
+		end
+
 		local arterialBleed = wound[1] * mulTime * 0.2 * math.max(org.pulse, 20) / 80
-		arterialBleed = arterialBleed * getHeldWoundBleedMul(org, wound)
+		arterialBleed = arterialBleed * holdMul
 		bleedoutspeed2 = bleedoutspeed2 + arterialBleed
 
 		if wound[5] + next_arterypump * 2 < time then
